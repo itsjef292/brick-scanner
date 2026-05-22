@@ -756,25 +756,46 @@
       document.getElementById('debugLabel').style.display = 'block';
     }
 
-    // If Brickognize's server already detected a color, use it directly.
-    // Brickognize uses BrickLink color IDs; Rebrickable uses its own IDs.
-    // Try ID lookup first, then fall back to name match.
+    // Use Brickognize's candidate colors as the shortlist, then let pixel
+    // sampling pick the best match among them. This beats blind [0] selection
+    // when Brickognize's confidence ordering is wrong (e.g. Reddish Brown vs Dark Red).
     const serverColors = items[0].candidate_colors;
+    const colorByName = colors.length
+      ? Object.fromEntries(colors.map(c => [c.name.toLowerCase(), c]))
+      : {};
+    const colorMap = colors.length ? Object.fromEntries(colors.map(c => [c.id, c])) : {};
+
     if (serverColors?.length && colors.length) {
-      const colorById   = Object.fromEntries(colors.map(c => [String(c.id), c]));
-      const colorByName = Object.fromEntries(colors.map(c => [c.name.toLowerCase(), c]));
-      const sc = serverColors[0];
-      const matched = colorById[String(sc.id)] || colorByName[(sc.name || '').toLowerCase()];
-      if (matched) {
-        applyColor(matched.id, matched.name, matched.rgb);
+      // Map Brickognize candidates → Rebrickable color objects (by name)
+      const serverCandidates = serverColors
+        .map(sc => colorByName[(sc.name || '').toLowerCase()])
+        .filter(Boolean);
+
+      if (serverCandidates.length === 1) {
+        // Only one candidate — use it directly
+        const c = serverCandidates[0];
+        applyColor(c.id, c.name, c.rgb);
+        return;
+      } else if (serverCandidates.length > 1 && detectedRgb) {
+        // Multiple candidates — use pixel sample to pick the closest
+        const avgBrightness = (detectedRgb.r + detectedRgb.g + detectedRgb.b) / 3;
+        if (avgBrightness >= 70) {
+          const closest = findClosestLegoColor(
+            detectedRgb.r, detectedRgb.g, detectedRgb.b,
+            serverCandidates, detectedRgb.darkFraction || 0
+          );
+          if (closest) { applyColor(closest.id, closest.name, closest.rgb); return; }
+        }
+        // Brightness too low — fall back to server's first candidate
+        const c = serverCandidates[0];
+        applyColor(c.id, c.name, c.rgb);
         return;
       }
     }
 
-    // Fall back to client-side color detection
+    // Full client-side fallback (no server candidates)
     const avgBrightness = detectedRgb ? (detectedRgb.r + detectedRgb.g + detectedRgb.b) / 3 : 0;
     if (detectedRgb && avgBrightness >= 70 && colors.length) {
-      const colorMap = Object.fromEntries(colors.map(c => [c.id, c]));
       const candidates = partColors.map(pc => colorMap[pc.color_id]).filter(Boolean);
       const closest = findClosestLegoColor(detectedRgb.r, detectedRgb.g, detectedRgb.b, candidates, detectedRgb.darkFraction || 0);
       if (closest) applyColor(closest.id, closest.name, closest.rgb);

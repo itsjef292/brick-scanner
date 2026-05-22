@@ -72,9 +72,26 @@ def identify():
         items = []
         for ci in detected.get("candidate_items", []):
             raw_id = ci.get("id", "")
-            part_id = raw_id.replace("part-", "").replace("minifig-", "")
+            bl_id = raw_id.replace("part-", "").replace("minifig-", "")
             ext = next((e for e in ci.get("external_items", [])
                         if e.get("catalog_name") == "bricklink"), {})
+            bl_external_id = ext.get("external_id", bl_id)
+
+            # Resolve BrickLink ID → Rebrickable part_num (they differ, e.g. 3070 → 3070b)
+            rb_part_num = bl_id
+            try:
+                rb_resp = requests.get(
+                    f"{RB_BASE}/lego/parts/",
+                    params={"key": API_KEY, "bricklink_id": bl_external_id},
+                    timeout=5,
+                )
+                if rb_resp.status_code == 200:
+                    results = rb_resp.json().get("results", [])
+                    if results:
+                        rb_part_num = results[0]["part_num"]
+            except Exception:
+                pass
+
             # Build candidate_colors with Rebrickable IDs
             rb_colors = []
             for c in ci.get("candidate_colors", []):
@@ -83,9 +100,9 @@ def identify():
                     rb_colors.append({"id": rb_id, "name": c.get("name", "")})
 
             item = {
-                "id": part_id,
+                "id": rb_part_num,
                 "name": ci.get("name", ""),
-                "img_url": f"https://storage.googleapis.com/brickognize-static/thumbnails/v2.22/part/{part_id}/0.webp",
+                "img_url": f"https://storage.googleapis.com/brickognize-static/thumbnails/v2.22/part/{bl_id}/0.webp",
                 "external_sites": [{"name": "bricklink", "url": ext.get("url", "")}] if ext else [],
                 "type": ci.get("type", "part"),
                 "score": ci.get("score", 0),
@@ -140,6 +157,8 @@ def add_part():
         params={"key": API_KEY},
     )
 
+    print(f"[add_part] list={list_id} part={part_num} color={color_id} qty={quantity}")
+
     if existing.status_code == 200:
         current_qty = existing.json().get("quantity", 0)
         new_qty = current_qty + quantity
@@ -148,6 +167,7 @@ def add_part():
             params={"key": API_KEY},
             data={"quantity": new_qty},
         )
+        print(f"[add_part] PUT {resp.status_code}: {resp.text[:200]}")
         result = resp.json()
         result["_updated"] = True
         result["_previous_quantity"] = current_qty
@@ -158,6 +178,7 @@ def add_part():
             params={"key": API_KEY},
             data={"part_num": part_num, "color_id": color_id, "quantity": quantity},
         )
+        print(f"[add_part] POST {resp.status_code}: {resp.text[:200]}")
         return jsonify(resp.json()), resp.status_code
 
 
