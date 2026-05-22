@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>LEGO Scanner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f2f2f7;
+      color: #111;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    header {
+      width: 100%;
+      background: #e3000b;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+    header span { font-size: 26px; }
+    .screen { display: none; width: 100%; max-width: 480px; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* ── Screen 1: Scan ── */
+    #screen-scan { padding: 24px 20px; gap: 20px; }
+    .scan-area {
+      background: #fff;
+      border-radius: 16px;
+      padding: 36px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .scan-icon { font-size: 60px; }
+    .scan-area p { color: #888; text-align: center; font-size: 14px; line-height: 1.5; }
+    #cameraInput { display: none; }
+    .btn {
+      background: #e3000b;
+      color: #fff;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.15s;
+    }
+    .btn:active { opacity: 0.75; }
+    .btn.secondary {
+      background: #fff;
+      border: 1px solid #ddd;
+      color: #444;
+    }
+    .btn.green { background: #28a745; }
+    .list-selector label { font-size: 13px; color: #888; margin-bottom: 6px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      color: #111;
+      font-size: 15px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+    select:focus { outline: none; border-color: #e3000b; }
+
+    /* ── Screen 2: Loading ── */
+    #screen-loading { padding: 64px 20px; align-items: center; gap: 16px; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid #ddd;
+      border-top-color: #e3000b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #screen-loading p { color: #888; font-size: 15px; }
+
+    /* ── Screen 3: Identify (merged results + details) ── */
+    .photo-banner {
+      width: 100%;
+      max-height: 260px;
+      object-fit: cover;
+      background: #222;
+      display: block;
+    }
+    .identify-card {
+      background: #fff;
+      border-radius: 0;
+      padding: 0 0 16px;
+    }
+    .dual-images {
+      display: flex;
+      gap: 0;
+      width: 100%;
+      height: 140px;
+    }
+    .dual-images img {
+      flex: 1;
+      width: 50%;
+      object-fit: contain;
+      background: #f8f8f8;
+      border-bottom: 1px solid #eee;
+    }
+    .dual-images img:first-child {
+      border-right: 1px solid #eee;
+    }
+    .part-info {
+      padding: 16px 16px 0;
+    }
+    .part-info .part-name {
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #111;
+    }
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .info-row .label {
+      font-size: 14px;
+      color: #888;
+      width: 90px;
+      flex-shrink: 0;
+    }
+    .info-row .value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+    .info-row .value a {
+      color: #e3000b;
+      text-decoration: none;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #aaa;
+      font-size: 15px;
+      padding: 2px 4px;
+    }
+    .copy-btn:active { color: #333; }
+    .color-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+    .color-change-btn {
+      margin-left: auto;
+      background: #f2f2f7;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 13px;
+      color: #555;
+      cursor: pointer;
+    }
+
+    /* Color sheet */
+    .color-sheet {
+      background: #fff;
+      border-top: 1px solid #eee;
+      padding: 12px 16px 16px;
+      display: none;
+    }
+    .color-sheet.open { display: block; }
+    .color-sheet-label {
+      font-size: 12px;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .swatch-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+    .swatch-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 10px; border-radius: 20px;
+      background: #f2f2f7; border: 2px solid transparent;
+      color: #333; font-size: 13px; cursor: pointer;
+    }
+    .swatch-btn.selected { border-color: #e3000b; background: #fff0f0; color: #c00; }
+    .swatch-btn .dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0; }
+    .color-search-wrap { position: relative; margin-top: 4px; }
+    .color-search-wrap input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #f2f2f7;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #111;
+    }
+    .color-search-wrap input:focus { outline: none; border-color: #e3000b; }
+    .color-dropdown {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: #fff; border: 1px solid #ddd;
+      border-radius: 10px; max-height: 200px;
+      overflow-y: auto; z-index: 100; display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    }
+    .color-dropdown.open { display: block; }
+    .color-option {
+      padding: 9px 12px;
+      display: flex; align-items: center; gap: 9px;
+      cursor: pointer; font-size: 14px;
+    }
+    .color-option:hover { background: #f9f9f9; }
+    .color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0; }
+
+    /* Alternatives */
+    .alt-section {
+      background: #fff;
+      margin-top: 8px;
+      padding: 12px 16px;
+    }
+    .alt-label {
+      font-size: 12px; color: #aaa;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .alt-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .alt-card {
+      flex-shrink: 0;
+      width: 100px;
+      background: #f2f2f7;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .alt-card.selected { border-color: #e3000b; background: #fff0f0; }
+    .alt-card img { width: 48px; height: 48px; object-fit: contain; }
+    .alt-card .alt-name { font-size: 11px; color: #444; text-align: center; line-height: 1.3; }
+    .alt-card .alt-score { font-size: 11px; color: #888; }
+
+    /* Action area */
+    .action-area {
+      background: #fff;
+      margin-top: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .qty-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .qty-row label { font-size: 14px; color: #888; font-weight: 600; width: 80px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .qty-controls {
+      display: flex; align-items: center; gap: 0;
+      border: 1px solid #ddd; border-radius: 10px; overflow: hidden;
+    }
+    .qty-controls button {
+      width: 40px; height: 40px;
+      background: #f2f2f7; border: none;
+      font-size: 20px; color: #555; cursor: pointer;
+    }
+    .qty-controls button:active { background: #e5e5ea; }
+    .qty-controls input {
+      width: 52px; height: 40px;
+      border: none; border-left: 1px solid #ddd; border-right: 1px solid #ddd;
+      text-align: center; font-size: 17px; font-weight: 600; background: #fff;
+    }
+    .qty-controls input:focus { outline: none; }
+
+    /* Error */
+    .error-msg {
+      background: #fff0f0;
+      border: 1px solid #ffc0c0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: #c00;
+      font-size: 14px;
+      display: none;
+      margin: 0 16px;
+    }
+
+    /* ── Screen 4: Success ── */
+    #screen-success { padding: 64px 20px; align-items: center; gap: 16px; text-align: center; }
+    .success-icon { font-size: 72px; }
+    #screen-success h2 { font-size: 22px; font-weight: 700; }
+    #screen-success p { color: #888; font-size: 14px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🧱</span>
+  <h1>LEGO Scanner</h1>
+</header>
+
+<!-- Screen 1: Scan -->
+<div class="screen active" id="screen-scan">
+  <div class="scan-area" style="margin:20px;border-radius:16px;">
+    <div class="scan-icon">📷</div>
+    <p>Take a photo of a LEGO part to identify it and add it to your parts list.</p>
+    <button class="btn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment">
+  </div>
+  <div class="list-selector" style="padding:0 20px 24px;">
+    <label>Add to parts list</label>
+    <select id="listSelect"><option value="">Loading...</option></select>
+  </div>
+</div>
+
+<!-- Screen 2: Loading -->
+<div class="screen" id="screen-loading">
+  <div class="spinner"></div>
+  <p>Identifying part...</p>
+</div>
+
+<!-- Screen 3: Identify -->
+<div class="screen" id="screen-identify" style="position:relative">
+  <!-- User's photo -->
+  <img id="photoBanner" class="photo-banner" src="" alt="">
+  <div style="position:absolute;top:4px;right:4px;display:none;width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)" id="debugSwatch"></div>
+  <div id="debugLabel" style="position:absolute;top:4px;left:4px;display:none;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;white-space:nowrap"></div>
+
+  <!-- Main part card -->
+  <div class="identify-card">
+    <div class="dual-images">
+      <img id="userThumb" src="" alt="">
+      <img id="catalogImg" src="" alt="">
+    </div>
+    <div class="part-info">
+      <div class="part-name" id="partName">—</div>
+    </div>
+    <div class="info-row" id="rbRow" style="margin-top:10px;">
+      <span class="label">Rebrickable</span>
+      <span class="value" id="rbValue">—</span>
+    </div>
+    <div class="info-row" id="blRow">
+      <span class="label">BrickLink ID</span>
+      <span class="value" id="blValue">—</span>
+    </div>
+    <div class="info-row" id="colorRow" onclick="toggleColorSheet()" style="cursor:pointer;">
+      <span class="label">Color</span>
+      <span class="value" id="colorValue">
+        <span class="color-dot" id="colorDot" style="background:#ccc"></span>
+        <span id="colorLabel">Select color</span>
+      </span>
+      <button class="color-change-btn">Change ›</button>
+    </div>
+
+    <!-- Color picker sheet (inline) -->
+    <div class="color-sheet" id="colorSheet">
+      <div class="color-sheet-label">Colors this part comes in</div>
+      <div class="swatch-grid" id="colorSwatches"></div>
+      <div class="color-search-wrap">
+        <input type="text" id="colorSearch" placeholder="Search all colors..." autocomplete="off">
+        <div class="color-dropdown" id="colorDropdown"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alternative matches -->
+  <div class="alt-section" id="altSection" style="display:none">
+    <div class="alt-label">Other matches</div>
+    <div class="alt-row" id="altRow"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="identifyError" style="margin:8px 16px 0;"></div>
+
+  <!-- Actions -->
+  <div class="action-area">
+    <div class="qty-row">
+      <label>Quantity</label>
+      <div class="qty-controls">
+        <button onclick="adjustQty(-1)">−</button>
+        <input type="number" id="quantityInput" value="1" min="1" max="999">
+        <button onclick="adjustQty(1)">+</button>
+      </div>
+    </div>
+    <button class="btn green" onclick="addPart()">Add to List</button>
+    <button class="btn secondary" onclick="goTo('screen-scan')">Retake Photo</button>
+  </div>
+</div>
+
+<!-- Screen 4: Success -->
+<div class="screen" id="screen-success">
+  <div class="success-icon">✅</div>
+  <h2>Part Added!</h2>
+  <p id="successMsg"></p>
+  <button class="btn" style="margin-top:16px;max-width:300px" onclick="goTo('screen-scan')">Scan Another</button>
+</div>
+
+<script>
+  let colors = [];
+  let selectedColorId = null;
+  let selectedColorName = '';
+  let selectedColorRgb = '';
+  let selectedPart = null;
+  let capturedObjectUrl = null;
+
+  // Load parts lists
+  fetch('/api/partlists')
+    .then(r => r.json())
+    .then(data => {
+      const sel = document.getElementById('listSelect');
+      sel.innerHTML = '';
+      data.results.forEach(list => {
+        const opt = document.createElement('option');
+        opt.value = list.id;
+        opt.textContent = `${list.name} (${list.num_parts} parts)`;
+        sel.appendChild(opt);
+      });
+    });
+
+  // Load all colors in background
+  fetch('/api/colors').then(r => r.json()).then(data => { colors = data; });
+
+  // Camera input
+  document.getElementById('cameraInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
+    capturedObjectUrl = URL.createObjectURL(file);
+    goTo('screen-loading');
+    identifyPart(file);
+    this.value = '';
+  });
+
+  function identifyPart(file) {
+    const form = new FormData();
+    form.append('image', file);
+    fetch('/api/identify', { method: 'POST', body: form })
+      .then(r => r.json())
+      .then(data => showIdentifyScreen(data))
+      .catch(() => showIdentifyScreen({ items: [] }));
+  }
+
+  function extractBlId(item) {
+    const bl = (item.external_sites || []).find(s => s.name === 'bricklink');
+    if (!bl) return null;
+    try { return new URL(bl.url).searchParams.get('P'); } catch { return null; }
+  }
+
+  // ── Color detection via canvas ──────────────────────────────────────
+
+  // Convert sRGB hex color to CIE LAB for perceptual distance matching
+  function rgbToLab(r, g, b) {
+    let rl = r/255, gl = g/255, bl = b/255;
+    rl = rl > 0.04045 ? ((rl+0.055)/1.055)**2.4 : rl/12.92;
+    gl = gl > 0.04045 ? ((gl+0.055)/1.055)**2.4 : gl/12.92;
+    bl = bl > 0.04045 ? ((bl+0.055)/1.055)**2.4 : bl/12.92;
+    let x = (rl*0.4124 + gl*0.3576 + bl*0.1805) / 0.95047;
+    let y = (rl*0.2126 + gl*0.7152 + bl*0.0722) / 1.00000;
+    let z = (rl*0.0193 + gl*0.1192 + bl*0.9505) / 1.08883;
+    const f = v => v > 0.008856 ? v**(1/3) : 7.787*v + 16/116;
+    return [116*f(y) - 16, 500*(f(x)-f(y)), 200*(f(y)-f(z))];
+  }
+
+  async function sampleColorFromBoundingBox(objectUrl, bb) {
+    try {
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = objectUrl;
+      });
+
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      let cropX, cropY, cropW, cropH, usedBbCrop = false;
+
+      // Try to use Brickognize's bounding box. The bbox is in raw-JPEG space
+      // (landscape, 1024×768). Safari displays the EXIF-corrected portrait.
+      // iPhone EXIF orientation 6 = 90° CW: raw (x,y) → portrait (bbH-y, x).
+      if (bb?.left != null && bb.image_width && bb.image_height) {
+        const bbW = bb.image_width, bbH = bb.image_height;
+        let dx0, dy0, dx1, dy1;
+        if (iw < ih && bbW > bbH) {
+          // Portrait display, landscape raw → 90° CW rotation was applied
+          const sx = iw / bbH, sy = ih / bbW;
+          dx0 = (bbH - bb.lower) * sx;  dx1 = (bbH - bb.upper) * sx;
+          dy0 = bb.left * sy;            dy1 = bb.right * sy;
+        } else {
+          const sx = iw / bbW, sy = ih / bbH;
+          dx0 = bb.left * sx;  dx1 = bb.right * sx;
+          dy0 = bb.upper * sy; dy1 = bb.lower * sy;
+        }
+        // Shrink 15% on each side to avoid sampling background at bbox edges
+        const pw = dx1 - dx0, ph = dy1 - dy0;
+        cropX = Math.round(dx0 + pw * 0.15);
+        cropY = Math.round(dy0 + ph * 0.15);
+        cropW = Math.round(pw * 0.7);
+        cropH = Math.round(ph * 0.7);
+        if (cropW >= 20 && cropH >= 20 && cropX >= 0 && cropY >= 0 &&
+            cropX + cropW <= iw && cropY + cropH <= ih) {
+          usedBbCrop = true;
+        }
+      }
+
+      // Fall back to centre 40% of the full image if bbox unusable
+      if (!usedBbCrop) {
+        const m = 0.3;
+        cropX = Math.floor(iw * m); cropY = Math.floor(ih * m);
+        cropW = Math.max(4, Math.floor(iw * (1 - m*2)));
+        cropH = Math.max(4, Math.floor(ih * (1 - m*2)));
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = cropW; canvas.height = cropH;
+      canvas.getContext('2d').drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      const px = canvas.getContext('2d').getImageData(0, 0, cropW, cropH).data;
+
+      const BINS = 16, bs = 256 / BINS;
+      const hist = new Array(BINS).fill(0);
+      for (let i = 0; i < px.length; i += 4)
+        hist[Math.min(BINS-1, Math.floor((px[i]+px[i+1]+px[i+2]) / 3 / bs))]++;
+
+      const totalPixels = hist.reduce((s, v) => s + v, 0);
+      const TRANS_DARK_BINS = 6; // brightness < 96
+      const darkPixels = hist.slice(0, TRANS_DARK_BINS).reduce((s, v) => s + v, 0);
+      const darkFraction = totalPixels > 0 ? darkPixels / totalPixels : 0;
+
+      const rs = [], gs = [], bsc = [];
+
+      if (usedBbCrop) {
+        // Tight part crop: overall median gives the dominant surface colour
+        // (avoids specular highlights dominating, which the histogram-peak approach suffers from).
+        for (let i = 0; i < px.length; i += 4) {
+          rs.push(px[i]); gs.push(px[i+1]); bsc.push(px[i+2]);
+        }
+      } else {
+        // Centre-crop fallback: use histogram-peak approach so white parts are
+        // not pulled down by background shadows (the original problem we solved).
+        const DARK_THRESHOLD = 3;
+        const totalNonDark = hist.slice(DARK_THRESHOLD).reduce((s, v) => s + v, 0);
+        let peak = -1;
+        if (totalNonDark >= 10) {
+          const minCount = Math.max(1, totalNonDark * 0.03);
+          for (let b = BINS - 1; b >= DARK_THRESHOLD; b--) {
+            if (hist[b] >= minCount) { peak = b; break; }
+          }
+        }
+        if (peak === -1) peak = hist.indexOf(Math.max(...hist));
+        for (let i = 0; i < px.length; i += 4) {
+          const bin = Math.floor((px[i]+px[i+1]+px[i+2]) / 3 / bs);
+          if (Math.abs(bin - peak) <= 2) {
+            rs.push(px[i]); gs.push(px[i+1]); bsc.push(px[i+2]);
+          }
+        }
+      }
+
+      if (rs.length < 10) return null;
+      rs.sort((a,b)=>a-b); gs.sort((a,b)=>a-b); bsc.sort((a,b)=>a-b);
+      const mid = Math.floor(rs.length / 2);
+      return { r: rs[mid], g: gs[mid], b: bsc[mid], darkFraction };
+    } catch(e) { return null; }
+  }
+
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+    let h = 0;
+    if (d > 0) {
+      if (max === r)      h = ((g - b) / d % 6) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else                h = ((r - g) / d + 4) / 6;
+      if (h < 0) h += 1;
+    }
+    return { h: h * 360, s: max === 0 ? 0 : d / max, v: max };
+  }
+
+  function hueDist(h1, h2) {
+    const d = Math.abs(h1 - h2);
+    return Math.min(d, 360 - d);
+  }
+
+  function findClosestLegoColor(r, g, b, candidates, darkFraction = 0) {
+    const pool = candidates?.length ? candidates : colors;
+    const hsv = rgbToHsv(r, g, b);
+    const isChromatic = hsv.s > 0.2 && hsv.v > 0.2;
+    const [l1, a1, b1] = rgbToLab(r, g, b);
+
+    let best = null, bestScore = Infinity;
+    for (const c of pool) {
+      if (!c.rgb || c.rgb.length < 6) continue;
+      const cr = parseInt(c.rgb.slice(0,2),16);
+      const cg = parseInt(c.rgb.slice(2,4),16);
+      const cb = parseInt(c.rgb.slice(4,6),16);
+      const [l2, a2, b2] = rgbToLab(cr, cg, cb);
+      const labDist = Math.sqrt((l1-l2)**2 + (a1-a2)**2 + (b1-b2)**2);
+
+      let score;
+      if (isChromatic) {
+        const chsv = rgbToHsv(cr, cg, cb);
+        if (chsv.s > 0.15) {
+          // Both chromatic: hue is the primary discriminator — stable under brightness shifts
+          score = hueDist(hsv.h, chsv.h) * 1.8 + labDist * 0.4;
+        } else {
+          score = 500 + labDist; // chromatic vs achromatic — penalise heavily
+        }
+      } else {
+        // Achromatic sample: penalise candidates with significant LAB chroma.
+        // LAB chroma (sqrt(a²+b²)) > 12 means clearly coloured — Black/Gray/White/
+        // LightBluishGray all score < 10; Sand Green scores ~15, Reddish Brown ~33.
+        const candidateChroma = Math.sqrt(a2 * a2 + b2 * b2);
+        score = candidateChroma > 12 ? 500 + labDist : labDist;
+      }
+
+      // Trans- / Glow In Dark / Satin / Milky colors should never win through raw
+      // distance matching — they are selected only via explicit transparency detection.
+      if (c.name && /^Trans-|Glow In Dark|Satin|Milky/i.test(c.name)) score += 200;
+
+      if (score < bestScore) { bestScore = score; best = c; }
+    }
+
+    // If the sample is much darker than the matched colour, the part may be
+    // transparent (background shows through). Prefer a Trans- variant.
+    if (best?.rgb && !best.name.startsWith('Trans-')) {
+      const mr = parseInt(best.rgb.slice(0,2),16);
+      const mg = parseInt(best.rgb.slice(2,4),16);
+      const mb = parseInt(best.rgb.slice(4,6),16);
+      const matchedAvg = (mr + mg + mb) / 3;
+      const sampledAvg = (r + g + b) / 3;
+
+      if (isChromatic) {
+        // Chromatic: transparent parts look darker AND less saturated
+        const matchedHsvForTrans = rgbToHsv(mr, mg, mb);
+        const sampledSatRatio = matchedHsvForTrans.s > 0 ? hsv.s / matchedHsvForTrans.s : 1;
+        const looksTransparent = sampledAvg / matchedAvg < 0.90 || sampledSatRatio < 0.82;
+        if (looksTransparent) {
+          const bestHsv = rgbToHsv(mr, mg, mb);
+          const findTransIn = (src) => {
+            let bestTrans = null, bestTransDist = 15;
+            for (const c of src) {
+              if (!c.name?.startsWith('Trans-') || !c.rgb) continue;
+              const cHsv = rgbToHsv(parseInt(c.rgb.slice(0,2),16),
+                                      parseInt(c.rgb.slice(2,4),16),
+                                      parseInt(c.rgb.slice(4,6),16));
+              if (cHsv.s > 0.1) {
+                const hd = hueDist(bestHsv.h, cHsv.h);
+                if (hd < bestTransDist) { bestTransDist = hd; bestTrans = c; }
+              }
+            }
+            return bestTrans;
+          };
+          const bestTrans = findTransIn(pool) || findTransIn(colors);
+          if (bestTrans) return bestTrans;
+        }
+      }
+
+      // If many pixels in the sample region are very dark, background is showing through
+      // the part — strong signal for a transparent (Trans-Clear) piece.
+      // Opaque parts rarely have >25% dark pixels in the centre crop.
+      // darkFraction 25–55%: background showing *through* a transparent part.
+      // Above 55% means the part itself is dark/black — don't mistake it for Trans-Clear.
+      // sampledAvg < 195: metallic/shiny highlights push avg well above this;
+      // actual transparent parts on dark backgrounds never sample that bright.
+      if (darkFraction > 0.25 && darkFraction < 0.55 && matchedAvg > 80 && sampledAvg < 195) {
+        const findTransClearIn = (src) => src.find(c => c.name === 'Trans-Clear' && c.rgb);
+        const transClear = findTransClearIn(pool) || findTransClearIn(colors);
+        if (transClear) return transClear;
+      }
+    }
+
+    return best;
+  }
+  // ────────────────────────────────────────────────────────────────────
+
+  function populateCardInfo(item) {
+    const blId = extractBlId(item);
+    selectedPart = { ...item, blId };
+    document.getElementById('partName').textContent = item.name || item.id;
+    document.getElementById('catalogImg').src = item.img_url || '';
+    document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
+    document.getElementById('blValue').innerHTML = blId
+      ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${blId}" target="_blank">${blId}</a>
+         <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
+      : '—';
+    resetColor();
+  }
+
+  async function showIdentifyScreen(data) {
+    const items = data.items || [];
+    goTo('screen-identify');
+    document.getElementById('photoBanner').src = capturedObjectUrl || '';
+    document.getElementById('userThumb').src = capturedObjectUrl || '';
+    const errEl = document.getElementById('identifyError');
+    errEl.style.display = 'none';
+
+    if (!items.length) {
+      document.getElementById('partName').textContent = 'No part identified';
+      errEl.textContent = 'Try a clearer photo against a plain background.';
+      errEl.style.display = 'block';
+      document.getElementById('catalogImg').src = '';
+      document.getElementById('blValue').textContent = '—';
+      document.getElementById('rbValue').textContent = '—';
+      document.getElementById('altSection').style.display = 'none';
+      document.getElementById('colorSheet').classList.remove('open');
+      selectedPart = null;
+      return;
+    }
+
+    populateCardInfo(items[0]);
+    document.getElementById('colorSheet').classList.add('open');
+    document.getElementById('colorSwatches').innerHTML =
+      '<span style="color:#aaa;font-size:13px">Detecting color…</span>';
+
+    // Fetch part colors + detect color from image in parallel
+    const [partColorsData, detectedRgb] = await Promise.all([
+      fetch(`/api/part_colors/${items[0].id}`).then(r => r.json()).catch(() => ({ results: [] })),
+      sampleColorFromBoundingBox(capturedObjectUrl, data.bounding_box)
+    ]);
+
+    const partColors = partColorsData.results || [];
+    renderSwatches(partColors);
+
+    // Debug: show sampled color as a small swatch in the header area
+    if (detectedRgb) {
+      const dbgAvg = Math.round((detectedRgb.r + detectedRgb.g + detectedRgb.b) / 3);
+      document.getElementById('debugSwatch').style.background =
+        `rgb(${detectedRgb.r},${detectedRgb.g},${detectedRgb.b})`;
+      document.getElementById('debugSwatch').style.display = 'inline-block';
+      const dbgDark = Math.round((detectedRgb.darkFraction || 0) * 100);
+      document.getElementById('debugLabel').textContent =
+        `rgb(${detectedRgb.r},${detectedRgb.g},${detectedRgb.b}) avg=${dbgAvg} dark=${dbgDark}%`;
+      document.getElementById('debugLabel').style.display = 'block';
+    }
+
+    // If Brickognize's server already detected a color, use it directly.
+    // Brickognize uses BrickLink color IDs; Rebrickable uses its own IDs.
+    // Try ID lookup first, then fall back to name match.
+    const serverColors = items[0].candidate_colors;
+    if (serverColors?.length && colors.length) {
+      const colorById   = Object.fromEntries(colors.map(c => [String(c.id), c]));
+      const colorByName = Object.fromEntries(colors.map(c => [c.name.toLowerCase(), c]));
+      const sc = serverColors[0];
+      const matched = colorById[String(sc.id)] || colorByName[(sc.name || '').toLowerCase()];
+      if (matched) {
+        applyColor(matched.id, matched.name, matched.rgb);
+        return;
+      }
+    }
+
+    // Fall back to client-side color detection
+    const avgBrightness = detectedRgb ? (detectedRgb.r + detectedRgb.g + detectedRgb.b) / 3 : 0;
+    if (detectedRgb && avgBrightness >= 70 && colors.length) {
+      const colorMap = Object.fromEntries(colors.map(c => [c.id, c]));
+      const candidates = partColors.map(pc => colorMap[pc.color_id]).filter(Boolean);
+      const closest = findClosestLegoColor(detectedRgb.r, detectedRgb.g, detectedRgb.b, candidates, detectedRgb.darkFraction || 0);
+      if (closest) applyColor(closest.id, closest.name, closest.rgb);
+    }
+
+    // Alternatives
+    const alts = items.slice(1, 5);
+    if (alts.length) {
+      document.getElementById('altSection').style.display = 'block';
+      document.getElementById('altRow').innerHTML = alts.map((item, i) => `
+        <div class="alt-card" id="alt-${i}" onclick="selectAlternative(${i})">
+          <img src="${item.img_url || ''}" onerror="this.style.display='none'">
+          <div class="alt-name">${item.name || item.id}</div>
+          <div class="alt-score">${Math.round((item.score||0)*100)}%</div>
+        </div>`).join('');
+      window._altItems = alts;
+      window._detectedRgb = detectedRgb;
+    } else {
+      document.getElementById('altSection').style.display = 'none';
+    }
+    document.getElementById('quantityInput').value = 1;
+  }
+
+  async function selectAlternative(i) {
+    const item = window._altItems[i];
+    if (!item) return;
+    document.querySelectorAll('.alt-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`alt-${i}`)?.classList.add('selected');
+    populateCardInfo(item);
+    document.getElementById('colorSwatches').innerHTML =
+      '<span style="color:#aaa;font-size:13px">Loading…</span>';
+
+    const partColorsData = await fetch(`/api/part_colors/${item.id}`)
+      .then(r => r.json()).catch(() => ({ results: [] }));
+    const partColors = partColorsData.results || [];
+    renderSwatches(partColors);
+
+    // Reuse the detected RGB from the original scan
+    const detectedRgb = window._detectedRgb;
+    if (detectedRgb && colors.length) {
+      const colorMap = Object.fromEntries(colors.map(c => [c.id, c]));
+      const candidates = partColors.map(pc => colorMap[pc.color_id]).filter(Boolean);
+      const closest = findClosestLegoColor(detectedRgb.r, detectedRgb.g, detectedRgb.b, candidates, detectedRgb.darkFraction || 0);
+      if (closest) applyColor(closest.id, closest.name, closest.rgb);
+    }
+  }
+
+  function applyColor(id, name, rgb) {
+    selectedColorId = id;
+    selectedColorName = name;
+    selectedColorRgb = rgb;
+    document.getElementById('colorDot').style.background = `#${rgb}`;
+    document.getElementById('colorLabel').textContent = name;
+    document.getElementById('colorSearch').value = name;
+    // Highlight matching swatch if rendered
+    document.querySelectorAll('.swatch-btn').forEach(b => {
+      b.classList.toggle('selected', parseInt(b.dataset.colorId) === id);
+    });
+  }
+
+  function resetColor() {
+    selectedColorId = null;
+    selectedColorName = '';
+    selectedColorRgb = '';
+    document.getElementById('colorDot').style.background = '#ccc';
+    document.getElementById('colorLabel').textContent = 'Select color';
+    document.getElementById('colorSearch').value = '';
+    document.querySelectorAll('.swatch-btn').forEach(b => b.classList.remove('selected'));
+  }
+
+  function toggleColorSheet() {
+    document.getElementById('colorSheet').classList.toggle('open');
+  }
+
+  function renderSwatches(partColors) {
+    const container = document.getElementById('colorSwatches');
+    if (!partColors.length) { container.innerHTML = ''; return; }
+    partColors.sort((a, b) => (b.num_sets || 0) - (a.num_sets || 0));
+    const colorMap = Object.fromEntries(colors.map(c => [c.id, c.rgb]));
+    container.innerHTML = partColors.map(c => {
+      const rgb = colorMap[c.color_id] || '888888';
+      const isSelected = c.color_id === selectedColorId;
+      return `<button class="swatch-btn${isSelected ? ' selected' : ''}" data-color-id="${c.color_id}"
+          onclick="applyColor(${c.color_id}, '${c.color_name.replace(/'/g,"\\'")}', '${rgb}')">
+          <span class="dot" style="background:#${rgb}"></span>${c.color_name}
+        </button>`;
+    }).join('');
+  }
+
+  // Color search
+  const colorSearchInput = document.getElementById('colorSearch');
+  const colorDropdown = document.getElementById('colorDropdown');
+
+  colorSearchInput.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const matches = q ? colors.filter(c => c.name.toLowerCase().includes(q)).slice(0, 20) : [];
+    if (matches.length) {
+      renderColorDropdown(matches);
+      colorDropdown.classList.add('open');
+    } else {
+      colorDropdown.classList.remove('open');
+    }
+    selectedColorId = null;
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.color-search-wrap')) colorDropdown.classList.remove('open');
+  });
+
+  function renderColorDropdown(list) {
+    colorDropdown.innerHTML = list.map(c => `
+      <div class="color-option" onclick="applyColor(${c.id}, '${c.name.replace(/'/g,"\\'")}', '${c.rgb}'); colorDropdown.classList.remove('open');">
+        <div class="color-swatch" style="background:#${c.rgb}"></div>${c.name}
+      </div>`).join('');
+  }
+
+  function adjustQty(delta) {
+    const inp = document.getElementById('quantityInput');
+    inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  }
+
+  function copyText(text, e) {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(text);
+  }
+
+  function addPart() {
+    const err = document.getElementById('identifyError');
+    err.style.display = 'none';
+    if (!selectedPart) { err.textContent = 'No part selected.'; err.style.display = 'block'; return; }
+    if (!selectedColorId && selectedColorId !== 0) {
+      // Open color sheet as hint
+      document.getElementById('colorSheet').classList.add('open');
+      err.textContent = 'Please select a color.';
+      err.style.display = 'block';
+      return;
+    }
+    const qty = parseInt(document.getElementById('quantityInput').value) || 1;
+    const listId = document.getElementById('listSelect').value;
+    const listName = document.getElementById('listSelect').selectedOptions[0]?.text || '';
+    fetch('/api/add_part', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ list_id: listId, part_num: selectedPart.id, color_id: selectedColorId, quantity: qty })
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) {
+        const msg = data.non_field_errors?.[0] || data.detail || JSON.stringify(data);
+        err.textContent = `Error: ${msg}`; err.style.display = 'block'; return;
+      }
+      const partLabel = selectedPart.name || selectedPart.id;
+      const list = listName.split(' (')[0];
+      if (data._updated) {
+        const prev = data._previous_quantity;
+        document.getElementById('successMsg').textContent =
+          `${partLabel} (${selectedColorName}) updated: ${prev} → ${prev + qty} in "${list}".`;
+      } else {
+        document.getElementById('successMsg').textContent =
+          `${qty}× ${partLabel} (${selectedColorName}) added to "${list}".`;
+      }
+      goTo('screen-success');
+    })
+    .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });
+  }
+
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+</script>
+</body>
+</html>
