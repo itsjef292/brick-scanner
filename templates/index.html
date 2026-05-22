@@ -335,7 +335,18 @@
   </div>
   <div class="list-selector" style="padding:0 20px 24px;">
     <label>Add to parts list</label>
-    <select id="listSelect"><option value="">Loading...</option></select>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="listSelect" style="flex:1"><option value="">Loading...</option></select>
+      <button id="newListBtn" onclick="toggleNewList()" title="Create new list"
+        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#e63946;color:#fff;font-size:22px;line-height:1;cursor:pointer;">+</button>
+    </div>
+    <div id="newListRow" style="display:none;margin-top:10px;display:none;gap:8px;align-items:center;">
+      <input id="newListName" type="text" placeholder="List name…"
+        style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;"
+        onkeydown="if(event.key==='Enter')createList()">
+      <button onclick="createList()"
+        style="padding:8px 16px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
+    </div>
   </div>
 </div>
 
@@ -429,19 +440,47 @@
   let selectedPart = null;
   let capturedObjectUrl = null;
 
-  // Load parts lists
-  fetch('/api/partlists')
+  function loadPartlists(selectId) {
+    return fetch('/api/partlists')
+      .then(r => r.json())
+      .then(data => {
+        const sel = document.getElementById('listSelect');
+        sel.innerHTML = '';
+        data.results.forEach(list => {
+          const opt = document.createElement('option');
+          opt.value = list.id;
+          opt.textContent = `${list.name} (${list.num_parts} parts)`;
+          if (list.id === selectId) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      });
+  }
+  loadPartlists();
+
+  function toggleNewList() {
+    const row = document.getElementById('newListRow');
+    const visible = row.style.display === 'flex';
+    row.style.display = visible ? 'none' : 'flex';
+    if (!visible) document.getElementById('newListName').focus();
+  }
+
+  function createList() {
+    const name = document.getElementById('newListName').value.trim();
+    if (!name) return;
+    fetch('/api/partlists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    })
     .then(r => r.json())
     .then(data => {
-      const sel = document.getElementById('listSelect');
-      sel.innerHTML = '';
-      data.results.forEach(list => {
-        const opt = document.createElement('option');
-        opt.value = list.id;
-        opt.textContent = `${list.name} (${list.num_parts} parts)`;
-        sel.appendChild(opt);
-      });
+      if (data.id) {
+        document.getElementById('newListRow').style.display = 'none';
+        document.getElementById('newListName').value = '';
+        loadPartlists(data.id);  // reload and select the new list
+      }
     });
+  }
 
   // Load all colors in background
   fetch('/api/colors').then(r => r.json()).then(data => { colors = data; });

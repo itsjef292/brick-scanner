@@ -182,6 +182,19 @@ def add_part():
         return jsonify(resp.json()), resp.status_code
 
 
+@app.route("/api/partlists", methods=["POST"])
+def create_partlist():
+    name = (request.json or {}).get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    resp = requests.post(
+        f"{RB_BASE}/users/{USER_TOKEN}/partlists/",
+        params={"key": API_KEY},
+        data={"name": name},
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
 if __name__ == "__main__":
     import socket
     hostname = socket.gethostname()
