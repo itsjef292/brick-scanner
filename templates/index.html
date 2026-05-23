@@ -414,23 +414,11 @@
     </div>
   </div>
 
-  <!-- Minifig list selector (hidden by default) -->
-  <div id="minifigListRow" class="list-selector" style="padding:0 20px 24px;display:none;">
-    <label>Add to minifig list</label>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <select id="minifigListSelect" style="flex:1"><option value="">Loading...</option></select>
-      <button onclick="deleteMinifigList()" title="Delete selected list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#6c757d;color:#fff;font-size:18px;line-height:1;cursor:pointer;">🗑</button>
-      <button onclick="toggleNewMinifigList()" title="Create new list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#e63946;color:#fff;font-size:22px;line-height:1;cursor:pointer;">+</button>
-    </div>
-    <div id="newMinifigListRow" style="display:none;margin-top:10px;gap:8px;align-items:center;">
-      <input id="newMinifigListName" type="text" placeholder="List name…"
-        style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;"
-        onkeydown="if(event.key==='Enter')createMinifigList()">
-      <button onclick="createMinifigList()"
-        style="padding:8px 16px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
-    </div>
+  <!-- Minifig note (Rebrickable API is read-only for minifig collection) -->
+  <div id="minifigListRow" style="padding:0 20px 16px;display:none;">
+    <p style="margin:0;font-size:13px;color:#888;line-height:1.4;">
+      Minifig tracking isn't available via the Rebrickable API — use the link above to view it on Rebrickable directly.
+    </p>
   </div>
 </div>
 
@@ -954,7 +942,14 @@
     document.getElementById('colorRow').style.display = isMinifig ? 'none' : '';
     document.getElementById('colorSheet').classList.remove('open');
     document.getElementById('setsSection').style.display = 'none';
-    document.getElementById('addBtn').textContent = isMinifig ? 'Add to Minifig List' : 'Add to List';
+    const addBtn = document.getElementById('addBtn');
+    if (isMinifig) {
+      addBtn.textContent = 'View on Rebrickable';
+      addBtn.onclick = () => window.open(`https://rebrickable.com/minifigs/${item.id}/`, '_blank');
+    } else {
+      addBtn.textContent = 'Add to List';
+      addBtn.onclick = addItem;
+    }
     if (!isMinifig) resetColor();
   }
 
