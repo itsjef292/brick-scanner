@@ -311,6 +311,30 @@
       margin: 0 16px;
     }
 
+    /* ── Mode tabs ── */
+    .mode-tabs {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      background: #c8000a;
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      background: none;
+      color: rgba(255,255,255,0.65);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .mode-tab.active {
+      color: #fff;
+      border-bottom-color: #fff;
+    }
+
     /* ── Screen 4: Success ── */
     #screen-success { padding: 64px 20px; align-items: center; gap: 16px; text-align: center; }
     .success-icon { font-size: 72px; }
@@ -325,28 +349,54 @@
   <h1>LEGO Scanner</h1>
 </header>
 
+<div class="mode-tabs">
+  <button class="mode-tab active" data-mode="parts" onclick="switchMode('parts')">🧱 Parts</button>
+  <button class="mode-tab" data-mode="minifigs" onclick="switchMode('minifigs')">👤 Minifigs</button>
+</div>
+
 <!-- Screen 1: Scan -->
 <div class="screen active" id="screen-scan">
   <div class="scan-area" style="margin:20px;border-radius:16px;">
     <div class="scan-icon">📷</div>
-    <p>Take a photo of a LEGO part to identify it and add it to your parts list.</p>
+    <p id="scanHint">Take a photo of a LEGO part to identify it and add it to your parts list.</p>
     <button class="btn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
     <input type="file" id="cameraInput" accept="image/*" capture="environment">
   </div>
-  <div class="list-selector" style="padding:0 20px 24px;">
+
+  <!-- Parts list selector -->
+  <div id="partListRow" class="list-selector" style="padding:0 20px 24px;">
     <label>Add to parts list</label>
     <div style="display:flex;gap:8px;align-items:center;">
       <select id="listSelect" style="flex:1"><option value="">Loading...</option></select>
       <button onclick="deleteList()" title="Delete selected list"
         style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#6c757d;color:#fff;font-size:18px;line-height:1;cursor:pointer;">🗑</button>
-      <button id="newListBtn" onclick="toggleNewList()" title="Create new list"
+      <button onclick="toggleNewList()" title="Create new list"
         style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#e63946;color:#fff;font-size:22px;line-height:1;cursor:pointer;">+</button>
     </div>
-    <div id="newListRow" style="display:none;margin-top:10px;display:none;gap:8px;align-items:center;">
+    <div id="newListRow" style="display:none;margin-top:10px;gap:8px;align-items:center;">
       <input id="newListName" type="text" placeholder="List name…"
         style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;"
         onkeydown="if(event.key==='Enter')createList()">
       <button onclick="createList()"
+        style="padding:8px 16px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
+    </div>
+  </div>
+
+  <!-- Minifig list selector (hidden by default) -->
+  <div id="minifigListRow" class="list-selector" style="padding:0 20px 24px;display:none;">
+    <label>Add to minifig list</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="minifigListSelect" style="flex:1"><option value="">Loading...</option></select>
+      <button onclick="deleteMinifigList()" title="Delete selected list"
+        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#6c757d;color:#fff;font-size:18px;line-height:1;cursor:pointer;">🗑</button>
+      <button onclick="toggleNewMinifigList()" title="Create new list"
+        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#e63946;color:#fff;font-size:22px;line-height:1;cursor:pointer;">+</button>
+    </div>
+    <div id="newMinifigListRow" style="display:none;margin-top:10px;gap:8px;align-items:center;">
+      <input id="newMinifigListName" type="text" placeholder="List name…"
+        style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;"
+        onkeydown="if(event.key==='Enter')createMinifigList()">
+      <button onclick="createMinifigList()"
         style="padding:8px 16px;background:#e63946;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
     </div>
   </div>
@@ -421,7 +471,7 @@
         <button onclick="adjustQty(1)">+</button>
       </div>
     </div>
-    <button class="btn green" onclick="addPart()">Add to List</button>
+    <button class="btn green" id="addBtn" onclick="addItem()">Add to List</button>
     <button class="btn secondary" onclick="goTo('screen-scan')">Retake Photo</button>
   </div>
 </div>
@@ -429,7 +479,7 @@
 <!-- Screen 4: Success -->
 <div class="screen" id="screen-success">
   <div class="success-icon">✅</div>
-  <h2>Part Added!</h2>
+  <h2 id="successTitle">Part Added!</h2>
   <p id="successMsg"></p>
   <button class="btn" style="margin-top:16px;max-width:300px" onclick="goTo('screen-scan')">Scan Another</button>
 </div>
@@ -441,7 +491,22 @@
   let selectedColorRgb = '';
   let selectedPart = null;
   let capturedObjectUrl = null;
+  let mode = 'parts'; // 'parts' | 'minifigs'
 
+  // ── Mode switching ──────────────────────────────────────────────────
+  function switchMode(m) {
+    mode = m;
+    document.querySelectorAll('.mode-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.mode === m);
+    });
+    document.getElementById('partListRow').style.display = m === 'parts' ? '' : 'none';
+    document.getElementById('minifigListRow').style.display = m === 'minifigs' ? '' : 'none';
+    document.getElementById('scanHint').textContent = m === 'parts'
+      ? 'Take a photo of a LEGO part to identify it and add it to your parts list.'
+      : 'Take a photo of a LEGO minifigure to identify it and add it to your minifig list.';
+  }
+
+  // ── Parts lists ─────────────────────────────────────────────────────
   function loadPartlists(selectId) {
     return fetch('/api/partlists')
       .then(r => r.json())
@@ -492,7 +557,69 @@
       if (data.id) {
         document.getElementById('newListRow').style.display = 'none';
         document.getElementById('newListName').value = '';
-        loadPartlists(data.id);  // reload and select the new list
+        loadPartlists(data.id);
+      }
+    });
+  }
+
+  // ── Minifig lists ───────────────────────────────────────────────────
+  function loadMinifiglists(selectId) {
+    return fetch('/api/minifiglists')
+      .then(r => r.json())
+      .then(data => {
+        const sel = document.getElementById('minifigListSelect');
+        sel.innerHTML = '';
+        (data.results || []).forEach(list => {
+          const opt = document.createElement('option');
+          opt.value = list.id;
+          opt.textContent = `${list.name} (${list.num_figs || 0} figs)`;
+          if (list.id === selectId) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        if (!data.results?.length) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No lists yet';
+          sel.appendChild(opt);
+        }
+      });
+  }
+  loadMinifiglists();
+
+  function toggleNewMinifigList() {
+    const row = document.getElementById('newMinifigListRow');
+    const visible = row.style.display === 'flex';
+    row.style.display = visible ? 'none' : 'flex';
+    if (!visible) document.getElementById('newMinifigListName').focus();
+  }
+
+  function deleteMinifigList() {
+    const sel = document.getElementById('minifigListSelect');
+    const listId = sel.value;
+    const listName = sel.selectedOptions[0]?.text || 'this list';
+    if (!listId) return;
+    if (!confirm(`Delete "${listName.split(' (')[0]}"? This cannot be undone.`)) return;
+    fetch(`/api/minifiglists/${listId}`, { method: 'DELETE' })
+      .then(r => {
+        if (r.ok || r.status === 204) loadMinifiglists();
+        else r.json().then(d => alert('Error: ' + (d.detail || JSON.stringify(d))));
+      });
+  }
+
+  function createMinifigList() {
+    const name = document.getElementById('newMinifigListName').value.trim();
+    if (!name) return;
+    fetch('/api/minifiglists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.id) {
+        document.getElementById('newMinifigListRow').style.display = 'none';
+        document.getElementById('newMinifigListName').value = '';
+        loadMinifiglists(data.id);
       }
     });
   }
@@ -506,6 +633,8 @@
     if (!file) return;
     if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
     capturedObjectUrl = URL.createObjectURL(file);
+    document.querySelector('#screen-loading p').textContent =
+      mode === 'minifigs' ? 'Identifying minifig...' : 'Identifying part...';
     goTo('screen-loading');
     identifyPart(file);
     this.value = '';
@@ -762,16 +891,32 @@
   // ────────────────────────────────────────────────────────────────────
 
   function populateCardInfo(item) {
-    const blId = extractBlId(item);
+    const isMinifig = item.type === 'minifig';
+    const blId = isMinifig ? item.bl_id : extractBlId(item);
     selectedPart = { ...item, blId };
+
     document.getElementById('partName').textContent = item.name || item.id;
     document.getElementById('catalogImg').src = item.img_url || '';
-    document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
-    document.getElementById('blValue').innerHTML = blId
-      ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${blId}" target="_blank">${blId}</a>
-         <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
-      : '—';
-    resetColor();
+
+    if (isMinifig) {
+      document.getElementById('rbValue').innerHTML =
+        `<a href="https://rebrickable.com/minifigs/${item.id}/" target="_blank">${item.id}</a>`;
+      document.getElementById('blValue').innerHTML = blId
+        ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?M=${blId}" target="_blank">${blId}</a>
+           <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
+        : '—';
+    } else {
+      document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
+      document.getElementById('blValue').innerHTML = blId
+        ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${blId}" target="_blank">${blId}</a>
+           <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
+        : '—';
+    }
+
+    document.getElementById('colorRow').style.display = isMinifig ? 'none' : '';
+    document.getElementById('colorSheet').classList.remove('open');
+    document.getElementById('addBtn').textContent = isMinifig ? 'Add to Minifig List' : 'Add to List';
+    if (!isMinifig) resetColor();
   }
 
   async function showIdentifyScreen(data) {
@@ -796,6 +941,27 @@
     }
 
     populateCardInfo(items[0]);
+
+    if (items[0].type === 'minifig') {
+      // No color detection for minifigs — show alts and return
+      const alts = items.slice(1, 5).filter(i => i.type === 'minifig');
+      if (alts.length) {
+        document.getElementById('altSection').style.display = 'block';
+        document.getElementById('altRow').innerHTML = alts.map((alt, i) => `
+          <div class="alt-card" id="alt-${i}" onclick="selectAlternative(${i})">
+            <img src="${alt.img_url || ''}" onerror="this.style.display='none'">
+            <div class="alt-name">${alt.name || alt.id}</div>
+            <div class="alt-score">${Math.round((alt.score||0)*100)}%</div>
+          </div>`).join('');
+        window._altItems = alts;
+        window._detectedRgb = null;
+      } else {
+        document.getElementById('altSection').style.display = 'none';
+      }
+      document.getElementById('quantityInput').value = 1;
+      return;
+    }
+
     document.getElementById('colorSheet').classList.add('open');
     document.getElementById('colorSwatches').innerHTML =
       '<span style="color:#aaa;font-size:13px">Detecting color…</span>';
@@ -985,12 +1151,19 @@
     navigator.clipboard?.writeText(text);
   }
 
+  function addItem() {
+    if (selectedPart?.type === 'minifig') {
+      addMinifig();
+    } else {
+      addPart();
+    }
+  }
+
   function addPart() {
     const err = document.getElementById('identifyError');
     err.style.display = 'none';
     if (!selectedPart) { err.textContent = 'No part selected.'; err.style.display = 'block'; return; }
     if (!selectedColorId && selectedColorId !== 0) {
-      // Open color sheet as hint
       document.getElementById('colorSheet').classList.add('open');
       err.textContent = 'Please select a color.';
       err.style.display = 'block';
@@ -1020,6 +1193,43 @@
         document.getElementById('successMsg').textContent =
           `${qty}× ${partLabel} (${selectedColorName}) added to "${list}".`;
       }
+      document.getElementById('successTitle').textContent = 'Part Added!';
+      goTo('screen-success');
+    })
+    .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });
+  }
+
+  function addMinifig() {
+    const err = document.getElementById('identifyError');
+    err.style.display = 'none';
+    if (!selectedPart) { err.textContent = 'No minifig selected.'; err.style.display = 'block'; return; }
+    const qty = parseInt(document.getElementById('quantityInput').value) || 1;
+    const listId = document.getElementById('minifigListSelect').value;
+    const listName = document.getElementById('minifigListSelect').selectedOptions[0]?.text || '';
+    if (!listId) { err.textContent = 'Please create a minifig list first.'; err.style.display = 'block'; return; }
+    fetch('/api/add_minifig', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ list_id: listId, set_num: selectedPart.id, quantity: qty })
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) {
+        const msg = data.non_field_errors?.[0] || data.detail || JSON.stringify(data);
+        err.textContent = `Error: ${msg}`; err.style.display = 'block'; return;
+      }
+      const figLabel = selectedPart.name || selectedPart.id;
+      const list = listName.split(' (')[0];
+      if (data._updated) {
+        const prev = data._previous_quantity;
+        document.getElementById('successMsg').textContent =
+          `${figLabel} updated: ${prev} → ${prev + qty} in "${list}".`;
+      } else {
+        document.getElementById('successMsg').textContent =
+          `${qty}× ${figLabel} added to "${list}".`;
+      }
+      document.getElementById('successTitle').textContent = 'Minifig Added!';
+      loadMinifiglists(parseInt(listId));
       goTo('screen-success');
     })
     .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });

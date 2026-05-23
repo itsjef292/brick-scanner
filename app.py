@@ -72,39 +72,68 @@ def identify():
         items = []
         for ci in detected.get("candidate_items", []):
             raw_id = ci.get("id", "")
+            item_type = ci.get("type", "part")
             bl_id = raw_id.replace("part-", "").replace("minifig-", "")
             ext = next((e for e in ci.get("external_items", [])
                         if e.get("catalog_name") == "bricklink"), {})
             bl_external_id = ext.get("external_id", bl_id)
 
-            # Resolve BrickLink ID → Rebrickable part_num (they differ, e.g. 3070 → 3070b)
-            rb_part_num = bl_id
-            try:
-                rb_resp = requests.get(
-                    f"{RB_BASE}/lego/parts/",
-                    params={"key": API_KEY, "bricklink_id": bl_external_id},
-                    timeout=5,
-                )
-                if rb_resp.status_code == 200:
-                    results = rb_resp.json().get("results", [])
-                    if results:
-                        rb_part_num = results[0]["part_num"]
-            except Exception:
-                pass
+            # Resolve BrickLink ID → Rebrickable ID
+            rb_id = bl_id
+            if item_type == "minifig":
+                try:
+                    rb_resp = requests.get(
+                        f"{RB_BASE}/lego/minifigs/",
+                        params={"key": API_KEY, "bricklink_id": bl_external_id, "page_size": 5},
+                        timeout=5,
+                    )
+                    if rb_resp.status_code == 200:
+                        results = rb_resp.json().get("results", [])
+                        if results:
+                            rb_id = results[0]["set_num"]
+                        elif ci.get("name"):
+                            rb_resp2 = requests.get(
+                                f"{RB_BASE}/lego/minifigs/",
+                                params={"key": API_KEY, "search": ci["name"], "page_size": 3},
+                                timeout=5,
+                            )
+                            if rb_resp2.status_code == 200:
+                                results2 = rb_resp2.json().get("results", [])
+                                if results2:
+                                    rb_id = results2[0]["set_num"]
+                except Exception:
+                    pass
+                img_url = f"https://storage.googleapis.com/brickognize-static/thumbnails/v2.22/minifig/{bl_id}/0.webp"
+            else:
+                try:
+                    rb_resp = requests.get(
+                        f"{RB_BASE}/lego/parts/",
+                        params={"key": API_KEY, "bricklink_id": bl_external_id},
+                        timeout=5,
+                    )
+                    if rb_resp.status_code == 200:
+                        results = rb_resp.json().get("results", [])
+                        if results:
+                            rb_id = results[0]["part_num"]
+                except Exception:
+                    pass
+                img_url = f"https://storage.googleapis.com/brickognize-static/thumbnails/v2.22/part/{bl_id}/0.webp"
 
-            # Build candidate_colors with Rebrickable IDs
+            # Build candidate_colors with Rebrickable IDs (parts only)
             rb_colors = []
-            for c in ci.get("candidate_colors", []):
-                rb_id = _brk_color_id(c.get("id", ""))
-                if rb_id:
-                    rb_colors.append({"id": rb_id, "name": c.get("name", "")})
+            if item_type != "minifig":
+                for c in ci.get("candidate_colors", []):
+                    c_rb_id = _brk_color_id(c.get("id", ""))
+                    if c_rb_id:
+                        rb_colors.append({"id": c_rb_id, "name": c.get("name", "")})
 
             item = {
-                "id": rb_part_num,
+                "id": rb_id,
+                "bl_id": bl_external_id,
                 "name": ci.get("name", ""),
-                "img_url": f"https://storage.googleapis.com/brickognize-static/thumbnails/v2.22/part/{bl_id}/0.webp",
+                "img_url": img_url,
                 "external_sites": [{"name": "bricklink", "url": ext.get("url", "")}] if ext else [],
-                "type": ci.get("type", "part"),
+                "type": item_type,
                 "score": ci.get("score", 0),
             }
             if rb_colors:
@@ -204,6 +233,74 @@ def create_partlist():
         data={"name": name},
     )
     return jsonify(resp.json()), resp.status_code
+
+
+@app.route("/api/minifiglists")
+def get_minifiglists():
+    resp = requests.get(
+        f"{RB_BASE}/users/{USER_TOKEN}/minifiglists/",
+        params={"key": API_KEY},
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.route("/api/minifiglists", methods=["POST"])
+def create_minifiglist():
+    name = (request.json or {}).get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    resp = requests.post(
+        f"{RB_BASE}/users/{USER_TOKEN}/minifiglists/",
+        params={"key": API_KEY},
+        data={"name": name},
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.route("/api/minifiglists/<int:list_id>", methods=["DELETE"])
+def delete_minifiglist(list_id):
+    resp = requests.delete(
+        f"{RB_BASE}/users/{USER_TOKEN}/minifiglists/{list_id}/",
+        params={"key": API_KEY},
+    )
+    if resp.status_code == 204:
+        return '', 204
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.route("/api/add_minifig", methods=["POST"])
+def add_minifig():
+    data = request.json
+    list_id = data["list_id"]
+    set_num = data["set_num"]
+    quantity = int(data["quantity"])
+
+    existing = requests.get(
+        f"{RB_BASE}/users/{USER_TOKEN}/minifiglists/{list_id}/minifigs/{set_num}/",
+        params={"key": API_KEY},
+    )
+
+    print(f"[add_minifig] list={list_id} set_num={set_num} qty={quantity}")
+
+    if existing.status_code == 200:
+        current_qty = existing.json().get("quantity", 0)
+        new_qty = current_qty + quantity
+        resp = requests.put(
+            f"{RB_BASE}/users/{USER_TOKEN}/minifiglists/{list_id}/minifigs/{set_num}/",
+            params={"key": API_KEY},
+            data={"quantity": new_qty},
+        )
+        result = resp.json()
+        result["_updated"] = True
+        result["_previous_quantity"] = current_qty
+        return jsonify(result), resp.status_code
+    else:
+        resp = requests.post(
+            f"{RB_BASE}/users/{USER_TOKEN}/minifiglists/{list_id}/minifigs/",
+            params={"key": API_KEY},
+            data={"set_num": set_num, "quantity": quantity},
+        )
+        return jsonify(resp.json()), resp.status_code
 
 
 if __name__ == "__main__":
