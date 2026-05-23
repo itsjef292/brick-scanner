@@ -236,6 +236,50 @@
     .color-option:hover { background: #f9f9f9; }
     .color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0; }
 
+    /* ── Minifig price ── */
+    .price-section {
+      background: #fff;
+      margin-top: 8px;
+      padding: 12px 16px;
+    }
+    .price-label {
+      font-size: 12px; color: #aaa;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .price-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .price-card {
+      background: #f5f8ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .price-card-title {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 6px;
+    }
+    .price-avg {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0072CE;
+    }
+    .price-range {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 2px;
+    }
+    .price-sales {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 1px;
+    }
+
     /* ── Minifig sets ── */
     .sets-section {
       background: #fff;
@@ -534,6 +578,12 @@
         <div class="color-dropdown" id="colorDropdown"></div>
       </div>
     </div>
+  </div>
+
+  <!-- Minifig price -->
+  <div class="price-section" id="priceSection" style="display:none">
+    <div class="price-label">BrickLink Price Guide (last 6 months)</div>
+    <div class="price-grid" id="priceGrid"></div>
   </div>
 
   <!-- Minifig sets -->
@@ -1015,6 +1065,7 @@
     document.getElementById('colorRow').style.display = isMinifig ? 'none' : '';
     document.getElementById('colorSheet').classList.remove('open');
     document.getElementById('setsSection').style.display = 'none';
+    document.getElementById('priceSection').style.display = 'none';
     const addBtn = document.getElementById('addBtn');
     if (isMinifig) {
       addBtn.textContent = 'View on Rebrickable';
@@ -1051,10 +1102,21 @@
 
     if (items[0].type === 'minifig') {
       // No color detection for minifigs
+      document.getElementById('priceSection').style.display = 'none';
+      document.getElementById('priceGrid').innerHTML = '';
       document.getElementById('setsSection').style.display = 'none';
       document.getElementById('setsList').innerHTML =
         '<span style="color:#aaa;font-size:13px">Loading sets…</span>';
       document.getElementById('setsSection').style.display = 'block';
+
+      // Fetch price + sets in parallel
+      const blId = items[0].bl_id;
+      if (blId) {
+        fetch(`/api/minifig_price/${blId}`)
+          .then(r => r.json())
+          .then(data => renderMinifigPrice(data))
+          .catch(() => {});
+      }
 
       fetch(`/api/minifig_sets/${items[0].id}`)
         .then(r => r.json())
@@ -1350,6 +1412,28 @@
       goTo('screen-success');
     })
     .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });
+  }
+
+  function renderMinifigPrice(data) {
+    const grid = document.getElementById('priceGrid');
+    const section = document.getElementById('priceSection');
+    const fmt = v => v ? `$${parseFloat(v).toFixed(2)}` : '—';
+    const cards = [];
+    const labels = { U: 'Used', N: 'New' };
+    for (const [cond, label] of [['U', 'Used'], ['N', 'New']]) {
+      const d = data[cond];
+      if (!d || !d.avg_price) continue;
+      cards.push(`
+        <div class="price-card">
+          <div class="price-card-title">${label}</div>
+          <div class="price-avg">${fmt(d.avg_price)}</div>
+          <div class="price-range">${fmt(d.min_price)} – ${fmt(d.max_price)}</div>
+          <div class="price-sales">${d.unit_quantity || 0} sales</div>
+        </div>`);
+    }
+    if (!cards.length) return;
+    grid.innerHTML = cards.join('');
+    section.style.display = 'block';
   }
 
   function renderMinifigSets(data) {

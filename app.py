@@ -3,11 +3,17 @@ import os
 import re
 import requests
 from dotenv import load_dotenv
+from requests_oauthlib import OAuth1
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+BL_CONSUMER_KEY    = os.environ.get("BL_CONSUMER_KEY", "")
+BL_CONSUMER_SECRET = os.environ.get("BL_CONSUMER_SECRET", "")
+BL_TOKEN           = os.environ.get("BL_TOKEN", "")
+BL_TOKEN_SECRET    = os.environ.get("BL_TOKEN_SECRET", "")
 
 API_KEY = os.environ.get("REBRICKABLE_API_KEY", "")
 USER_TOKEN = os.environ.get("REBRICKABLE_USER_TOKEN", "")
@@ -322,6 +328,22 @@ def add_minifig():
             data={"set_num": set_num, "quantity": quantity},
         )
         return jsonify(resp.json()), resp.status_code
+
+
+@app.route("/api/minifig_price/<fig_id>")
+def get_minifig_price(fig_id):
+    auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
+    results = {}
+    for condition in ("U", "N"):
+        resp = requests.get(
+            f"https://api.bricklink.com/api/store/v1/items/MINIFIG/{fig_id}/price",
+            params={"guide_type": "sold", "new_or_used": condition, "currency_code": "USD"},
+            auth=auth,
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            results[condition] = resp.json().get("data", {})
+    return jsonify(results)
 
 
 if __name__ == "__main__":
