@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import os
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -72,8 +73,8 @@ def identify():
         items = []
         for ci in detected.get("candidate_items", []):
             raw_id = ci.get("id", "")
-            item_type = ci.get("type", "part")
-            bl_id = raw_id.replace("part-", "").replace("minifig-", "")
+            item_type = "minifig" if ci.get("type") in ("minifig", "fig") else "part"
+            bl_id = raw_id.replace("part-", "").replace("minifig-", "").replace("fig-", "")
             ext = next((e for e in ci.get("external_items", [])
                         if e.get("catalog_name") == "bricklink"), {})
             bl_external_id = ext.get("external_id", bl_id)
@@ -82,25 +83,24 @@ def identify():
             rb_id = bl_id
             if item_type == "minifig":
                 try:
-                    rb_resp = requests.get(
-                        f"{RB_BASE}/lego/minifigs/",
-                        params={"key": API_KEY, "bricklink_id": bl_external_id, "page_size": 5},
-                        timeout=5,
-                    )
-                    if rb_resp.status_code == 200:
-                        results = rb_resp.json().get("results", [])
-                        if results:
-                            rb_id = results[0]["set_num"]
-                        elif ci.get("name"):
-                            rb_resp2 = requests.get(
-                                f"{RB_BASE}/lego/minifigs/",
-                                params={"key": API_KEY, "search": ci["name"], "page_size": 3},
-                                timeout=5,
-                            )
-                            if rb_resp2.status_code == 200:
-                                results2 = rb_resp2.json().get("results", [])
-                                if results2:
-                                    rb_id = results2[0]["set_num"]
+                    # Rebrickable doesn't support bricklink_id filtering for minifigs.
+                    # Strip color/variant suffix (after " - " or "(") for a cleaner search term,
+                    # then pick the result with the most word overlap against the full name.
+                    name = ci.get("name", "")
+                    search_name = re.split(r' - | \(', name)[0].strip() if name else ""
+                    if search_name:
+                        rb_resp = requests.get(
+                            f"{RB_BASE}/lego/minifigs/",
+                            params={"key": API_KEY, "search": search_name, "page_size": 8},
+                            timeout=5,
+                        )
+                        if rb_resp.status_code == 200:
+                            results = rb_resp.json().get("results", [])
+                            if results:
+                                full_words = set(re.findall(r'\w+', name.lower()))
+                                def _overlap(r):
+                                    return len(full_words & set(re.findall(r'\w+', r['name'].lower())))
+                                rb_id = max(results, key=_overlap)['set_num']
                 except Exception:
                     pass
                 img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
