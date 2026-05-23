@@ -112,6 +112,7 @@ def identify():
                     pass
                 img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
             else:
+                rb_part = None
                 try:
                     rb_resp = requests.get(
                         f"{RB_BASE}/lego/parts/",
@@ -121,10 +122,16 @@ def identify():
                     if rb_resp.status_code == 200:
                         results = rb_resp.json().get("results", [])
                         if results:
-                            rb_id = results[0]["part_num"]
+                            rb_part = results[0]
+                            rb_id = rb_part["part_num"]
                 except Exception:
                     pass
-                img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
+                # Use Rebrickable image if available, otherwise BrickLink
+                img_url = ""
+                if rb_part and rb_part.get("part_img_url"):
+                    img_url = rb_part["part_img_url"]
+                else:
+                    img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
 
             # Build candidate_colors with Rebrickable IDs (parts only)
             rb_colors = []

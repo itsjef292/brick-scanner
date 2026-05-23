@@ -1134,7 +1134,7 @@
         document.getElementById('altSection').style.display = 'block';
         document.getElementById('altRow').innerHTML = alts.map((alt, i) => `
           <div class="alt-card" id="alt-${i}" onclick="selectAlternative(${i})">
-            <img src="${alt.img_url || ''}" onerror="this.style.display='none'">
+            <img src="${alt.img_url || ''}" style="display:${alt.img_url ? 'block' : 'none'}" onerror="this.parentElement.style.minHeight='0'">
             <div class="alt-name">${alt.name || alt.id}</div>
             <div class="alt-score">${Math.round((alt.score||0)*100)}%</div>
           </div>`).join('');
@@ -1224,7 +1224,7 @@
       document.getElementById('altSection').style.display = 'block';
       document.getElementById('altRow').innerHTML = alts.map((item, i) => `
         <div class="alt-card" id="alt-${i}" onclick="selectAlternative(${i})">
-          <img src="${item.img_url || ''}" onerror="this.style.display='none'">
+          ${item.img_url ? `<img src="${item.img_url}" onerror="this.style.display='none'">` : '<div style="width:48px;height:48px;"></div>'}
           <div class="alt-name">${item.name || item.id}</div>
           <div class="alt-score">${Math.round((item.score||0)*100)}%</div>
         </div>`).join('');
