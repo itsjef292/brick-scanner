@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 50" width="80" height="50">
+  <!-- Brick body -->
+  <rect x="2" y="16" width="76" height="32" rx="3" ry="3" fill="#E3000B" stroke="#A50008" stroke-width="1.5"/>
+  <!-- Front face highlight -->
+  <rect x="4" y="18" width="72" height="28" rx="2" ry="2" fill="#FF1A1A" opacity="0.3"/>
+  <!-- Bottom shadow -->
+  <rect x="2" y="40" width="76" height="8" rx="3" ry="3" fill="#A50008"/>
+
+  <!-- Studs (2x4 = 8 studs) -->
+  <!-- Row 1: 4 studs -->
+  <ellipse cx="12" cy="15" rx="7" ry="3.5" fill="#FF2222" stroke="#A50008" stroke-width="1"/>
+  <rect x="5" y="8" width="14" height="7" rx="0" fill="#E3000B" stroke="#A50008" stroke-width="0"/>
+  <rect x="5" y="8" width="14" height="7" fill="#E3000B"/>
+  <ellipse cx="12" cy="8" rx="7" ry="3.5" fill="#FF3333" stroke="#A50008" stroke-width="1"/>
+
+  <ellipse cx="30" cy="15" rx="7" ry="3.5" fill="#FF2222" stroke="#A50008" stroke-width="1"/>
+  <rect x="23" y="8" width="14" height="7" fill="#E3000B"/>
+  <ellipse cx="30" cy="8" rx="7" ry="3.5" fill="#FF3333" stroke="#A50008" stroke-width="1"/>
+
+  <ellipse cx="50" cy="15" rx="7" ry="3.5" fill="#FF2222" stroke="#A50008" stroke-width="1"/>
+  <rect x="43" y="8" width="14" height="7" fill="#E3000B"/>
+  <ellipse cx="50" cy="8" rx="7" ry="3.5" fill="#FF3333" stroke="#A50008" stroke-width="1"/>
+
+  <ellipse cx="68" cy="15" rx="7" ry="3.5" fill="#FF2222" stroke="#A50008" stroke-width="1"/>
+  <rect x="61" y="8" width="14" height="7" fill="#E3000B"/>
+  <ellipse cx="68" cy="8" rx="7" ry="3.5" fill="#FF3333" stroke="#A50008" stroke-width="1"/>
+</svg>
