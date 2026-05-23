@@ -1078,6 +1078,12 @@
   }
 
   async function showIdentifyScreen(data) {
+    // Reset quantity FIRST, before anything else
+    const qtyInput = document.getElementById('quantityInput');
+    qtyInput.type = 'text';
+    qtyInput.value = '1';
+    qtyInput.type = 'number';
+
     const items = data.items || [];
     goTo('screen-identify');
     document.getElementById('photoBanner').src = capturedObjectUrl || '';
@@ -1137,7 +1143,10 @@
       } else {
         document.getElementById('altSection').style.display = 'none';
       }
-      document.getElementById('quantityInput').value = 1;
+      const qtyInput = document.getElementById('quantityInput');
+    qtyInput.type = 'text';
+    qtyInput.value = '1';
+    qtyInput.type = 'number';
       return;
     }
 
@@ -1224,7 +1233,6 @@
     } else {
       document.getElementById('altSection').style.display = 'none';
     }
-    document.getElementById('quantityInput').value = 1;
   }
 
   async function selectAlternative(i) {
@@ -1232,6 +1240,10 @@
     if (!item) return;
     document.querySelectorAll('.alt-card').forEach(c => c.classList.remove('selected'));
     document.getElementById(`alt-${i}`)?.classList.add('selected');
+    const qtyInput = document.getElementById('quantityInput');
+    qtyInput.type = 'text';
+    qtyInput.value = '1';
+    qtyInput.type = 'number';
     populateCardInfo(item);
     document.getElementById('colorSwatches').innerHTML =
       '<span style="color:#aaa;font-size:13px">Loading…</span>';
