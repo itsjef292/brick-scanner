@@ -80,7 +80,8 @@ def identify():
             bl_external_id = ext.get("external_id", bl_id)
 
             # Resolve BrickLink ID → Rebrickable ID
-            rb_id = bl_id
+            # Minifigs default to "fig-{bl_id}" format even if search fails
+            rb_id = f"fig-{bl_id}" if item_type == "minifig" else bl_id
             if item_type == "minifig":
                 try:
                     # Rebrickable doesn't support bricklink_id filtering for minifigs.
@@ -170,6 +171,7 @@ def get_part_colors(part_num):
         params={"key": API_KEY, "page_size": 100},
     )
     return jsonify(resp.json()), resp.status_code
+
 
 
 @app.route("/api/add_part", methods=["POST"])
