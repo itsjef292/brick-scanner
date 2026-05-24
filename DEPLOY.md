@@ -1,4 +1,4 @@
-# Deploying LEGO Scanner to Google Cloud Run
+# Deploying Brick Scanner to Google Cloud Run
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@
 
 ```bash
 # Set your project name
-export PROJECT_ID="lego-scanner"
+export PROJECT_ID="brick-scanner"
 export REGION="us-central1"
 
 # Create project
@@ -42,7 +42,7 @@ gcloud config set run/region $REGION
 ```bash
 cd /Users/jef/Claude/Lego
 
-gcloud run deploy lego-scanner \
+gcloud run deploy brick-scanner \
   --source . \
   --platform managed \
   --region us-central1 \
@@ -60,7 +60,7 @@ gcloud run deploy lego-scanner \
 
 1. **Push to GitHub:**
    ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/lego-scanner.git
+   git remote add origin https://github.com/YOUR_USERNAME/brick-scanner.git
    git branch -M main
    git push -u origin main
    ```
@@ -91,7 +91,7 @@ gcloud run deploy lego-scanner \
 
 **Via CLI:**
 ```bash
-gcloud run services update lego-scanner \
+gcloud run services update brick-scanner \
   --update-env-vars \
     REBRICKABLE_API_KEY=your_key,\
     REBRICKABLE_USER_TOKEN=your_token,\
@@ -106,10 +106,10 @@ gcloud run services update lego-scanner \
 After deployment:
 
 ```bash
-gcloud run services describe lego-scanner --region us-central1 --format 'value(status.url)'
+gcloud run services describe brick-scanner --region us-central1 --format 'value(status.url)'
 ```
 
-Your app will be live at the returned URL (e.g., `https://lego-scanner-abc123xyz-uc.a.run.app`)
+Your app will be live at the returned URL (e.g., `https://brick-scanner-abc123xyz-uc.a.run.app`)
 
 ## Step 6: Test on Mobile
 
@@ -128,26 +128,26 @@ The app will automatically rebuild and redeploy (if using GitHub integration).
 
 ### Manual redeploy:
 ```bash
-gcloud run deploy lego-scanner --source . --platform managed
+gcloud run deploy brick-scanner --source . --platform managed
 ```
 
 ## Monitoring & Logs
 
 ```bash
 # View logs
-gcloud run services logs read lego-scanner --limit 50
+gcloud run services logs read brick-scanner --limit 50
 
 # View real-time logs
-gcloud alpha run services logs tail lego-scanner
+gcloud alpha run services logs tail brick-scanner
 
 # Get service details
-gcloud run services describe lego-scanner
+gcloud run services describe brick-scanner
 ```
 
 ## Troubleshooting
 
 **Service won't deploy:**
-- Check logs: `gcloud run services logs read lego-scanner`
+- Check logs: `gcloud run services logs read brick-scanner`
 - Verify environment variables are set
 - Ensure `Dockerfile` is in root directory
 

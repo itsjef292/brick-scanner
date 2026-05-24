@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**LEGO Scanner** is a mobile-friendly web app that identifies LEGO parts from phone camera photos. The app:
+**Brick Scanner** is a mobile-friendly web app that identifies LEGO parts from phone camera photos. The app:
 1. Captures photos on iOS/Android
 2. Sends images to Brickognize API for part/minifig detection
 3. Performs server-side color detection via canvas pixel sampling (LAB color space)

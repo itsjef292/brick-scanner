@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: brick-scanner
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:10000 --workers 4 --timeout 60 app:app
+    envVars:
+      - key: REBRICKABLE_API_KEY
+        value: REDACTED_REBRICKABLE_API_KEY
+      - key: REBRICKABLE_USER_TOKEN
+        value: REDACTED_REBRICKABLE_USER_TOKEN
+      - key: BL_CONSUMER_KEY
+        value: REDACTED_BL_CONSUMER_KEY
+      - key: BL_CONSUMER_SECRET
+        value: REDACTED_BL_CONSUMER_SECRET
+      - key: BL_TOKEN
+        value: REDACTED_BL_TOKEN
+      - key: BL_TOKEN_SECRET
+        value: REDACTED_BL_TOKEN_SECRET
