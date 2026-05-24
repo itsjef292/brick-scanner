@@ -816,6 +816,13 @@
     <div id="setsList"></div>
   </div>
 
+  <!-- Minifig parts -->
+  <div class="parts-section" id="partsSection" style="display:none">
+    <div class="parts-label" id="partsLabel">Parts</div>
+    <div class="parts-list" id="partsList"></div>
+    <button class="btn" id="addAllPartsBtn" onclick="addMinifigParts()" style="margin:16px auto;display:block;">Add All Parts to List</button>
+  </div>
+
   <!-- Alternative matches -->
   <div class="alt-section" id="altSection" style="display:none">
     <div class="alt-label">Other matches</div>
@@ -1458,6 +1465,15 @@
         .then(data => renderMinifigSets(data))
         .catch(() => { document.getElementById('setsSection').style.display = 'none'; });
 
+      // Fetch parts for this minifigure
+      fetch(`/api/minifig_parts/${items[0].id}`)
+        .then(r => r.json())
+        .then(data => {
+          _minifigPartsData = data;
+          renderMinifigParts(data);
+        })
+        .catch(() => { document.getElementById('partsSection').style.display = 'none'; });
+
       const alts = items.slice(1, 5).filter(i => i.type === 'minifig');
       if (alts.length) {
         document.getElementById('altSection').style.display = 'block';
@@ -1800,6 +1816,90 @@
     .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });
   }
 
+  function addMinifigParts() {
+    const err = document.getElementById('identifyError');
+    err.style.display = 'none';
+
+    if (!_minifigPartsData || !_minifigPartsData.results || !_minifigPartsData.results.length) {
+      err.textContent = 'No parts available to add.';
+      err.style.display = 'block';
+      return;
+    }
+
+    const listId = document.getElementById('partListSelect').value;
+    const listName = document.getElementById('partListSelect').selectedOptions[0]?.text || '';
+
+    if (!listId) {
+      err.textContent = 'Please create a parts list first.';
+      err.style.display = 'block';
+      return;
+    }
+
+    const parts = _minifigPartsData.results;
+    const listNameClean = listName.split(' (')[0];
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+
+    // Add each part sequentially
+    const addNextPart = (index) => {
+      if (index >= parts.length) {
+        // All parts processed
+        if (successCount > 0) {
+          document.getElementById('successTitle').textContent = 'Parts Added!';
+          document.getElementById('successMsg').textContent =
+            `Added ${successCount} part${successCount !== 1 ? 's' : ''} to "${listNameClean}".`;
+          if (failCount > 0) {
+            document.getElementById('successMsg').textContent +=
+              ` (${failCount} failed)`;
+          }
+          loadPartlists(parseInt(listId));
+          goTo('screen-success');
+        } else {
+          err.textContent = `Failed to add parts: ${errors.join(', ')}`;
+          err.style.display = 'block';
+        }
+        return;
+      }
+
+      const p = parts[index];
+      const part = p.part || {};
+      const color = p.color || {};
+      const partNum = part.part_num;
+      const colorId = color.id;
+
+      fetch('/api/add_part', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          list_id: listId,
+          part_num: partNum,
+          color_id: colorId,
+          quantity: 1
+        })
+      })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          successCount++;
+        } else {
+          failCount++;
+          errors.push(part.name || partNum);
+        }
+        // Add next part
+        addNextPart(index + 1);
+      })
+      .catch(e => {
+        failCount++;
+        errors.push(part.name || partNum);
+        // Add next part
+        addNextPart(index + 1);
+      });
+    };
+
+    addNextPart(0);
+  }
+
   function renderMinifigPrice(data) {
     const grid = document.getElementById('priceGrid');
     const section = document.getElementById('priceSection');
@@ -1851,6 +1951,46 @@
         </div>
       </a>`).join('');
   }
+
+  function renderMinifigParts(data) {
+    const parts = data.results || [];
+    const section = document.getElementById('partsSection');
+    const partsList = document.getElementById('partsList');
+
+    if (!parts.length) { section.style.display = 'none'; return; }
+
+    const total = data.count || parts.length;
+    document.getElementById('partsLabel').textContent =
+      `Parts (${total})`;
+
+    partsList.innerHTML = parts.map(p => {
+      const part = p.part || {};
+      const color = p.color || {};
+      const partNum = part.part_num || '';
+      const partName = part.name || 'Unknown part';
+      const colorName = color.name || 'Unknown color';
+      const colorId = color.id;
+
+      // Try to get part image from part_img_url, fall back to BrickLink format
+      const partImgUrl = part.part_img_url ||
+        `https://cdn.rebrickable.com/media/parts/photos/${partNum}.jpg`;
+
+      return `
+        <div class="parts-card" style="display:inline-block;width:calc(50%-8px);margin:4px;padding:12px;background:#1a1a1a;border:1px solid #444;border-radius:8px;text-align:center;vertical-align:top;">
+          <div style="width:80px;height:80px;margin:0 auto 8px;background:#222;border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <img src="${partImgUrl}" alt="${partName}" style="max-width:100%;max-height:100%;object-fit:contain;" onerror="this.parentElement.style.background='#333'">
+          </div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:4px;color:#fff;word-break:break-word;max-height:40px;overflow:hidden;">${partName}</div>
+          <div style="font-size:11px;color:#aaa;margin-bottom:4px;">${partNum}</div>
+          <div style="font-size:11px;color:#0072CE;font-weight:500;">${colorName}</div>
+        </div>`;
+    }).join('');
+
+    section.style.display = 'block';
+  }
+
+  // Store parts data globally for bulk add
+  let _minifigPartsData = null;
 
   function goTo(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));

@@ -470,6 +470,24 @@ def get_minifig_price(fig_id):
     return jsonify(results)
 
 
+@app.route("/api/minifig_parts/<minifig_id>")
+def get_minifig_parts(minifig_id):
+    """Fetch parts that make up a minifigure from Rebrickable API."""
+    try:
+        parts_resp = requests.get(
+            f"{RB_BASE}/lego/minifigs/{minifig_id}/parts/",
+            params={"key": API_KEY},
+            timeout=8,
+        )
+        if parts_resp.status_code == 200:
+            return jsonify(parts_resp.json())
+        else:
+            return jsonify({"error": "Unable to fetch minifigure parts", "count": 0, "results": []}), 404
+    except Exception as e:
+        print(f"Error fetching minifig parts: {e}")
+        return jsonify({"error": str(e), "count": 0, "results": []}), 500
+
+
 if __name__ == "__main__":
     import socket
     hostname = socket.gethostname()
