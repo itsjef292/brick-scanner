@@ -1743,37 +1743,43 @@
       return;
     }
 
-    // Show list picker modal
-    fetch('/api/partlists')
-      .then(r => r.json())
-      .then(data => {
-        const lists = data.results || [];
-        const select = document.getElementById('selectPartListSelect');
+    // Check if a default list is selected
+    const defaultListId = document.getElementById('listSelect').value;
 
-        if (!lists.length) {
-          err.textContent = 'Please create a parts list first.';
+    if (defaultListId) {
+      // If a default list is selected, add directly to it
+      addPartToList(defaultListId);
+    } else {
+      // If no default list, show picker modal
+      fetch('/api/partlists')
+        .then(r => r.json())
+        .then(data => {
+          const lists = data.results || [];
+          const select = document.getElementById('selectPartListSelect');
+
+          if (!lists.length) {
+            err.textContent = 'Please create a parts list first.';
+            err.style.display = 'block';
+            return;
+          }
+
+          select.innerHTML = lists.map(l =>
+            `<option value="${l.id}">${l.name} (${l.num_parts} parts)</option>`
+          ).join('');
+
+          // Show the modal
+          document.getElementById('selectPartListModal').style.display = 'flex';
+        })
+        .catch(() => {
+          err.textContent = 'Failed to load lists.';
           err.style.display = 'block';
-          return;
-        }
-
-        select.innerHTML = lists.map(l =>
-          `<option value="${l.id}">${l.name} (${l.num_parts} parts)</option>`
-        ).join('');
-
-        // Show the modal
-        document.getElementById('selectPartListModal').style.display = 'flex';
-      })
-      .catch(() => {
-        err.textContent = 'Failed to load lists.';
-        err.style.display = 'block';
-      });
+        });
+    }
   }
 
-  function addPartToSelectedList() {
+  function addPartToList(listId, fromModal = false) {
     const err = document.getElementById('identifyError');
     const modal = document.getElementById('selectPartListModal');
-    const listId = document.getElementById('selectPartListSelect').value;
-    const listName = document.getElementById('selectPartListSelect').selectedOptions[0]?.text || '';
 
     if (!listId) {
       err.textContent = 'Please select a list.';
@@ -1781,8 +1787,14 @@
       return;
     }
 
-    // Hide the modal
-    modal.style.display = 'none';
+    // Get list name from the appropriate select element
+    let listName = '';
+    if (fromModal) {
+      listName = document.getElementById('selectPartListSelect').selectedOptions[0]?.text || '';
+      modal.style.display = 'none';
+    } else {
+      listName = document.getElementById('listSelect').selectedOptions[0]?.text || '';
+    }
 
     const qty = parseInt(document.getElementById('quantityInput').value) || 1;
     fetch('/api/add_part', {
@@ -1810,6 +1822,11 @@
       goTo('screen-success');
     })
     .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });
+  }
+
+  function addPartToSelectedList() {
+    const listId = document.getElementById('selectPartListSelect').value;
+    addPartToList(listId, true);
   }
 
   function removeOnePart() {
