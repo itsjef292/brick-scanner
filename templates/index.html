@@ -916,6 +916,7 @@
   let selectedColorRgb = '';
   let selectedColorNumSets = null;
   let selectedPart = null;
+  let currentPartColors = [];
   let currentInventoryQuantity = 0;
   let inventoryCheckToken = 0;
   let capturedObjectUrl = null;
@@ -1713,6 +1714,7 @@
     ]);
 
     const partColors = partColorsData.results || [];
+    currentPartColors = partColors;
     renderSwatches(partColors);
 
     // Debug: show sampled color as a small swatch in the header area
@@ -1803,6 +1805,7 @@
     const partColorsData = await fetch(`/api/part_colors/${item.id}`)
       .then(r => r.json()).catch(() => ({ results: [] }));
     const partColors = partColorsData.results || [];
+    currentPartColors = partColors;
     renderSwatches(partColors);
 
     // Reuse the detected RGB from the original scan
@@ -1889,10 +1892,13 @@
   });
 
   function renderColorDropdown(list) {
-    colorDropdown.innerHTML = list.map(c => `
-      <div class="color-option" onclick="applyColor(${c.id}, '${c.name.replace(/'/g,"\\'")}', '${c.rgb}'); colorDropdown.classList.remove('open');">
+    colorDropdown.innerHTML = list.map(c => {
+      const partColor = currentPartColors.find(pc => pc.color_id === c.id);
+      const numSets = partColor?.num_sets || 0;
+      return `<div class="color-option" onclick="applyColor(${c.id}, '${c.name.replace(/'/g,"\\'")}', '${c.rgb}', ${numSets}); colorDropdown.classList.remove('open');">
         <div class="color-swatch" style="background:#${c.rgb}"></div>${c.name}
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   function adjustQty(delta) {
