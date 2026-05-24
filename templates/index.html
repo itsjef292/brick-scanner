@@ -2249,9 +2249,18 @@
       section.style.display = 'none';
       return;
     }
-    // Hide if no valid num_sets
+    const selectedColor = currentPartColors.find(c => c.color_id === selectedColorId);
+    const label = document.getElementById('setsLabel');
+
+    // Always show for debugging if num_sets is missing/zero
     if (!selectedColorNumSets || selectedColorNumSets === 0) {
-      section.style.display = 'none';
+      if (selectedColor) {
+        label.textContent = `Color: ${selectedColor.color_name} | num_sets: ${selectedColorNumSets || 'undefined'} | Full: ${JSON.stringify(selectedColor).substring(0, 100)}...`;
+        setsList.innerHTML = '';
+      } else {
+        label.textContent = 'num_sets is 0 or missing';
+      }
+      section.style.display = 'block';
       return;
     }
     document.getElementById('setsLabel').textContent =
