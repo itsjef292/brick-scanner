@@ -775,6 +775,10 @@
       <span class="label">BrickLink ID</span>
       <span class="value" id="blValue">—</span>
     </div>
+    <div class="info-row" id="categoryRow" style="display:none;">
+      <span class="label">Theme</span>
+      <span class="value" id="categoryValue">—</span>
+    </div>
     <div class="info-row" id="colorRow" onclick="toggleColorSheet()" style="cursor:pointer;">
       <span class="label">Color</span>
       <span class="value" id="colorValue">
@@ -1293,12 +1297,14 @@
         ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?M=${blId}" target="_blank">${blId}</a>
            <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
         : '—';
+      document.getElementById('categoryRow').style.display = 'none'; // Will be shown by renderMinifigPrice if available
     } else {
       document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
       document.getElementById('blValue').innerHTML = blId
         ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${blId}" target="_blank">${blId}</a>
            <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
         : '—';
+      document.getElementById('categoryRow').style.display = 'none';
     }
 
     document.getElementById('colorRow').style.display = isMinifig ? 'none' : '';
@@ -1799,23 +1805,33 @@
     const section = document.getElementById('priceSection');
     const fmt = v => v ? `$${parseFloat(v).toFixed(2)}` : '—';
     const cards = [];
-    const labels = { U: 'Used', N: 'New' };
 
-    // Build category info if available
-    let categoryHtml = '';
+    // Display category in the info section if available
     if (data.category) {
-      categoryHtml = `<div style="color: #aaa; font-size: 12px; margin-bottom: 8px; text-align: center;">Category: ${data.category}</div>`;
+      const categoryRow = document.getElementById('categoryRow');
+      const categoryValue = document.getElementById('categoryValue');
+      if (categoryRow && categoryValue) {
+        // Format category nicely (e.g., "MINIFIG" -> "Minifigure", "SW" -> "Star Wars", etc.)
+        const categoryMap = {
+          'MINIFIG': 'Minifigure',
+          'SW': 'Star Wars',
+          'HP': 'Harry Potter',
+          'LOR': 'Lord of the Rings',
+          'TLM': 'The LEGO Movie',
+          'NINJAGO': 'Ninjago',
+          'CITY': 'City',
+          'FRIEND': 'Friends',
+          'CLASSIC': 'Classic'
+        };
+        const displayCategory = categoryMap[data.category] || data.category;
+        categoryValue.textContent = displayCategory;
+        categoryRow.style.display = '';
+      }
     }
 
     for (const [cond, label] of [['U', 'Used'], ['N', 'New']]) {
       const d = data[cond];
       if (!d || !d.avg_price) continue;
-
-      // Build availability info if inventory data exists
-      let availabilityHtml = '';
-      if (d.available_listings !== undefined) {
-        availabilityHtml = `<div class="price-availability" style="color: #0072CE; font-size: 13px; margin-top: 4px;">${d.available_listings} listing${d.available_listings !== 1 ? 's' : ''}</div>`;
-      }
 
       cards.push(`
         <div class="price-card">
@@ -1823,11 +1839,11 @@
           <div class="price-avg">${fmt(d.avg_price)}</div>
           <div class="price-range">${fmt(d.min_price)} – ${fmt(d.max_price)}</div>
           <div class="price-sales">${d.unit_quantity || 0} sales</div>
-          ${availabilityHtml}
+          <div class="price-availability" style="color: #0072CE; font-size: 13px; margin-top: 4px;">Available on BrickLink</div>
         </div>`);
     }
     if (!cards.length) return;
-    grid.innerHTML = categoryHtml + cards.join('');
+    grid.innerHTML = cards.join('');
     section.style.display = 'block';
   }
 

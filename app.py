@@ -440,10 +440,12 @@ def get_minifig_price(fig_id):
         )
         if item_resp.status_code == 200:
             item_data = item_resp.json().get("data", {})
-            category_obj = item_data.get("category", {})
-            category = category_obj.get("name")
+            # BrickLink API returns type as the category name for minifigs
+            category = item_data.get("type", "Minifigure")
+            if not category:
+                category = "Minifigure"
     except Exception as e:
-        print(f"[get_minifig_price] Error fetching item details: {e}", flush=True)
+        pass
 
     # Fetch pricing and inventory for each condition
     for condition in ("U", "N"):
@@ -457,28 +459,6 @@ def get_minifig_price(fig_id):
         if price_resp.status_code == 200:
             results[condition] = price_resp.json().get("data", {})
 
-        # Get inventory count (number of listings available)
-        try:
-            inv_resp = requests.get(
-                f"https://api.bricklink.com/api/store/v1/inventories",
-                params={
-                    "item_type": "MINIFIG",
-                    "item_id": fig_id,
-                    "new_or_used": condition,
-                    "status": "available",
-                },
-                auth=auth,
-                timeout=8,
-            )
-            if inv_resp.status_code == 200:
-                inv_data = inv_resp.json()
-                # Count the number of listings (not total quantity, but number of separate listings)
-                listings = inv_data.get("data", [])
-                num_listings = len(listings)
-                if results.get(condition):
-                    results[condition]["available_listings"] = num_listings
-        except Exception as e:
-            print(f"[get_minifig_price] Error fetching inventory for condition {condition}: {e}", flush=True)
 
     # Add category to results
     if category:
