@@ -245,7 +245,7 @@ No CSS files or preprocessors; inline styles for specific elements.
    - Run with: `python3 app.py`
    - Automatically reloads on code changes (via Flask debug mode)
 
-2. **Cloud Production** — `https://lego-scanner-es6d.onrender.com` (Render.com)
+2. **Cloud Production** — `https://brick-scanner.onrender.com` (Render.com)
    - Public URL accessible from anywhere
    - Auto-deploys when you push to GitHub
    - ~$5-50/month depending on usage
@@ -342,7 +342,7 @@ python3 app.py
 # Open on phone: http://127.0.0.1:5001 (same Wi-Fi)
 
 # Or use public cloud URL:
-# https://lego-scanner-es6d.onrender.com (anywhere)
+# https://brick-scanner.onrender.com (anywhere)
 ```
 
 **Common issues:**

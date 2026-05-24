@@ -83,12 +83,13 @@
       padding: 20px;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 2px;
       flex: 1;
+      flex-direction: column;
     }
     .spinner {
-      width: 250px;
-      height: 250px;
+      width: 200px;
+      height: 200px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -634,8 +635,8 @@
 <body>
 
 <header>
-  <img src="/static/minifig.png"
-       alt="LEGO Minifigure"
+  <img src="/static/brick.svg"
+       alt="LEGO Brick"
        style="height:44px;width:auto;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));">
   <h1>LEGO Scanner</h1>
 </header>
@@ -699,7 +700,7 @@
 <!-- Screen 2: Loading -->
 <div class="screen" id="screen-loading">
   <div class="spinner">
-    <svg class="magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+    <svg class="magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" style="transform:scale(0.6);">
       <!-- Define defs for filters first -->
       <defs>
         <clipPath id="lensClip">
@@ -728,24 +729,20 @@
         <circle cx="29" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
       </g>
 
-      <!-- Static LEGO Minifigure (minifigs mode) -->
+      <!-- Static LEGO Brick (minifigs mode) -->
       <g id="minifig-content" style="display:none;">
-        <!-- Head -->
-        <circle cx="20" cy="10" r="3" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Torso -->
-        <rect x="17" y="13" width="6" height="7" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Left arm -->
-        <line x1="17" y1="15" x2="12" y2="15" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Right arm -->
-        <line x1="23" y1="15" x2="28" y2="15" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Left leg -->
-        <line x1="18" y1="20" x2="18" y2="25" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Right leg -->
-        <line x1="22" y1="20" x2="22" y2="25" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
+        <!-- Brick base -->
+        <rect x="10" y="12" width="20" height="12" rx="1" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
+        <!-- Stud 1 -->
+        <circle cx="14" cy="10" r="1.5" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
+        <!-- Stud 2 -->
+        <circle cx="20" cy="10" r="1.5" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
+        <!-- Stud 3 -->
+        <circle cx="26" cy="10" r="1.5" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
       </g>
 
       <!-- Scanning beam (animated rectangle) -->
-      <rect id="scanBeam" x="6" y="5" width="2" height="30" fill="#22C55E" filter="url(#scanGlow)" opacity="0.9"/>
+      <rect id="scanBeam" x="6" y="5" width="1.2" height="18" fill="#22C55E" filter="url(#scanGlow)" opacity="0.9"/>
     </svg>
   </div>
   <p id="loadingText">Identifying part...</p>
