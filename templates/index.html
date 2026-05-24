@@ -1857,6 +1857,11 @@
   function renderSwatches(partColors) {
     const container = document.getElementById('colorSwatches');
     if (!partColors.length) { container.innerHTML = ''; return; }
+    // Show debug info about available colors
+    const hasBlack = partColors.some(c => c.color_name.toLowerCase().includes('black'));
+    const colorsList = partColors.map(c => `${c.color_name}(${c.color_id},sets:${c.num_sets})`).join(' | ');
+    document.getElementById('colorSearch').placeholder = `Has black: ${hasBlack} | Colors: ${colorsList.substring(0, 100)}...`;
+
     partColors.sort((a, b) => (b.num_sets || 0) - (a.num_sets || 0));
     const colorMap = Object.fromEntries(colors.map(c => [c.id, c.rgb]));
     container.innerHTML = partColors.map(c => {
