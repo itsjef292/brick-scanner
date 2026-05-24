@@ -1800,19 +1800,34 @@
     const fmt = v => v ? `$${parseFloat(v).toFixed(2)}` : '—';
     const cards = [];
     const labels = { U: 'Used', N: 'New' };
+
+    // Build category info if available
+    let categoryHtml = '';
+    if (data.category) {
+      categoryHtml = `<div style="color: #aaa; font-size: 12px; margin-bottom: 8px; text-align: center;">Category: ${data.category}</div>`;
+    }
+
     for (const [cond, label] of [['U', 'Used'], ['N', 'New']]) {
       const d = data[cond];
       if (!d || !d.avg_price) continue;
+
+      // Build availability info if inventory data exists
+      let availabilityHtml = '';
+      if (d.available_listings !== undefined) {
+        availabilityHtml = `<div class="price-availability" style="color: #0072CE; font-size: 13px; margin-top: 4px;">${d.available_listings} listing${d.available_listings !== 1 ? 's' : ''}</div>`;
+      }
+
       cards.push(`
         <div class="price-card">
           <div class="price-card-title">${label}</div>
           <div class="price-avg">${fmt(d.avg_price)}</div>
           <div class="price-range">${fmt(d.min_price)} – ${fmt(d.max_price)}</div>
           <div class="price-sales">${d.unit_quantity || 0} sales</div>
+          ${availabilityHtml}
         </div>`);
     }
     if (!cards.length) return;
-    grid.innerHTML = cards.join('');
+    grid.innerHTML = categoryHtml + cards.join('');
     section.style.display = 'block';
   }
 

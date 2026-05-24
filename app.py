@@ -428,15 +428,61 @@ def add_minifig():
 def get_minifig_price(fig_id):
     auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
     results = {}
+    category = None
+
+    # Fetch item details for category
+    try:
+        item_resp = requests.get(
+            f"https://api.bricklink.com/api/store/v1/items/MINIFIG/{fig_id}",
+            auth=auth,
+            timeout=8,
+        )
+        if item_resp.status_code == 200:
+            item_data = item_resp.json().get("data", {})
+            category_obj = item_data.get("category", {})
+            category = category_obj.get("name")
+    except Exception as e:
+        print(f"[get_minifig_price] Error fetching item details: {e}")
+
+    # Fetch pricing and inventory for each condition
     for condition in ("U", "N"):
-        resp = requests.get(
+        # Get pricing data
+        price_resp = requests.get(
             f"https://api.bricklink.com/api/store/v1/items/MINIFIG/{fig_id}/price",
             params={"guide_type": "sold", "new_or_used": condition, "currency_code": "USD"},
             auth=auth,
             timeout=8,
         )
-        if resp.status_code == 200:
-            results[condition] = resp.json().get("data", {})
+        if price_resp.status_code == 200:
+            results[condition] = price_resp.json().get("data", {})
+
+        # Get inventory count (number of listings available)
+        try:
+            inv_resp = requests.get(
+                f"https://api.bricklink.com/api/store/v1/inventories",
+                params={
+                    "item_type": "MINIFIG",
+                    "item_id": fig_id,
+                    "new_or_used": condition,
+                    "status": "available",
+                },
+                auth=auth,
+                timeout=8,
+            )
+            if inv_resp.status_code == 200:
+                inv_data = inv_resp.json()
+                # Count the number of listings (not total quantity, but number of separate listings)
+                listings = inv_data.get("data", [])
+                num_listings = len(listings)
+                if results.get(condition):
+                    results[condition]["available_listings"] = num_listings
+        except Exception as e:
+            print(f"[get_minifig_price] Error fetching inventory for condition {condition}: {e}")
+
+    # Add category to results
+    if category:
+        results["category"] = category
+
     return jsonify(results)
 
 
