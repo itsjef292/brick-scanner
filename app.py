@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import re
+import sys
 import requests
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth1
@@ -442,7 +443,7 @@ def get_minifig_price(fig_id):
             category_obj = item_data.get("category", {})
             category = category_obj.get("name")
     except Exception as e:
-        print(f"[get_minifig_price] Error fetching item details: {e}")
+        print(f"[get_minifig_price] Error fetching item details: {e}", flush=True)
 
     # Fetch pricing and inventory for each condition
     for condition in ("U", "N"):
@@ -477,7 +478,7 @@ def get_minifig_price(fig_id):
                 if results.get(condition):
                     results[condition]["available_listings"] = num_listings
         except Exception as e:
-            print(f"[get_minifig_price] Error fetching inventory for condition {condition}: {e}")
+            print(f"[get_minifig_price] Error fetching inventory for condition {condition}: {e}", flush=True)
 
     # Add category to results
     if category:
