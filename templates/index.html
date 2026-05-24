@@ -820,7 +820,21 @@
   <div class="parts-section" id="partsSection" style="display:none">
     <div class="parts-label" id="partsLabel">Parts</div>
     <div class="parts-list" id="partsList"></div>
-    <button class="btn" id="addAllPartsBtn" onclick="addMinifigParts()" style="margin:16px auto;display:block;">Add All Parts to List</button>
+    <button class="btn" id="addAllPartsBtn" onclick="showAddPartsListPicker()" style="margin:16px auto;display:block;">Add All Parts to List</button>
+  </div>
+
+  <!-- List picker modal for bulk parts add -->
+  <div id="addPartsListModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;">
+    <div style="background:#1a1a1a;border:1px solid #444;border-radius:12px;padding:24px;max-width:90%;width:400px;max-height:80vh;overflow-y:auto;">
+      <h3 style="margin:0 0 16px 0;color:#fff;">Select List</h3>
+      <select id="addPartsListSelect" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #444;border-radius:8px;margin-bottom:16px;font-size:14px;">
+        <option value="">Loading lists...</option>
+      </select>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn secondary" onclick="document.getElementById('addPartsListModal').style.display='none'" style="margin:0;">Cancel</button>
+        <button class="btn" onclick="addMinifigPartsToSelected()" style="margin:0;">Add Parts</button>
+      </div>
+    </div>
   </div>
 
   <!-- Alternative matches -->
@@ -1816,7 +1830,7 @@
     .catch(() => { err.textContent = 'Network error.'; err.style.display = 'block'; });
   }
 
-  function addMinifigParts() {
+  function showAddPartsListPicker() {
     const err = document.getElementById('identifyError');
     err.style.display = 'none';
 
@@ -1826,14 +1840,46 @@
       return;
     }
 
-    const listId = document.getElementById('partListSelect').value;
-    const listName = document.getElementById('partListSelect').selectedOptions[0]?.text || '';
+    // Fetch lists and populate the picker
+    fetch('/api/partlists')
+      .then(r => r.json())
+      .then(data => {
+        const lists = data.results || [];
+        const select = document.getElementById('addPartsListSelect');
+
+        if (!lists.length) {
+          err.textContent = 'Please create a parts list first.';
+          err.style.display = 'block';
+          return;
+        }
+
+        select.innerHTML = lists.map(l =>
+          `<option value="${l.id}">${l.name} (${l.num_parts} parts)</option>`
+        ).join('');
+
+        // Show the modal
+        document.getElementById('addPartsListModal').style.display = 'flex';
+      })
+      .catch(() => {
+        err.textContent = 'Failed to load lists.';
+        err.style.display = 'block';
+      });
+  }
+
+  function addMinifigPartsToSelected() {
+    const err = document.getElementById('identifyError');
+    const modal = document.getElementById('addPartsListModal');
+    const listId = document.getElementById('addPartsListSelect').value;
+    const listName = document.getElementById('addPartsListSelect').selectedOptions[0]?.text || '';
 
     if (!listId) {
-      err.textContent = 'Please create a parts list first.';
+      err.textContent = 'Please select a list.';
       err.style.display = 'block';
       return;
     }
+
+    // Hide the modal
+    modal.style.display = 'none';
 
     const parts = _minifigPartsData.results;
     const listNameClean = listName.split(' (')[0];
