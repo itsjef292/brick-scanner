@@ -418,15 +418,19 @@ def get_minifig(minifig_id):
                 bl_data = resp.json()
                 if 'data' in bl_data:
                     item = bl_data['data']
+                    img_url = item.get('image_url', '')
+                    # BrickLink returns relative URLs, fix them
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
                     return jsonify({
                         'fig_num': item.get('no'),
                         'name': item.get('name'),
-                        'fig_img_url': item.get('image_url'),
+                        'fig_img_url': img_url,
                         'external_id': item.get('no'),
                         'source': 'bricklink'
                     }), 200
         except Exception as e:
-            print(f"BrickLink lookup error: {e}")
+            print(f"BrickLink lookup error for {minifig_id}: {e}", file=sys.stderr)
 
     # Try Rebrickable (either as primary for fig- format, or as fallback)
     try:
@@ -459,15 +463,19 @@ def get_minifig(minifig_id):
                 bl_data = resp.json()
                 if 'data' in bl_data:
                     item = bl_data['data']
+                    img_url = item.get('image_url', '')
+                    # BrickLink returns relative URLs, fix them
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
                     return jsonify({
                         'fig_num': item.get('no'),
                         'name': item.get('name'),
-                        'fig_img_url': item.get('image_url'),
+                        'fig_img_url': img_url,
                         'external_id': item.get('no'),
                         'source': 'bricklink'
                     }), 200
         except Exception as e:
-            print(f"BrickLink fallback lookup error: {e}")
+            print(f"BrickLink fallback lookup error for {minifig_id}: {e}", file=sys.stderr)
 
     return jsonify({"error": "Minifig not found"}), 404
 
