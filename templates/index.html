@@ -662,6 +662,19 @@
     <div id="partSearchError" style="color:#ff6b6b;font-size:12px;margin-top:8px;display:none;"></div>
   </div>
 
+  <!-- Minifig search box -->
+  <div id="minifigSearchSection" style="padding:20px 20px 0;display:none;">
+    <label style="display:block;font-size:13px;color:#aaa;margin-bottom:8px;">Search by minifig ID or BrickLink code</label>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <input id="minifigSearchInput" type="text" placeholder="e.g., sw1094 or fig-000001"
+        style="flex:1;padding:10px 12px;border:1px solid #444;border-radius:8px;font-size:15px;background:#222;color:#fff;"
+        onkeydown="if(event.key==='Enter')searchMinifigById()">
+      <button onclick="searchMinifigById()"
+        style="padding:10px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Search</button>
+    </div>
+    <div id="minifigSearchError" style="color:#ff6b6b;font-size:12px;margin-bottom:8px;display:none;"></div>
+  </div>
+
   <div class="scan-area" style="margin:20px;border-radius:16px;">
     <div class="scan-icon">🔍</div>
     <p id="scanHint">Take a photo of a LEGO part to identify it and add it to your parts list.</p>
@@ -690,16 +703,6 @@
 
   <!-- Minifig note (Rebrickable API is read-only for minifig collection) -->
   <div id="minifigListRow" style="padding:0 20px 16px;display:none;">
-    <!-- Minifig search box -->
-    <label style="display:block;font-size:13px;color:#aaa;margin-bottom:8px;">Search by minifig ID or BrickLink code</label>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <input id="minifigSearchInput" type="text" placeholder="e.g., M123 or fig-000001"
-        style="flex:1;padding:10px 12px;border:1px solid #444;border-radius:8px;font-size:15px;background:#222;color:#fff;"
-        onkeydown="if(event.key==='Enter')searchMinifigById()">
-      <button onclick="searchMinifigById()"
-        style="padding:10px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Search</button>
-    </div>
-    <div id="minifigSearchError" style="color:#ff6b6b;font-size:12px;margin-bottom:8px;display:none;"></div>
     <p style="margin:0;font-size:13px;color:#aaa;line-height:1.4;">
       Minifig tracking isn't available via the Rebrickable API — use the link above to view it on Rebrickable directly.
     </p>
@@ -958,6 +961,8 @@
     document.querySelectorAll('.mode-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.mode === m);
     });
+    document.getElementById('partsSearchSection').style.display = m === 'parts' ? '' : 'none';
+    document.getElementById('minifigSearchSection').style.display = m === 'minifigs' ? '' : 'none';
     document.getElementById('partListRow').style.display = m === 'parts' ? '' : 'none';
     document.getElementById('minifigListRow').style.display = m === 'minifigs' ? '' : 'none';
     document.getElementById('scanHint').textContent = m === 'parts'
