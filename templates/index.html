@@ -4,680 +4,881 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Brick Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --yellow: #0080FF;
+      --yellow-dim: #0060CC;
+      --yellow-glow: rgba(0,128,255,0.12);
+      --yellow-glow-md: rgba(0,128,255,0.2);
+      --bg: #080808;
+      --surface: #111111;
+      --surface2: #1A1A1A;
+      --surface3: #222222;
+      --border: #2A2A2A;
+      --border-bright: #3A3A3A;
+      --text: #F0F0F0;
+      --muted: #888888;
+      --muted2: #555555;
+      --blue: #3B82F6;
+      --green: #22C55E;
+      --green-dim: #14532D;
+      --red: #EF4444;
+      --red-bg: #2D0A0A;
+      --red-border: #6B1F1F;
+      --red-text: #FCA5A5;
+      --font-display: 'Barlow Condensed', sans-serif;
+      --font-body: 'Barlow', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+      --max-w: 480px;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { overflow-x: hidden; max-width: 100%; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a;
-      color: #fff;
+      font-family: var(--font-body);
+      background: var(--bg);
+      background-image: radial-gradient(circle at 1px 1px, rgba(0,128,255,0.04) 1px, transparent 0);
+      background-size: 24px 24px;
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
+
+    /* ── Header ── */
     header {
       width: 100%;
-      background: #0072CE;
-      padding: 16px 20px;
+      background: var(--surface);
+      border-bottom: 2px solid var(--yellow);
+      padding: 10px 14px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-sizing: border-box;
     }
-    header h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
-    header span { font-size: 26px; }
-    .screen { display: none; width: 100%; max-width: 480px; flex-direction: column; }
+    header img {
+      height: 28px;
+      width: auto;
+      flex-shrink: 0;
+      object-fit: contain;
+      filter: brightness(0) saturate(100%) invert(30%) sepia(97%) saturate(1500%) hue-rotate(205deg) brightness(110%) contrast(110%);
+    }
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--yellow);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ── Mode Tabs ── */
+    .mode-tabs {
+      width: 100%;
+      max-width: var(--max-w);
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 4px 6px;
+      gap: 3px;
+    }
+    .mode-tab {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 2px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s, color 0.15s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .mode-tab img { height: 18px; width: auto; filter: brightness(0.6); }
+    .mode-tab .tab-emoji { font-size: 15px; }
+    .mode-tab.active {
+      background: var(--yellow);
+      color: #fff;
+    }
+    .mode-tab.active img { filter: brightness(10) saturate(0); }
+
+    /* ── Screens ── */
+    .screen { display: none; width: 100%; max-width: var(--max-w); flex-direction: column; box-sizing: border-box; overflow-x: hidden; }
     .screen.active { display: flex; }
 
     /* ── Screen 1: Scan ── */
-    #screen-scan { padding: 24px 20px; gap: 20px; }
+    #screen-scan { padding: 20px 16px; gap: 16px; }
+
+    .search-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .search-section label {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .search-row {
+      display: flex;
+      gap: 8px;
+    }
+    .search-row input {
+      flex: 1;
+      padding: 10px 12px;
+      background: var(--surface3);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text);
+    }
+    .search-row input:focus { outline: none; border-color: var(--yellow); }
+    .search-row input::placeholder { color: var(--muted2); }
+    .search-row .search-btn {
+      padding: 10px 14px;
+      background: var(--yellow);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .search-row .search-btn:active { opacity: 0.8; }
+    #partSearchError, #minifigSearchError {
+      color: var(--red);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    /* ── Scan area ── */
     .scan-area {
-      background: #1a1a1a;
-      border-radius: 16px;
-      padding: 36px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 14px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.3);
+      position: relative;
     }
-    .scan-icon { font-size: 60px; }
-    .scan-area p { color: #aaa; text-align: center; font-size: 14px; line-height: 1.5; }
+    .scan-area::before,
+    .scan-area::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: var(--yellow);
+      border-style: solid;
+    }
+    .scan-area::before {
+      top: 10px; left: 10px;
+      border-width: 2px 0 0 2px;
+    }
+    .scan-area::after {
+      bottom: 10px; right: 10px;
+      border-width: 0 2px 2px 0;
+    }
+    .scan-area .corner-br::before {
+      content: '';
+      position: absolute;
+      bottom: 10px; left: 10px;
+      width: 24px; height: 24px;
+      border-width: 0 0 2px 2px;
+      border-color: var(--yellow);
+      border-style: solid;
+    }
+    .scan-area .corner-tr::before {
+      content: '';
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 24px; height: 24px;
+      border-width: 2px 2px 0 0;
+      border-color: var(--yellow);
+      border-style: solid;
+    }
+    .scan-icon {
+      font-size: 56px;
+      filter: drop-shadow(0 0 12px rgba(0,128,255,0.3));
+    }
+    .scan-area p {
+      color: var(--muted);
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.5;
+    }
     #cameraInput { display: none; }
+
+    /* ── Buttons ── */
     .btn {
-      background: #0072CE;
+      background: var(--yellow);
       color: #fff;
       border: none;
       padding: 14px 28px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
+      border-radius: var(--radius);
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
       cursor: pointer;
       width: 100%;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s, transform 0.1s;
     }
-    .btn:active { opacity: 0.75; }
+    .btn:active { opacity: 0.8; transform: scale(0.98); }
     .btn.secondary {
-      background: #222;
-      border: 1px solid #444;
-      color: #fff;
+      background: var(--surface3);
+      border: 1px solid var(--border-bright);
+      color: var(--muted);
+      font-size: 15px;
     }
-    .btn.green { background: #0072CE; }
-    .list-selector label { font-size: 13px; color: #888; margin-bottom: 6px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .btn.green { background: var(--yellow); color: #fff; }
+
+    /* ── List selector ── */
+    .list-selector label {
+      font-family: var(--font-display);
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      display: block;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
     select {
       width: 100%;
-      padding: 12px 14px;
-      background: #222;
-      border: 1px solid #444;
-      border-radius: 10px;
-      color: #fff;
+      padding: 11px 14px;
+      background: var(--surface3);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-body);
       font-size: 15px;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230080FF' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 14px center;
     }
-    select:focus { outline: none; border-color: #0072CE; }
+    select:focus { outline: none; border-color: var(--yellow); }
 
     /* ── Screen 2: Loading ── */
     #screen-loading {
       padding: 20px;
       align-items: center;
       justify-content: center;
-      gap: 2px;
+      gap: 16px;
       flex: 1;
       flex-direction: column;
+      min-height: 60vh;
     }
-    .spinner {
-      width: 200px;
-      height: 200px;
+
+    .scanner-frame {
+      width: 180px;
+      height: 180px;
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto;
-      flex-shrink: 0;
     }
-    .magnifying-glass {
-      width: 100%;
-      height: 100%;
-      max-width: 250px;
-      max-height: 250px;
+    .scanner-frame::before,
+    .scanner-frame::after {
+      content: '';
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-color: var(--yellow);
+      border-style: solid;
     }
-    #loadingText {
-      color: #22C55E;
-      font-size: 22px;
-      font-weight: 700;
-      padding: 8px 16px;
-      display: inline-block;
-      text-shadow:
-        -2px 0 #000000,
-        2px 0 #000000,
-        0 -2px #000000,
-        0 2px #000000,
-        -2px -2px #000000,
-        2px -2px #000000,
-        -2px 2px #000000,
-        2px 2px #000000;
+    .scanner-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
+    .scanner-frame::after  { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+    .scanner-frame .c-br::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 32px; height: 32px;
+      border-width: 0 0 3px 3px;
+      border-color: var(--yellow);
+      border-style: solid;
+    }
+    .scanner-frame .c-tr::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 32px; height: 32px;
+      border-width: 3px 3px 0 0;
+      border-color: var(--yellow);
+      border-style: solid;
+    }
+    .scanner-inner {
+      position: absolute;
+      inset: 4px;
+      overflow: hidden;
+    }
+    .scanner-beam {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, var(--yellow) 20%, rgba(255,215,0,0.8) 50%, var(--yellow) 80%, transparent 100%);
+      box-shadow: 0 0 8px 2px rgba(0,128,255,0.5), 0 0 20px 4px rgba(0,128,255,0.2);
+      animation: scan-beam 2s ease-in-out infinite;
+    }
+    @keyframes scan-beam {
+      0%   { top: 0; opacity: 0; }
+      8%   { opacity: 1; }
+      92%  { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .scanner-lego-icon {
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brick-svg {
+      width: 150px;
+      height: auto;
+      filter: drop-shadow(0 6px 16px rgba(0,80,200,0.55));
     }
 
-    /* ── Screen 3: Identify (merged results + details) ── */
+    /* Hidden SVG for JS compat — keep in DOM */
+    .magnifying-glass { display: none; }
+
+    #loadingText {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--yellow);
+      animation: pulse-text 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-text {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ── Screen 3: Identify ── */
     .photo-banner {
       width: 100%;
-      max-height: 260px;
+      max-height: 240px;
       object-fit: cover;
-      background: #222;
+      background: var(--surface2);
       display: block;
     }
     .identify-card {
-      background: #1a1a1a;
+      background: var(--surface);
       border-radius: 0;
-      padding: 0 0 16px;
+      padding: 0 0 12px;
     }
     .dual-images {
       display: flex;
       gap: 0;
       width: 100%;
-      height: 140px;
+      height: 130px;
     }
     .dual-images img {
       flex: 1;
       width: 50%;
       object-fit: contain;
-      background: #222;
-      border-bottom: 1px solid #333;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
     }
-    .dual-images img:first-child {
-      border-right: 1px solid #333;
-    }
-    .part-info {
-      padding: 16px 16px 0;
-    }
+    .dual-images img:first-child { border-right: 1px solid var(--border); }
+
+    .part-info { padding: 14px 14px 0; }
     .part-info .part-name {
-      font-size: 19px;
+      font-family: var(--font-display);
+      font-size: 20px;
       font-weight: 700;
-      line-height: 1.3;
-      color: #fff;
+      line-height: 1.25;
+      color: var(--text);
+      letter-spacing: 0.3px;
     }
+
     .info-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 11px 16px;
-      border-bottom: 1px solid #333;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
     }
     .info-row .label {
-      font-size: 14px;
-      color: #aaa;
-      width: 90px;
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      width: 88px;
       flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
     }
     .info-row .value {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
-      color: #fff;
+      color: var(--text);
       display: flex;
       align-items: center;
       gap: 6px;
       flex: 1;
     }
-    .info-row .value a {
-      color: #0072CE;
-      text-decoration: none;
-    }
+    .info-row .value a { color: var(--yellow); text-decoration: none; }
     .copy-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: #666;
-      font-size: 15px;
-      padding: 2px 4px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted2); font-size: 14px; padding: 2px 4px;
     }
-    .copy-btn:active { color: #aaa; }
+    .copy-btn:active { color: var(--muted); }
     .color-dot {
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.15);
-      flex-shrink: 0;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;
     }
     .color-change-btn {
       margin-left: auto;
-      background: #222;
-      border: 1px solid #444;
-      border-radius: 8px;
+      background: var(--surface3);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm);
       padding: 5px 10px;
-      font-size: 13px;
-      color: #aaa;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--yellow);
       cursor: pointer;
+      letter-spacing: 0.4px;
     }
+
+    /* ── Inventory row ── */
     .inventory-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 11px 16px;
-      border-bottom: 1px solid #333;
-      background: #171717;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
     }
     .inventory-row.hidden { display: none; }
-    .inventory-row.found { background: #101a12; }
+    .inventory-row.found { background: #0B1A10; border-bottom-color: #1A3A22; }
     .inventory-check {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: #444;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: 800;
-      flex-shrink: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--surface3);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; flex-shrink: 0;
     }
-    .inventory-row.found .inventory-check { background: #19a64a; }
+    .inventory-row.found .inventory-check { background: var(--green); color: #000; }
     .inventory-status-text {
-      flex: 1;
-      color: #aaa;
-      font-size: 14px;
-      font-weight: 600;
+      flex: 1; color: var(--muted); font-size: 13px; font-weight: 500;
     }
-    .inventory-row.found .inventory-status-text { color: #d8ffe3; }
+    .inventory-row.found .inventory-status-text { color: #86EFAC; }
     .inventory-remove-btn {
-      background: #3a1618;
-      border: 1px solid #7a3035;
-      color: #ffb8bf;
-      border-radius: 8px;
-      padding: 7px 10px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      flex-shrink: 0;
+      background: var(--red-bg); border: 1px solid var(--red-border);
+      color: var(--red-text); border-radius: var(--radius-sm);
+      padding: 6px 10px; font-family: var(--font-display);
+      font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+      letter-spacing: 0.4px; text-transform: uppercase;
     }
-    .inventory-remove-btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
+    .inventory-remove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Color sheet */
+    /* ── Color sheet ── */
     .color-sheet {
-      background: #1a1a1a;
-      border-top: 1px solid #333;
-      padding: 12px 16px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 14px 14px;
       display: none;
     }
     .color-sheet.open { display: block; }
     .color-sheet-label {
-      font-size: 12px;
-      color: #888;
+      font-family: var(--font-display);
+      font-size: 11px;
+      color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       margin-bottom: 10px;
     }
     .swatch-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-      margin-bottom: 10px;
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
     }
     .swatch-btn {
       display: flex; align-items: center; gap: 5px;
       padding: 5px 10px; border-radius: 20px;
-      background: #222; border: 2px solid transparent;
-      color: #fff; font-size: 13px; cursor: pointer;
+      background: var(--surface3); border: 1.5px solid transparent;
+      color: var(--text); font-size: 13px; cursor: pointer;
+      transition: border-color 0.12s;
     }
-    .swatch-btn.selected { border-color: #0072CE; background: #2a1f1f; color: #ff6b6b; }
-    .swatch-btn .dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
+    .swatch-btn.selected { border-color: var(--yellow); background: rgba(0,128,255,0.08); }
+    .swatch-btn .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
     .color-search-wrap { position: relative; margin-top: 4px; }
     .color-search-wrap input {
-      width: 100%;
-      padding: 10px 12px;
-      background: #222;
-      border: 1px solid #444;
-      border-radius: 10px;
-      font-size: 14px;
-      color: #fff;
+      width: 100%; padding: 9px 12px;
+      background: var(--surface3); border: 1px solid var(--border-bright);
+      border-radius: var(--radius); font-size: 14px; color: var(--text);
+      font-family: var(--font-body);
     }
-    .color-search-wrap input:focus { outline: none; border-color: #0072CE; }
-    .color-search-wrap input::placeholder { color: #666; }
+    .color-search-wrap input:focus { outline: none; border-color: var(--yellow); }
+    .color-search-wrap input::placeholder { color: var(--muted2); }
     .color-dropdown {
       position: absolute; top: 100%; left: 0; right: 0;
-      background: #1a1a1a; border: 1px solid #444;
-      border-radius: 10px; max-height: 200px;
+      background: var(--surface2); border: 1px solid var(--border-bright);
+      border-radius: var(--radius); max-height: 200px;
       overflow-y: auto; z-index: 100; display: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
     .color-dropdown.open { display: block; }
     .color-option {
-      padding: 9px 12px;
-      display: flex; align-items: center; gap: 9px;
-      cursor: pointer; font-size: 14px;
-      color: #fff;
+      padding: 9px 12px; display: flex; align-items: center; gap: 9px;
+      cursor: pointer; font-size: 14px; color: var(--text);
     }
-    .color-option:hover { background: #222; }
-    .color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
+    .color-option:hover { background: var(--surface3); }
+    .color-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
 
     /* ── Minifig price ── */
     .price-section {
-      background: #1a1a1a;
-      margin-top: 8px;
-      padding: 12px 16px;
+      background: var(--surface); margin-top: 6px; padding: 12px 14px;
     }
     .price-label {
-      font-size: 12px; color: #888;
-      text-transform: uppercase; letter-spacing: 0.5px;
-      margin-bottom: 10px;
+      font-family: var(--font-display); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
     }
-    .price-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
+    .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .price-card {
-      background: #2a2a3e;
-      border-radius: 8px;
-      padding: 10px 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px;
     }
     .price-card-title {
-      font-size: 11px;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      margin-bottom: 6px;
+      font-family: var(--font-display); font-size: 10px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;
     }
     .price-avg {
-      font-size: 20px;
-      font-weight: 700;
-      color: #0072CE;
+      font-family: var(--font-mono); font-size: 18px;
+      font-weight: 700; color: var(--yellow);
     }
-    .price-range {
-      font-size: 11px;
-      color: #888;
-      margin-top: 2px;
-    }
-    .price-sales {
-      font-size: 11px;
-      color: #777;
-      margin-top: 1px;
-    }
+    .price-range { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .price-sales { font-size: 11px; color: var(--muted2); margin-top: 1px; }
 
     /* ── Minifig sets ── */
-    .sets-section {
-      background: #1a1a1a;
-      margin-top: 8px;
-      padding: 12px 16px 4px;
-    }
+    .sets-section { background: var(--surface); margin-top: 6px; padding: 12px 14px 4px; }
     .sets-label {
-      font-size: 12px; color: #888;
-      text-transform: uppercase; letter-spacing: 0.5px;
-      margin-bottom: 8px;
+      font-family: var(--font-display); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
     }
     .set-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 0;
-      border-bottom: 1px solid #333;
-      text-decoration: none;
-      color: inherit;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+      text-decoration: none; color: inherit;
     }
     .set-row:last-child { border-bottom: none; }
     .set-thumb {
-      width: 72px; height: 54px;
-      object-fit: contain;
-      background: #222;
-      border-radius: 6px;
-      flex-shrink: 0;
+      width: 64px; height: 48px; object-fit: contain;
+      background: var(--surface2); border-radius: var(--radius-sm); flex-shrink: 0;
     }
     .set-info { flex: 1; min-width: 0; }
-    .set-name { font-size: 14px; font-weight: 600; color: #fff; line-height: 1.3; }
-    .set-meta { font-size: 12px; color: #888; margin-top: 2px; }
+    .set-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+    .set-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-    /* Alternatives */
-    .alt-section {
-      background: #1a1a1a;
-      margin-top: 8px;
-      padding: 12px 16px;
-    }
+    /* ── Alternatives ── */
+    .alt-section { background: var(--surface); margin-top: 6px; padding: 12px 14px; }
     .alt-label {
-      font-size: 12px; color: #888;
-      text-transform: uppercase; letter-spacing: 0.5px;
-      margin-bottom: 10px;
+      font-family: var(--font-display); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
     }
     .alt-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
     .alt-card {
-      flex-shrink: 0;
-      width: 100px;
-      background: #222;
-      border-radius: 10px;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: border-color 0.15s;
+      flex-shrink: 0; width: 92px;
+      background: var(--surface2); border: 1.5px solid transparent;
+      border-radius: var(--radius); padding: 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      cursor: pointer; transition: border-color 0.15s;
     }
-    .alt-card.selected { border-color: #0072CE; background: #2a1f1f; }
-    .alt-card img { width: 48px; height: 48px; object-fit: contain; }
-    .alt-card .alt-name { font-size: 11px; color: #ccc; text-align: center; line-height: 1.3; }
-    .alt-card .alt-score { font-size: 11px; color: #888; }
+    .alt-card.selected { border-color: var(--yellow); background: rgba(0,128,255,0.06); }
+    .alt-card img { width: 44px; height: 44px; object-fit: contain; }
+    .alt-card .alt-name { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.3; }
+    .alt-card .alt-score { font-family: var(--font-mono); font-size: 10px; color: var(--muted2); }
 
-    /* Action area */
+    /* ── Action area ── */
     .action-area {
-      background: #1a1a1a;
-      margin-top: 8px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      background: var(--surface); margin-top: 6px; padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
     }
     .qty-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      display: flex; align-items: center; gap: 12px;
     }
-    .qty-row label { font-size: 14px; color: #aaa; font-weight: 600; width: 80px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .qty-row label {
+      font-family: var(--font-display); font-size: 11px; color: var(--muted);
+      font-weight: 600; width: 72px; text-transform: uppercase; letter-spacing: 0.6px;
+    }
     .qty-controls {
       display: flex; align-items: center; gap: 0;
-      border: 1px solid #444; border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--border-bright); border-radius: var(--radius); overflow: hidden;
     }
     .qty-controls button {
       width: 40px; height: 40px;
-      background: #222; border: none;
-      font-size: 20px; color: #aaa; cursor: pointer;
+      background: var(--surface3); border: none;
+      font-size: 20px; color: var(--yellow); cursor: pointer;
+      font-family: var(--font-body); font-weight: 600;
     }
-    .qty-controls button:active { background: #333; }
+    .qty-controls button:active { background: var(--surface2); }
     .qty-controls input {
       width: 52px; height: 40px;
-      border: none; border-left: 1px solid #444; border-right: 1px solid #444;
-      text-align: center; font-size: 17px; font-weight: 600; background: #1a1a1a; color: #fff;
+      border: none; border-left: 1px solid var(--border-bright); border-right: 1px solid var(--border-bright);
+      text-align: center; font-family: var(--font-mono); font-size: 16px;
+      font-weight: 700; background: var(--surface2); color: var(--text);
     }
     .qty-controls input:focus { outline: none; }
 
-    /* Error */
+    /* ── Error ── */
     .error-msg {
-      background: #2a1f1f;
-      border: 1px solid #663333;
-      border-radius: 10px;
-      padding: 12px 16px;
-      color: #ff6b6b;
-      font-size: 14px;
-      display: none;
-      margin: 0 16px;
-    }
-
-    /* ── Mode tabs ── */
-    .mode-tabs {
-      width: 100%;
-      max-width: 480px;
-      display: flex;
-      background: #005FAD;
-    }
-    .mode-tab {
-      flex: 1;
-      padding: 10px 0;
-      border: none;
-      background: none;
-      color: rgba(255,255,255,0.65);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-    }
-    .mode-tab.active {
-      color: #fff;
-      border-bottom-color: #fff;
+      background: var(--red-bg); border: 1px solid var(--red-border);
+      border-radius: var(--radius); padding: 12px 14px;
+      color: var(--red-text); font-size: 13px; display: none; margin: 0 14px;
     }
 
     /* ── Lists browser ── */
     #screen-lists { padding: 0; }
     .part-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid #333;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
     }
     .part-item:last-child { border-bottom: none; }
     .part-item img {
-      width: 56px; height: 56px;
-      object-fit: contain;
-      border-radius: 8px;
-      background: #222;
-      flex-shrink: 0;
+      width: 52px; height: 52px; object-fit: contain;
+      border-radius: var(--radius-sm); background: var(--surface3); flex-shrink: 0;
+      cursor: pointer;
     }
     .part-item-info { flex: 1; min-width: 0; }
     .part-item-name {
-      font-size: 14px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      color: #fff;
+      font-size: 13px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text);
     }
     .part-item-sub {
-      font-size: 12px;
-      color: #888;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-top: 2px;
+      font-size: 11px; color: var(--muted);
+      display: flex; align-items: center; gap: 5px; margin-top: 2px;
     }
     .part-item-color-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,.12);
+      width: 9px; height: 9px; border-radius: 50%;
+      flex-shrink: 0; border: 1px solid rgba(255,255,255,.12);
     }
     .part-item-qty {
-      font-size: 15px;
-      font-weight: 700;
-      color: #0072CE;
-      flex-shrink: 0;
-      min-width: 28px;
-      text-align: right;
+      font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+      color: var(--yellow); flex-shrink: 0; min-width: 24px; text-align: right;
     }
-    .part-item-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
+    .part-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .list-adjust-btn {
-      background: #3a1618;
-      border: 1px solid #7a3035;
-      color: #ffb8bf;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      font-size: 20px;
-      line-height: 1;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: var(--red-bg); border: 1px solid var(--red-border);
+      color: var(--red-text); border-radius: 50%;
+      width: 28px; height: 28px; padding: 0; font-size: 18px;
+      line-height: 1; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
     }
-    .list-adjust-btn.add {
-      background: #102819;
-      border-color: #276a3d;
-      color: #c8ffd5;
-    }
-    .list-adjust-btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
+    .list-adjust-btn.add { background: #091A0F; border-color: #1E4D2B; color: #86EFAC; }
+    .list-adjust-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .list-msg {
-      display: none;
-      margin: 0 16px 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #2a1f1f;
-      border: 1px solid #663333;
-      color: #ffb8bf;
-      font-size: 13px;
+      display: none; margin: 0 14px 10px;
+      padding: 10px 12px; border-radius: var(--radius);
+      background: var(--red-bg); border: 1px solid var(--red-border);
+      color: var(--red-text); font-size: 13px;
     }
 
     /* ── Screen 4: Success ── */
-    #screen-success { padding: 64px 20px; align-items: center; gap: 16px; text-align: center; }
-    .success-icon { font-size: 72px; }
-    #screen-success h2 { font-size: 22px; font-weight: 700; color: #fff; }
-    #screen-success p { color: #aaa; font-size: 14px; line-height: 1.5; }
+    #screen-success {
+      padding: 64px 20px; align-items: center; gap: 14px; text-align: center;
+    }
+    .success-icon {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--yellow); display: flex; align-items: center;
+      justify-content: center; font-size: 36px;
+    }
+    #screen-success h2 {
+      font-family: var(--font-display); font-size: 26px; font-weight: 900;
+      color: var(--yellow); letter-spacing: 1px; text-transform: uppercase;
+    }
+    #screen-success p { color: var(--muted); font-size: 14px; line-height: 1.5; }
 
-    /* Image Modal */
+    /* ── Image Modal ── */
     #imageModal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.95);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      flex-direction: column;
-      gap: 20px;
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95); z-index: 1000;
+      align-items: center; justify-content: center;
+      padding: 20px; flex-direction: column; gap: 16px;
     }
-    #imageModal.active {
-      display: flex;
-    }
-    #imageModal img {
-      max-width: 90%;
-      max-height: 70vh;
-      object-fit: contain;
-      border-radius: 12px;
-    }
+    #imageModal.active { display: flex; }
+    #imageModal img { max-width: 90%; max-height: 70vh; object-fit: contain; border-radius: var(--radius); }
     .modal-close-btn {
-      position: relative;
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      color: #fff;
-      font-size: 32px;
-      cursor: pointer;
-      width: 50px;
-      height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      transition: background 0.2s;
+      position: relative; background: rgba(255,255,255,0.15);
+      border: none; color: var(--text); font-size: 28px; cursor: pointer;
+      width: 48px; height: 48px; display: flex; align-items: center;
+      justify-content: center; border-radius: 50%; transition: background 0.2s;
     }
-    .modal-close-btn:active {
-      background: rgba(255, 255, 255, 0.4);
+    .modal-close-btn:active { background: rgba(255,255,255,0.3); }
+
+    /* ── Shared inline section cards ── */
+    .section-card {
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 14px;
     }
-    .part-item img {
-      cursor: pointer;
+    .section-label {
+      font-family: var(--font-display); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
+    }
+
+    /* ── Shopping screen ── */
+    #screen-shopping { padding: 0; }
+
+    /* ── Sets screen ── */
+    #screen-sets { padding: 20px 16px; gap: 16px; }
+
+    /* ── Set details ── */
+    #screen-set-details { padding: 0; }
+
+    /* ── Misc inline styles replacement ── */
+    .lists-view-header { padding: 14px 14px 8px; }
+    .lists-import-section {
+      padding: 14px; border-bottom: 1px solid var(--border);
+    }
+    .sub-label {
+      font-family: var(--font-display); font-size: 11px; color: var(--muted);
+      font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .file-input-row {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .file-input-row input[type="file"] {
+      flex: 1 1 100%; min-width: 0; padding: 8px 10px; background: var(--surface3); color: var(--muted);
+      border: 1px solid var(--border-bright); border-radius: var(--radius-sm); font-size: 13px;
+    }
+    .file-input-row .action-btn { flex: 1; }
+    .action-btn {
+      padding: 8px 14px; background: var(--yellow); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-display); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
+      white-space: nowrap;
+    }
+    .action-btn.danger {
+      background: var(--red-bg); color: var(--red-text);
+      border: 1px solid var(--red-border);
+    }
+    .status-text { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    /* Shopping tabs */
+    .shopping-tabs {
+      display: flex; gap: 6px;
+      padding: 12px 14px; border-bottom: 1px solid var(--border);
+    }
+    .shopping-tab {
+      padding: 7px 12px; border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-display); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer;
+    }
+    .shopping-tab.active { background: var(--yellow); color: #fff; }
+    .shopping-tab:not(.active) { background: var(--surface3); color: var(--muted); }
+
+    /* Set detail tabs */
+    .set-detail-header {
+      padding: 14px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .set-tabs { display: flex; gap: 4px; padding: 10px 14px; }
+    .set-tab {
+      flex: 1; padding: 8px; border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-display); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer;
+    }
+    .set-tab.active { background: var(--yellow); color: #fff; }
+    .set-tab:not(.active) { background: var(--surface3); color: var(--muted); }
+    .back-btn {
+      padding: 8px 12px; background: var(--surface3); color: var(--text);
+      border: none; border-radius: var(--radius-sm);
+      font-family: var(--font-display); font-size: 12px; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.4px;
+    }
+
+    /* Sets search */
+    .sets-search-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px; position: relative;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <img src="/static/brick.svg"
-       alt="LEGO Brick"
-       style="height:44px;width:auto;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));">
-  <h1>Identify your bricks</h1>
+  <img src="/static/brick.svg" alt="LEGO Brick">
+  <h1>Brick Scanner</h1>
 </header>
 
 <div class="mode-tabs">
-  <button class="mode-tab active" data-mode="parts" onclick="switchMode('parts')"><img src="/static/brick.svg" style="height:20px;width:auto;vertical-align:middle;margin-right:4px;"> Parts</button>
-  <button class="mode-tab" data-mode="minifigs" onclick="switchMode('minifigs')"><img src="/static/minifig.png" style="height:20px;width:auto;vertical-align:middle;margin-right:4px;"> Minifigs</button>
-  <button class="mode-tab" data-mode="sets" onclick="switchMode('sets')">🎁 Sets</button>
-  <button class="mode-tab" data-mode="lists" onclick="switchMode('lists')">📋 Lists</button>
-  <button class="mode-tab" data-mode="shopping" onclick="switchMode('shopping')">🛒 Shopping List</button>
+  <button class="mode-tab active" data-mode="parts" onclick="switchMode('parts')">
+    <img src="/static/brick.svg" alt=""><span>Parts</span>
+  </button>
+  <button class="mode-tab" data-mode="minifigs" onclick="switchMode('minifigs')">
+    <img src="/static/minifig.png" alt=""><span>Figs</span>
+  </button>
+  <button class="mode-tab" data-mode="sets" onclick="switchMode('sets')">
+    <span class="tab-emoji">🎁</span><span>Sets</span>
+  </button>
+  <button class="mode-tab" data-mode="lists" onclick="switchMode('lists')">
+    <span class="tab-emoji">📋</span><span>Lists</span>
+  </button>
+  <button class="mode-tab" data-mode="shopping" onclick="switchMode('shopping')">
+    <span class="tab-emoji">🛒</span><span>Cart</span>
+  </button>
 </div>
 
 <!-- Screen 1: Scan -->
 <div class="screen active" id="screen-scan">
   <!-- Parts search box -->
-  <div id="partsSearchSection" style="padding:20px 20px 0;">
-    <label style="display:block;font-size:13px;color:#aaa;margin-bottom:8px;">Search by part number</label>
-    <div style="display:flex;gap:8px;">
+  <div id="partsSearchSection" class="search-section">
+    <label>Search by part number</label>
+    <div class="search-row">
       <input id="partSearchInput" type="text" placeholder="e.g., 3710"
-        style="flex:1;padding:10px 12px;border:1px solid #444;border-radius:8px;font-size:15px;background:#222;color:#fff;"
         onkeydown="if(event.key==='Enter')searchPartByNumber()">
-      <button onclick="searchPartByNumber()"
-        style="padding:10px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Search</button>
+      <button class="search-btn" onclick="searchPartByNumber()">Search</button>
     </div>
-    <div id="partSearchError" style="color:#ff6b6b;font-size:12px;margin-top:8px;display:none;"></div>
+    <div id="partSearchError" style="display:none;"></div>
   </div>
 
   <!-- Minifig search box -->
-  <div id="minifigSearchSection" style="padding:20px 20px 0;display:none;">
-    <label style="display:block;font-size:13px;color:#aaa;margin-bottom:8px;">Search by minifig ID or BrickLink code</label>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
+  <div id="minifigSearchSection" class="search-section" style="display:none;">
+    <label>Search by minifig ID or BrickLink code</label>
+    <div class="search-row">
       <input id="minifigSearchInput" type="text" placeholder="e.g., sw1094 or fig-000001"
-        style="flex:1;padding:10px 12px;border:1px solid #444;border-radius:8px;font-size:15px;background:#222;color:#fff;"
         onkeydown="if(event.key==='Enter')searchMinifigById()">
-      <button onclick="searchMinifigById()"
-        style="padding:10px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Search</button>
+      <button class="search-btn" onclick="searchMinifigById()">Search</button>
     </div>
-    <div id="minifigSearchError" style="color:#ff6b6b;font-size:12px;margin-bottom:8px;display:none;"></div>
+    <div id="minifigSearchError" style="display:none;"></div>
   </div>
 
-  <div class="scan-area" style="margin:20px;border-radius:16px;">
+  <div class="scan-area">
+    <span class="corner-br"></span>
+    <span class="corner-tr"></span>
     <div class="scan-icon">🔍</div>
     <p id="scanHint">Take a photo of a LEGO part to identify it and add it to your parts list.</p>
     <button class="btn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
@@ -685,27 +886,27 @@
   </div>
 
   <!-- Parts list selector -->
-  <div id="partListRow" class="list-selector" style="padding:0 20px 24px;">
+  <div id="partListRow" class="list-selector" style="padding:0 0 8px;">
     <label>Add to parts list</label>
     <div style="display:flex;gap:8px;align-items:center;">
       <select id="listSelect" style="flex:1" onchange="checkInventoryStatus()"><option value="">Loading...</option></select>
       <button onclick="deleteList()" title="Delete selected list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#444;color:#fff;font-size:18px;line-height:1;cursor:pointer;">🗑</button>
+        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--surface3);color:var(--text);font-size:18px;line-height:1;cursor:pointer;border:1px solid var(--border-bright);">🗑</button>
       <button onclick="toggleNewList()" title="Create new list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:#0072CE;color:#fff;font-size:22px;line-height:1;cursor:pointer;">+</button>
+        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--yellow);color:#fff;font-size:22px;font-weight:700;line-height:1;cursor:pointer;">+</button>
     </div>
     <div id="newListRow" style="display:none;margin-top:10px;gap:8px;align-items:center;">
       <input id="newListName" type="text" placeholder="List name…"
-        style="flex:1;padding:8px 12px;border:1px solid #444;border-radius:8px;font-size:15px;background:#222;color:#fff;"
+        style="flex:1;padding:8px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:15px;background:var(--surface3);color:var(--text);"
         onkeydown="if(event.key==='Enter')createList()">
       <button onclick="createList()"
-        style="padding:8px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
+        style="padding:8px 14px;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;cursor:pointer;">Create</button>
     </div>
   </div>
 
-  <!-- Minifig note (Rebrickable API is read-only for minifig collection) -->
-  <div id="minifigListRow" style="padding:0 20px 16px;display:none;">
-    <p style="margin:0;font-size:13px;color:#aaa;line-height:1.4;">
+  <!-- Minifig note -->
+  <div id="minifigListRow" style="padding:0 0 8px;display:none;">
+    <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.4;">
       Minifig tracking isn't available via the Rebrickable API — use the link above to view it on Rebrickable directly.
     </p>
   </div>
@@ -713,161 +914,241 @@
 
 <!-- Screen: Lists browser -->
 <div class="screen" id="screen-lists">
-  <div style="padding:16px 16px 8px;">
-    <select id="listsViewSelect" style="width:100%;padding:10px 12px;border:1px solid #444;border-radius:10px;font-size:15px;background:#222;color:#fff;" onchange="loadListContents()">
+  <div class="lists-view-header">
+    <select id="listsViewSelect" onchange="loadListContents()">
       <option value="">Select a list…</option>
     </select>
   </div>
 
-  <!-- CSV Import Section -->
-  <div style="padding:16px;border-bottom:1px solid #333;">
-    <div style="font-size:13px;color:#aaa;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.4px;">Import CSV</div>
-    <div style="display:flex;gap:8px;">
-      <input type="file" id="csvFileInput" accept=".csv" style="flex:1;padding:8px 10px;background:#222;color:#aaa;border:1px solid #444;border-radius:8px;font-size:14px;">
-      <button onclick="importCSV()" style="padding:8px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">Import</button>
+  <div class="lists-import-section">
+    <div class="sub-label">Import CSV</div>
+    <div class="file-input-row">
+      <input type="file" id="csvFileInput" accept=".csv">
+      <button class="action-btn" onclick="importCSV()">Import</button>
     </div>
-    <div id="csvStatus" style="font-size:12px;color:#888;margin-top:8px;"></div>
+    <div id="csvStatus" class="status-text"></div>
   </div>
 
   <div id="listsError" class="list-msg"></div>
-  <div id="listPartsGrid" style="padding:0 16px 24px;"></div>
-  <div id="listLoadMore" style="display:none;text-align:center;padding:0 16px 24px;">
-    <button onclick="loadMoreListParts()" style="padding:10px 24px;background:#0072CE;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">Load More</button>
+  <div id="listPartsGrid" style="padding:0 14px 24px;"></div>
+  <div id="listLoadMore" style="display:none;text-align:center;padding:0 14px 24px;">
+    <button onclick="loadMoreListParts()" class="btn" style="max-width:200px;">Load More</button>
   </div>
 </div>
 
 <!-- Screen: Shopping List -->
 <div class="screen" id="screen-shopping">
-  <!-- View Tabs -->
-  <div style="padding:16px 16px 0;display:flex;gap:8px;border-bottom:1px solid #333;margin-bottom:16px;">
-    <button onclick="switchShoppingView('list')" id="shoppingViewList" style="padding:8px 12px;background:#0072CE;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Shopping List</button>
-    <button onclick="switchShoppingView('comparison')" id="shoppingViewComparison" style="padding:8px 12px;background:#333;color:#888;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Gap Analysis</button>
+  <div class="shopping-tabs">
+    <button onclick="switchShoppingView('list')" id="shoppingViewList" class="shopping-tab active">Shopping List</button>
+    <button onclick="switchShoppingView('comparison')" id="shoppingViewComparison" class="shopping-tab">Gap Analysis</button>
   </div>
 
-  <!-- Shopping List View -->
   <div id="shoppingListView" style="display:block;">
-    <div style="padding:16px;">
-      <div style="font-size:13px;color:#aaa;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.4px;">Upload CSV: part_num, color, quantity</div>
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <input type="file" id="shoppingCsvFileInput" accept=".csv" style="flex:1;padding:8px 10px;background:#222;color:#aaa;border:1px solid #444;border-radius:8px;font-size:14px;">
-        <button onclick="importShoppingCSV()" style="padding:8px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">Import</button>
-        <button onclick="clearAllShoppingItems()" style="padding:8px 16px;background:#3a1618;color:#ffb8bf;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">Clear All</button>
+    <div style="padding:14px;">
+      <div class="sub-label">Upload CSV: part_num, color, quantity</div>
+      <div class="file-input-row" style="margin-bottom:10px;">
+        <input type="file" id="shoppingCsvFileInput" accept=".csv">
+        <button class="action-btn" onclick="importShoppingCSV()">Import</button>
+        <button class="action-btn danger" onclick="clearAllShoppingItems()">Clear</button>
       </div>
-      <div id="shoppingStatus" style="font-size:12px;color:#888;margin-bottom:16px;"></div>
+      <div id="shoppingStatus" class="status-text"></div>
     </div>
-
-    <div style="padding:0 16px 24px;">
-      <div style="font-size:13px;color:#aaa;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.4px;">Parts to Order</div>
-      <div id="shoppingListGrid" style="display:grid;grid-template-columns:1fr;gap:12px;"></div>
+    <div style="padding:0 14px 24px;">
+      <div class="sub-label">Parts to Order</div>
+      <div id="shoppingListGrid" style="display:grid;grid-template-columns:1fr;gap:10px;"></div>
     </div>
   </div>
 
-  <!-- Comparison View -->
-  <div id="shoppingComparisonView" style="display:none;padding:16px;">
-    <div style="font-size:13px;color:#aaa;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.4px;">Gap Analysis: Have vs Need</div>
+  <div id="shoppingComparisonView" style="display:none;padding:14px;">
+    <div class="sub-label">Gap Analysis: Have vs Need</div>
     <div id="comparisonGrid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
   </div>
 </div>
 
 <!-- Screen: Sets -->
-<div class="screen" id="screen-sets" style="padding:20px;gap:16px;">
-  <div style="position:relative;">
-    <label style="display:block;font-size:13px;color:#aaa;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;">Search for LEGO sets</label>
+<div class="screen" id="screen-sets">
+  <div class="sets-search-card">
+    <label style="display:block;font-family:var(--font-display);font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Search for LEGO sets</label>
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="text" id="setSearchInput" placeholder="e.g., 75060, castle, hogwarts..."
-        style="flex:1;padding:10px 12px;background:#222;color:#fff;border:1px solid #444;border-radius:8px;font-size:15px;"
+        style="flex:1;padding:10px 12px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:15px;"
         onkeydown="if(event.key==='Enter')searchSetsFromTop()">
-      <button onclick="searchSetsFromTop()"
-        style="padding:10px 16px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">Find</button>
+      <button onclick="searchSetsFromTop()" class="action-btn">Find</button>
     </div>
-    <div id="setSearchResults" style="position:absolute;top:100%;left:0;right:0;background:#1a1a1a;border:1px solid #444;border-radius:8px;max-height:300px;overflow-y:auto;z-index:100;display:none;margin-top:4px;"></div>
+    <div id="setSearchResults" style="position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);max-height:300px;overflow-y:auto;z-index:100;display:none;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
   </div>
 </div>
 
 <!-- Screen: Set Details -->
 <div class="screen" id="screen-set-details" style="padding:0;">
-  <div style="padding:16px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;">
+  <div class="set-detail-header">
     <div>
-      <div id="setDetailTitle" style="font-weight:600;font-size:16px;color:#fff;">Loading...</div>
-      <div id="setDetailInfo" style="font-size:13px;color:#888;margin-top:4px;"></div>
+      <div id="setDetailTitle" style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);letter-spacing:0.3px;">Loading...</div>
+      <div id="setDetailInfo" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
     </div>
-    <button onclick="goTo('screen-sets')" style="padding:8px 12px;background:#444;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">← Back</button>
+    <button onclick="goTo('screen-sets')" class="back-btn">← Back</button>
   </div>
-  <div style="padding:16px;display:flex;gap:8px;align-items:center;">
-    <div style="flex:1;display:flex;gap:4px;">
-      <button onclick="showSetPartsView()" id="tabParts" style="flex:1;padding:8px;background:#0072CE;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Parts</button>
-      <button onclick="showSetMinifigsView()" id="tabMinifigs" style="flex:1;padding:8px;background:#333;color:#888;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Minifigs</button>
-    </div>
+  <div class="set-tabs">
+    <button onclick="showSetPartsView()" id="tabParts" class="set-tab active">Parts</button>
+    <button onclick="showSetMinifigsView()" id="tabMinifigs" class="set-tab">Minifigs</button>
   </div>
-  <div id="setDetailsContent" style="padding:16px;"></div>
+  <div id="setDetailsContent" style="padding:14px;"></div>
 </div>
 
 <!-- Screen 2: Loading -->
 <div class="screen" id="screen-loading">
-  <div class="spinner">
-    <svg class="magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" style="transform:scale(0.6);">
-      <!-- Define defs for filters first -->
-      <defs>
-        <clipPath id="lensClip">
-          <circle cx="20" cy="20" r="14"/>
-        </clipPath>
-        <filter id="scanGlow">
-          <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-          <feMerge>
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
-      </defs>
+  <div class="scanner-frame">
+    <span class="c-br"></span>
+    <span class="c-tr"></span>
+    <div class="scanner-inner">
+      <div class="scanner-beam"></div>
+    </div>
+    <div class="scanner-lego-icon" id="scannerModeIcon">
+      <!--
+        2×4 LEGO brick — 3/4 view from front-left-above (matching reference photo)
+        Faces visible: LEFT side (dark), FRONT (medium), TOP (light)
+        Depth direction: (-20, -24) for 2 studs  |  1-stud unit: (-10, -12)
+        Front face: (36,68)→(164,68)→(164,98)→(36,98)  w=128 h=30
+        Left face:  (36,68)→(16,44)→(16,74)→(36,98)
+        Top face:   (36,68)→(164,68)→(144,44)→(16,44)
+        Stud cols (pitch 32px): cx = 52,84,116,148 → offset by row depth
+        Front row (d=0.5): cx offset -5 → 47,79,111,143  base_y=62  top_y=50
+        Back  row (d=1.5): cx offset -15 → 37,69,101,133  base_y=50  top_y=38
+        Stud rx=11, ry=4(perspective), h=12
+      -->
+      <svg class="brick-svg" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Top face: lit from above, slightly lighter -->
+          <linearGradient id="bTopGrad" x1="1" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#006CE0"/>
+            <stop offset="100%" stop-color="#0086FF"/>
+          </linearGradient>
+          <!-- Front face: medium, lit from front -->
+          <linearGradient id="bFrontGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#0062D8"/>
+            <stop offset="100%" stop-color="#0052B8"/>
+          </linearGradient>
+          <!-- Stud tops: radial highlight simulating domed plastic -->
+          <radialGradient id="bStudGrad" cx="38%" cy="30%" r="62%">
+            <stop offset="0%"   stop-color="#70C4FF"/>
+            <stop offset="50%"  stop-color="#0088FF"/>
+            <stop offset="100%" stop-color="#0050C0"/>
+          </radialGradient>
+        </defs>
 
-      <!-- Static LEGO Brick (parts mode) -->
-      <g id="brick-content">
-        <!-- Brick body -->
-        <rect x="8" y="14" width="24" height="12" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Studs (typical 2x4 brick configuration) -->
-        <circle cx="11" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-        <circle cx="14" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-        <circle cx="17" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-        <circle cx="20" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-        <circle cx="23" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-        <circle cx="26" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-        <circle cx="29" cy="12" r="1.2" fill="#0072CE" opacity="0.6"/>
-      </g>
+        <!-- ── Left side face (darkest) ── -->
+        <polygon points="36,68 16,44 16,74 36,98" fill="#003AA0"/>
 
-      <!-- Static LEGO Brick (minifigs mode) -->
-      <g id="minifig-content" style="display:none;">
-        <!-- Brick base -->
-        <rect x="10" y="12" width="20" height="12" rx="1" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Stud 1 -->
-        <circle cx="14" cy="10" r="1.5" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Stud 2 -->
-        <circle cx="20" cy="10" r="1.5" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-        <!-- Stud 3 -->
-        <circle cx="26" cy="10" r="1.5" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.6"/>
-      </g>
+        <!-- ── Front face ── -->
+        <rect x="36" y="68" width="128" height="30" rx="1" fill="url(#bFrontGrad)"/>
 
-      <!-- Animated magnifying glass circling the brick -->
-      <g id="magnifyingGlassGroup" transform="translate(25, 20)">
-        <!-- Magnifying glass lens -->
-        <circle id="glassLens" cx="0" cy="-12" r="6" fill="none" stroke="#0072CE" stroke-width="1.5" opacity="0.8"/>
-        <!-- Magnifying glass handle -->
-        <line id="glassHandle" x1="4" y1="-8" x2="8" y2="-4" stroke="#0072CE" stroke-width="1.2" opacity="0.8"/>
-        <!-- Glow effect inside lens -->
-        <circle cx="0" cy="-12" r="5.5" fill="none" stroke="#22C55E" stroke-width="0.8" opacity="0.6" filter="url(#scanGlow)"/>
-      </g>
-    </svg>
+        <!-- ── Top face ── -->
+        <polygon points="36,68 164,68 144,44 16,44" fill="url(#bTopGrad)"/>
+
+        <!-- ── Back row studs (farther — draw first) ──
+             cx: 37 69 101 133  |  top_y=38  base_y=50  -->
+
+        <!-- back stud 0 -->
+        <polygon points="26,38 21,32 21,44 26,50" fill="#003290"/>
+        <rect x="26" y="38" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="37" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="37" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- back stud 1 -->
+        <polygon points="58,38 53,32 53,44 58,50" fill="#003290"/>
+        <rect x="58" y="38" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="69" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="69" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- back stud 2 -->
+        <polygon points="90,38 85,32 85,44 90,50" fill="#003290"/>
+        <rect x="90" y="38" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="101" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="101" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- back stud 3 -->
+        <polygon points="122,38 117,32 117,44 122,50" fill="#003290"/>
+        <rect x="122" y="38" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="133" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="133" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- ── Front row studs (closer — draw on top) ──
+             cx: 47 79 111 143  |  top_y=50  base_y=62  -->
+
+        <!-- front stud 0 -->
+        <polygon points="36,50 31,44 31,56 36,62" fill="#003290"/>
+        <rect x="36" y="50" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="47"  cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="47"  cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- front stud 1 -->
+        <polygon points="68,50 63,44 63,56 68,62" fill="#003290"/>
+        <rect x="68" y="50" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="79"  cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="79"  cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- front stud 2 -->
+        <polygon points="100,50 95,44 95,56 100,62" fill="#003290"/>
+        <rect x="100" y="50" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="111" cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="111" cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- front stud 3 -->
+        <polygon points="132,50 127,44 127,56 132,62" fill="#003290"/>
+        <rect x="132" y="50" width="22" height="12" fill="#004CB5"/>
+        <ellipse cx="143" cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
+        <ellipse cx="143" cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
+
+        <!-- ── Edge highlights (lit corners) ── -->
+        <polyline points="36,68 16,44 144,44 164,68"
+                  fill="none" stroke="#88CCFF" stroke-width="1" opacity="0.65"/>
+        <line x1="16"  y1="44" x2="16"  y2="74" stroke="#70BCFF" stroke-width="0.9" opacity="0.45"/>
+        <line x1="36"  y1="68" x2="36"  y2="98" stroke="#70BCFF" stroke-width="0.7" opacity="0.30"/>
+        <line x1="36"  y1="98" x2="164" y2="98" stroke="#50AAFF" stroke-width="0.7" opacity="0.20"/>
+        <line x1="164" y1="68" x2="164" y2="98" stroke="#50AAFF" stroke-width="0.7" opacity="0.20"/>
+      </svg>
+    </div>
   </div>
-  <p id="loadingText">Identifying part...</p>
+  <!-- Hidden SVG kept in DOM for JS animation compat -->
+  <svg class="magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="lensClip"><circle cx="20" cy="20" r="14"/></clipPath>
+      <filter id="scanGlow">
+        <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g id="brick-content">
+      <rect x="8" y="14" width="24" height="12" fill="none" stroke="#0080FF" stroke-width="1.5" opacity="0.6"/>
+      <circle cx="11" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+      <circle cx="14" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+      <circle cx="17" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+      <circle cx="20" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+      <circle cx="23" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+      <circle cx="26" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+      <circle cx="29" cy="12" r="1.2" fill="#0080FF" opacity="0.6"/>
+    </g>
+    <g id="minifig-content" style="display:none;">
+      <rect x="10" y="12" width="20" height="12" rx="1" fill="none" stroke="#0080FF" stroke-width="1.5" opacity="0.6"/>
+      <circle cx="14" cy="10" r="1.5" fill="none" stroke="#0080FF" stroke-width="1.5" opacity="0.6"/>
+      <circle cx="20" cy="10" r="1.5" fill="none" stroke="#0080FF" stroke-width="1.5" opacity="0.6"/>
+      <circle cx="26" cy="10" r="1.5" fill="none" stroke="#0080FF" stroke-width="1.5" opacity="0.6"/>
+    </g>
+    <g id="magnifyingGlassGroup" transform="translate(25, 20)">
+      <circle id="glassLens" cx="0" cy="-12" r="6" fill="none" stroke="#0080FF" stroke-width="1.5" opacity="0.8"/>
+      <line id="glassHandle" x1="4" y1="-8" x2="8" y2="-4" stroke="#0080FF" stroke-width="1.2" opacity="0.8"/>
+      <circle cx="0" cy="-12" r="5.5" fill="none" stroke="#22C55E" stroke-width="0.8" opacity="0.6" filter="url(#scanGlow)"/>
+    </g>
+  </svg>
+  <p id="loadingText">Identifying...</p>
 </div>
 
 <!-- Screen 3: Identify -->
 <div class="screen" id="screen-identify" style="position:relative">
-  <!-- User's photo -->
   <img id="photoBanner" class="photo-banner" src="" alt="">
-  <div style="position:absolute;top:4px;right:4px;display:none;width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)" id="debugSwatch"></div>
+  <div style="position:absolute;top:4px;right:4px;display:none;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)" id="debugSwatch"></div>
   <div id="debugLabel" style="position:absolute;top:4px;left:4px;display:none;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;white-space:nowrap"></div>
 
-  <!-- Main part card -->
   <div class="identify-card">
     <div class="dual-images">
       <img id="userThumb" src="" alt="">
@@ -876,7 +1157,7 @@
     <div class="part-info">
       <div class="part-name" id="partName">—</div>
     </div>
-    <div class="info-row" id="rbRow" style="margin-top:10px;">
+    <div class="info-row" id="rbRow" style="margin-top:8px;">
       <span class="label">Rebrickable</span>
       <span class="value" id="rbValue">—</span>
     </div>
@@ -891,21 +1172,22 @@
     <div class="info-row" id="colorRow" onclick="toggleColorSheet()" style="cursor:pointer;">
       <span class="label">Color</span>
       <span class="value" id="colorValue">
-        <span class="color-dot" id="colorDot" style="background:#ccc"></span>
+        <span class="color-dot" id="colorDot" style="background:#555"></span>
         <span id="colorLabel">Select color</span>
       </span>
       <button class="color-change-btn">Change ›</button>
     </div>
 
-    <!-- Color picker sheet (inline) -->
+    <!-- Color picker sheet -->
     <div class="color-sheet" id="colorSheet">
       <div class="color-sheet-label">Colors this part comes in</div>
       <div class="swatch-grid" id="colorSwatches"></div>
       <div class="color-search-wrap">
-        <input type="text" id="colorSearch" placeholder="Search all colors..." autocomplete="off">
+        <input type="text" id="colorSearch" placeholder="Search all colors…" autocomplete="off">
         <div class="color-dropdown" id="colorDropdown"></div>
       </div>
     </div>
+
     <div class="inventory-row" id="inventoryRow">
       <span class="inventory-check">✓</span>
       <span class="inventory-status-text" id="inventoryStatusText">Already in inventory</span>
@@ -913,9 +1195,9 @@
     </div>
 
     <!-- Lists containing part -->
-    <div id="partListsSection" style="display:none;border-top:1px solid #444;margin-top:16px;padding-top:16px;">
-      <div style="font-size:12px;color:#fff;margin-bottom:8px;margin-left:12px;">Found in:</div>
-      <div id="partListsGrid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+    <div id="partListsSection" style="display:none;border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
+      <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);margin-bottom:8px;margin-left:14px;text-transform:uppercase;letter-spacing:0.8px;">Found in:</div>
+      <div id="partListsGrid" style="display:grid;grid-template-columns:1fr;gap:8px;padding:0 14px;"></div>
     </div>
   </div>
 
@@ -933,29 +1215,29 @@
 
   <!-- Minifig parts -->
   <div class="parts-section" id="partsSection" style="display:none">
-    <div style="cursor:pointer;user-select:none;padding:12px 0;display:flex;align-items:center;gap:8px;border-bottom:1px solid #444;" onclick="togglePartsSection()">
-      <span id="partsToggleArrow" style="display:inline-block;transition:transform 0.2s;font-size:16px;">▶</span>
-      <div class="parts-label" id="partsLabel" style="margin:0;">Parts</div>
+    <div style="cursor:pointer;user-select:none;padding:12px 0;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);" onclick="togglePartsSection()">
+      <span id="partsToggleArrow" style="display:inline-block;transition:transform 0.2s;font-size:14px;color:var(--yellow);">▶</span>
+      <div class="parts-label" id="partsLabel" style="margin:0;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;">Parts</div>
     </div>
-    <div id="partsContent" style="display:none;padding-top:12px;">
+    <div id="partsContent" style="display:none;padding-top:10px;">
       <div class="parts-list" id="partsList"></div>
     </div>
   </div>
 
   <!-- List picker modal for parts add -->
-  <div id="selectPartListModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:#1a1a1a;border:1px solid #444;border-radius:12px;padding:24px;max-width:90%;width:400px;max-height:80vh;overflow-y:auto;">
-      <h3 style="margin:0 0 16px 0;color:#fff;">Select List</h3>
-      <select id="selectPartListSelect" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #444;border-radius:8px;margin-bottom:16px;font-size:14px;">
+  <div id="selectPartListModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);padding:20px;max-width:90%;width:380px;max-height:80vh;overflow-y:auto;">
+      <h3 style="margin:0 0 14px 0;font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.5px;">Select List</h3>
+      <select id="selectPartListSelect" style="width:100%;padding:10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);margin-bottom:12px;font-size:14px;">
         <option value="">Loading lists...</option>
       </select>
-      <button onclick="togglePartListCreateForm()" style="width:100%;padding:10px;background:#222;color:#0072CE;border:1px solid #444;border-radius:8px;margin-bottom:16px;font-size:14px;font-weight:600;cursor:pointer;">+ Create New List</button>
-      <div id="partListCreateForm" style="display:none;margin-bottom:16px;gap:8px;align-items:center;">
+      <button onclick="togglePartListCreateForm()" style="width:100%;padding:9px;background:var(--surface3);color:var(--yellow);border:1px solid var(--border-bright);border-radius:var(--radius-sm);margin-bottom:12px;font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">+ Create New List</button>
+      <div id="partListCreateForm" style="display:none;margin-bottom:12px;gap:8px;align-items:center;">
         <input id="partListNewName" type="text" placeholder="List name…"
-          style="width:100%;padding:10px 12px;border:1px solid #444;border-radius:8px;font-size:14px;background:#222;color:#fff;margin-bottom:8px;"
+          style="width:100%;padding:9px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:14px;background:var(--surface3);color:var(--text);margin-bottom:8px;"
           onkeydown="if(event.key==='Enter')createPartListFromModal()">
         <button onclick="createPartListFromModal()"
-          style="width:100%;padding:10px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
+          style="width:100%;padding:9px;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn secondary" onclick="document.getElementById('selectPartListModal').style.display='none'" style="margin:0;">Cancel</button>
@@ -965,19 +1247,19 @@
   </div>
 
   <!-- List picker modal for bulk minifig parts add -->
-  <div id="addPartsListModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:#1a1a1a;border:1px solid #444;border-radius:12px;padding:24px;max-width:90%;width:400px;max-height:80vh;overflow-y:auto;">
-      <h3 style="margin:0 0 16px 0;color:#fff;">Select List</h3>
-      <select id="addPartsListSelect" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #444;border-radius:8px;margin-bottom:16px;font-size:14px;">
+  <div id="addPartsListModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);padding:20px;max-width:90%;width:380px;max-height:80vh;overflow-y:auto;">
+      <h3 style="margin:0 0 14px 0;font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.5px;">Select List</h3>
+      <select id="addPartsListSelect" style="width:100%;padding:10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);margin-bottom:12px;font-size:14px;">
         <option value="">Loading lists...</option>
       </select>
-      <button onclick="toggleMinifigPartListCreateForm()" style="width:100%;padding:10px;background:#222;color:#0072CE;border:1px solid #444;border-radius:8px;margin-bottom:16px;font-size:14px;font-weight:600;cursor:pointer;">+ Create New List</button>
-      <div id="minifigPartListCreateForm" style="display:none;margin-bottom:16px;gap:8px;align-items:center;">
+      <button onclick="toggleMinifigPartListCreateForm()" style="width:100%;padding:9px;background:var(--surface3);color:var(--yellow);border:1px solid var(--border-bright);border-radius:var(--radius-sm);margin-bottom:12px;font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">+ Create New List</button>
+      <div id="minifigPartListCreateForm" style="display:none;margin-bottom:12px;gap:8px;align-items:center;">
         <input id="minifigPartListNewName" type="text" placeholder="List name…"
-          style="width:100%;padding:10px 12px;border:1px solid #444;border-radius:8px;font-size:14px;background:#222;color:#fff;margin-bottom:8px;"
+          style="width:100%;padding:9px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:14px;background:var(--surface3);color:var(--text);margin-bottom:8px;"
           onkeydown="if(event.key==='Enter')createMinifigPartListFromModal()">
         <button onclick="createMinifigPartListFromModal()"
-          style="width:100%;padding:10px;background:#0072CE;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Create</button>
+          style="width:100%;padding:9px;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn secondary" onclick="document.getElementById('addPartsListModal').style.display='none'" style="margin:0;">Cancel</button>
@@ -993,7 +1275,7 @@
   </div>
 
   <!-- Error -->
-  <div class="error-msg" id="identifyError" style="margin:8px 16px 0;"></div>
+  <div class="error-msg" id="identifyError" style="margin:8px 14px 0;"></div>
 
   <!-- Actions -->
   <div class="action-area">
@@ -1015,7 +1297,7 @@
 
 <!-- Screen 4: Success -->
 <div class="screen" id="screen-success">
-  <div class="success-icon">✅</div>
+  <div class="success-icon">✓</div>
   <h2 id="successTitle">Part Added!</h2>
   <p id="successMsg"></p>
   <button class="btn" style="margin-top:16px;max-width:300px" onclick="goTo('screen-scan')">Scan Another</button>
@@ -1815,7 +2097,7 @@
               <div style="font-size:11px;color:#aaa;">Qty: <span class="list-qty-${item.list_id}">${item.quantity}</span></div>
             </div>
             <div style="display:flex;gap:6px;">
-              <button onclick="quickAddPartToList(${item.list_id})" style="width:28px;height:28px;border:1px solid #444;background:#222;color:#0072CE;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">+</button>
+              <button onclick="quickAddPartToList(${item.list_id})" style="width:28px;height:28px;border:1px solid #444;background:#222;color:#0080FF;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">+</button>
               <button onclick="quickRemovePartFromList(${item.list_id})" style="width:28px;height:28px;border:1px solid #f00;background:#3a1618;color:#ffb8bf;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">−</button>
             </div>
           </div>`
@@ -2573,7 +2855,7 @@
           <div style="flex:1;min-width:0;">
             <div style="font-size:12px;font-weight:500;margin-bottom:4px;color:#fff;word-break:break-word;">${partName}</div>
             <div style="font-size:11px;color:#aaa;margin-bottom:4px;">${partNum}</div>
-            <div style="font-size:11px;color:#0072CE;font-weight:500;">${colorName}</div>
+            <div style="font-size:11px;color:#0080FF;font-weight:500;">${colorName}</div>
           </div>
         </div>`;
     }).join('');
@@ -2658,7 +2940,7 @@
     formData.append('file', fileInput.files[0]);
     formData.append('list_id', listId);
 
-    statusDiv.innerHTML = '<span style="color:#0072CE;">Uploading and importing...</span>';
+    statusDiv.innerHTML = '<span style="color:#0080FF;">Uploading and importing...</span>';
 
     try {
       const resp = await fetch('/api/import-csv', {
@@ -2885,7 +3167,7 @@
           <div style="display:flex;gap:12px;padding:12px;background:#1a1a1a;border:1px solid #333;border-radius:8px;align-items:flex-start;">
             ${img ? `<img src="${img}" alt="${item.part_num}" style="width:56px;height:56px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;">` : `<div style="width:56px;height:56px;background:#222;border-radius:4px;flex-shrink:0;"></div>`}
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#0072CE;font-size:13px;">${item.part_num}</div>
+              <div style="font-weight:600;color:#0080FF;font-size:13px;">${item.part_num}</div>
               <div style="font-size:12px;color:#888;">
                 <span style="display:inline-block;width:12px;height:12px;background:#${getColorHex(item.color_name)};border-radius:2px;margin-right:6px;vertical-align:middle;"></span>
                 ${item.color_name}
@@ -2944,7 +3226,7 @@
     if (view === 'list') {
       listView.style.display = 'block';
       compView.style.display = 'none';
-      listBtn.style.background = '#0072CE';
+      listBtn.style.background = '#0080FF';
       listBtn.style.color = '#fff';
       compBtn.style.background = '#333';
       compBtn.style.color = '#888';
@@ -2953,7 +3235,7 @@
       compView.style.display = 'block';
       listBtn.style.background = '#333';
       listBtn.style.color = '#888';
-      compBtn.style.background = '#0072CE';
+      compBtn.style.background = '#0080FF';
       compBtn.style.color = '#fff';
       loadComparisonView();
     }
@@ -2998,7 +3280,7 @@
         // Check for rate limit (429 Too Many Requests)
         if (partlistsResp.status === 429) {
           comparisonGrid.innerHTML =
-            '<p style="color:#ff8080;text-align:center;padding:24px 0;">⚠️ Rebrickable API rate limited. Please wait 1-2 hours and try again. <button onclick="loadComparisonView(true)" style="margin-top:12px;padding:8px 16px;background:#0072CE;color:#fff;border:none;border-radius:4px;cursor:pointer;">Retry</button></p>';
+            '<p style="color:#ff8080;text-align:center;padding:24px 0;">⚠️ Rebrickable API rate limited. Please wait 1-2 hours and try again. <button onclick="loadComparisonView(true)" style="margin-top:12px;padding:8px 16px;background:#0080FF;color:#fff;border:none;border-radius:4px;cursor:pointer;">Retry</button></p>';
           return;
         }
 
@@ -3086,7 +3368,7 @@
         return `
           <div style="display:flex;gap:12px;padding:12px;background:${bgColor};border:1px solid ${row.isFull ? '#1a5a1a' : '#5a1a1a'};border-radius:8px;align-items:center;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#0072CE;font-size:13px;">${row.item.part_num}</div>
+              <div style="font-weight:600;color:#0080FF;font-size:13px;">${row.item.part_num}</div>
               <div style="font-size:12px;color:#888;">
                 <span style="display:inline-block;width:10px;height:10px;background:#${getColorHex(row.item.color_name)};border-radius:2px;margin-right:6px;vertical-align:middle;"></span>
                 ${row.item.color_name}
@@ -3099,7 +3381,7 @@
               </div>
               <div style="font-size:12px;">
                 <div style="color:#888;font-size:11px;">Need</div>
-                <div style="color:#0072CE;font-weight:600;">${row.need}</div>
+                <div style="color:#0080FF;font-weight:600;">${row.need}</div>
               </div>
               <div style="font-size:12px;">
                 <div style="color:#888;font-size:11px;">Gap</div>
@@ -3120,7 +3402,7 @@
             <div style="color:#888;font-size:13px;">
               Inventory data: <span style="color:#19a64a;">${cacheText}</span> (cached for 30 min)
             </div>
-            <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:#0072CE;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">
+            <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:#0080FF;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">
               🔄 Refresh Now
             </button>
           </div>
@@ -3156,7 +3438,7 @@
                 <span class="part-item-color-dot" style="background:#${rgb}"></span>
                 <span>${colorName}</span>
                 <span style="color:#888;margin-left:4px;">•</span>
-                <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}" target="_blank" style="color:#0072CE;text-decoration:none;margin-left:4px;font-size:13px;">${partNum}</a>
+                <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}" target="_blank" style="color:#0080FF;text-decoration:none;margin-left:4px;font-size:13px;">${partNum}</a>
               </div>
             </div>
             <div class="part-item-actions">
@@ -3378,7 +3660,7 @@
             onmouseout="this.style.background='transparent'">
             <img src="${imgUrl}" alt="${dataSetNum}" onerror="this.src='/static/brick.svg'" style="width:50px;height:50px;object-fit:contain;background:#0a0a0a;border-radius:4px;flex-shrink:0;">
             <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
-              <div style="font-weight:600;color:#0072CE;font-size:14px;margin-bottom:2px;">${dataSetNum}</div>
+              <div style="font-weight:600;color:#0080FF;font-size:14px;margin-bottom:2px;">${dataSetNum}</div>
               <div style="color:#fff;font-size:13px;margin-bottom:4px;word-break:break-word;">${dataSetName}</div>
               <div style="color:#888;font-size:12px;">
                 ${displayYear}
@@ -3440,7 +3722,7 @@
     if (!setNum) return;
 
     // Update tab styling
-    document.getElementById('tabParts').style.background = '#0072CE';
+    document.getElementById('tabParts').style.background = '#0080FF';
     document.getElementById('tabParts').style.color = '#fff';
     document.getElementById('tabMinifigs').style.background = '#333';
     document.getElementById('tabMinifigs').style.color = '#888';
@@ -3472,7 +3754,7 @@
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:flex-start;">
             <img src="${partImage}" alt="${partNum}" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#0072CE;font-size:13px;margin-bottom:2px;">${partNum}</div>
+              <div style="font-weight:600;color:#0080FF;font-size:13px;margin-bottom:2px;">${partNum}</div>
               <div style="color:#fff;font-size:12px;margin-bottom:4px;word-break:break-word;">${partName}</div>
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
                 <span style="width:16px;height:16px;border-radius:3px;background:${colorHex};border:1px solid #555;"></span>
@@ -3501,7 +3783,7 @@
     // Update tab styling
     document.getElementById('tabParts').style.background = '#333';
     document.getElementById('tabParts').style.color = '#888';
-    document.getElementById('tabMinifigs').style.background = '#0072CE';
+    document.getElementById('tabMinifigs').style.background = '#0080FF';
     document.getElementById('tabMinifigs').style.color = '#fff';
 
     const contentDiv = document.getElementById('setDetailsContent');
@@ -3528,7 +3810,7 @@
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:flex-start;">
             <img src="${figImage}" alt="${figNum}" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#0072CE;font-size:13px;margin-bottom:2px;">${figNum}</div>
+              <div style="font-weight:600;color:#0080FF;font-size:13px;margin-bottom:2px;">${figNum}</div>
               <div style="color:#fff;font-size:12px;word-break:break-word;">${figName}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
@@ -3549,7 +3831,7 @@
   function showToast(message) {
     // Create a simple toast notification
     const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;background:#0072CE;color:#fff;padding:12px 16px;border-radius:8px;font-size:14px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    toast.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;background:#0080FF;color:#fff;padding:12px 16px;border-radius:8px;font-size:14px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
     toast.textContent = message;
     document.body.appendChild(toast);
 
@@ -3573,11 +3855,12 @@
     }
   });
 </script>
+
 <!-- Image Modal -->
 <div id="imageModal" onclick="if(event.target === this) closeImageModal()">
   <img id="modalImage" src="" alt="Part image">
   <button class="modal-close-btn" onclick="closeImageModal()">×</button>
-  <a id="modalPartLink" href="" target="_blank" style="color:#0072CE;font-size:16px;font-weight:600;text-decoration:none;margin-top:10px;">—</a>
+  <a id="modalPartLink" href="" target="_blank" style="color:var(--yellow);font-size:15px;font-weight:600;text-decoration:none;margin-top:8px;font-family:var(--font-display);letter-spacing:0.5px;">—</a>
 </div>
 
 </body>

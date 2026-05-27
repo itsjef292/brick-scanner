@@ -102,7 +102,8 @@ Single-page app with 5 screens:
 - **Expandable parts** — Minifigure parts section is collapsible to reduce visual clutter
 - **List management UI** — Add/remove buttons in list view for quick quantity adjustments
 - **Color-specific images** — Cache and display correct images for each part/color variant
-- **Dark mode** — Nearly black backgrounds (#0a0a0a) with white text, blue accent (#0072CE)
+- **Design system** — Azure blue (`#0080FF`) accent; dark backgrounds (`#080808`/`#111`/`#1A1A1A`); Google Fonts (Barlow Condensed for display, Barlow for body, Space Mono for IDs/numbers); CSS custom properties throughout
+- **Loading screen** — CSS scan-beam animation (yellow bar sweeping across corner-bracket frame); hidden SVG kept in DOM for JS `animateScan()` compat; 2×4 LEGO brick SVG (isometric 3/4 view with 8 studs, radial gradient stud tops)
 
 **No external JS frameworks** — Pure vanilla JS with event listeners and DOM manipulation
 
@@ -128,6 +129,15 @@ Single-page app with 5 screens:
 ---
 
 ## Recent Changes
+
+**Frontend Redesign (May 2026):**
+- Complete visual overhaul of `templates/index.html` — all JS and functionality preserved
+- **Design system:** CSS custom properties (`--yellow`/`--bg`/`--surface` etc.), Google Fonts (Barlow Condensed + Barlow + Space Mono)
+- **Color scheme:** Azure blue (`#0080FF`) as primary accent replacing `#0072CE`; deep black background (`#080808`) with subtle stud-grid dot texture
+- **Mode tabs:** Compact pill buttons; active tab gets solid blue fill
+- **Loading screen:** CSS scan-beam animation replaces SVG animation visually; SVG kept hidden in DOM for JS compat; 2×4 LEGO brick SVG with proper 3/4 isometric perspective, 8 studs, radial gradient dome highlights
+- **Styling patterns:** Uppercase Barlow Condensed labels, Space Mono for numbers/IDs, corner-bracket decorators on scan area
+- **Mobile overflow fix:** `html/body { overflow-x: hidden }`, `.file-input-row` uses `flex-wrap` so file input takes full-width line and buttons wrap below — prevents horizontal scroll on narrow iPhones
 
 **Cross-List Inventory Tracking (May 2026):**
 - New endpoint `GET /api/part_in_lists/<part_num>/<color_id>` — Shows which lists contain a scanned part with quantities
@@ -284,18 +294,29 @@ When a user selects a color, the app also calls `fetchPartInLists()` to display 
 
 ### Styling Changes
 
-All CSS is in `<style>` within index.html. Dark mode uses:
-- `#0a0a0a` — Page background
-- `#1a1a1a` — Card backgrounds
-- `#222` — Secondary surfaces
-- `#0072CE` — Blue accent (buttons, active states)
-- `#fff` / `#aaa` / `#888` — Text hierarchy
+All CSS is in `<style>` within index.html. The design uses CSS custom properties defined in `:root`:
+
+```css
+--yellow: #0080FF   /* primary accent (azure blue — named "yellow" for historical reasons) */
+--bg: #080808       /* page background */
+--surface: #111111  /* card/header background */
+--surface2: #1A1A1A /* secondary surfaces */
+--surface3: #222222 /* inputs, secondary buttons */
+--border: #2A2A2A   /* subtle borders */
+--border-bright: #3A3A3A  /* visible borders */
+--text: #F0F0F0     /* primary text */
+--muted: #888888    /* secondary text / labels */
+--font-display: 'Barlow Condensed' /* uppercase labels, headings, buttons */
+--font-body: 'Barlow'              /* body text */
+--font-mono: 'Space Mono'          /* part numbers, quantities, prices */
+```
 
 Inventory UI colors:
-- Green (#19a64a) for "already in inventory" state
-- Red (#3a1618 background, #ffb8bf text) for remove buttons
+- Green (`#22C55E` / `#0B1A10` bg) for "already in inventory" state
+- Red (`#EF4444` / `#2D0A0A` bg / `#FCA5A5` text) for remove buttons
 
 No CSS files or preprocessors; inline styles for specific elements.
+When editing styles, **always use CSS custom properties** (`var(--yellow)`, `var(--surface3)`, etc.) rather than hardcoded hex values so the design system stays consistent.
 
 ---
 
