@@ -768,60 +768,18 @@ def add_minifig():
 
 @app.route("/api/minifig_price/<fig_id>")
 def get_minifig_price(fig_id):
+    auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
     results = {}
-    BE_API_KEY = os.environ.get("BRICKECONOMY_API_KEY", "")
 
-    if BE_API_KEY:
-        try:
-            resp = requests.get(
-                f"https://www.brickeconomy.com/api/v1/minifig/{fig_id}",
-                headers={"Authorization": f"Bearer {BE_API_KEY}"},
-                timeout=10,
-            )
-            print(f"[BrickEconomy] {fig_id} → {resp.status_code}: {resp.text[:400]}", file=sys.stderr)
-            if resp.status_code == 200:
-                be = resp.json()
-                # Map BrickEconomy fields → our U/N format.
-                # Log above shows exact field names if these guesses are wrong.
-                def _price(val):
-                    try:
-                        return {"avg_price": float(val)} if val else None
-                    except (TypeError, ValueError):
-                        return None
-
-                used = (be.get("value_used") or be.get("used_value") or
-                        be.get("price_used") or be.get("used_price") or
-                        be.get("used"))
-                new  = (be.get("value_new")  or be.get("new_value")  or
-                        be.get("price_new")  or be.get("new_price")  or
-                        be.get("new"))
-
-                if _price(used): results["U"] = _price(used)
-                if _price(new):  results["N"] = _price(new)
-
-                theme = (be.get("theme") or be.get("theme_name") or
-                         be.get("category") or be.get("subtheme"))
-                if theme:
-                    results["category"] = theme
-
-                if results.get("U") or results.get("N"):
-                    return jsonify(results)
-                # No price fields matched — fall through to BrickLink
-                print(f"[BrickEconomy] no price fields found in: {list(be.keys())}", file=sys.stderr)
-        except Exception as e:
-            print(f"[BrickEconomy] error: {e}", file=sys.stderr)
-
-    # BrickLink fallback (works locally; may be blocked on cloud hosting)
     theme_map = {
         'sw': 'Star Wars', 'hp': 'Harry Potter', 'lor': 'Lord of the Rings',
-        'dim': 'Dimensions', 'cmf': 'Collectible Minifigure',
+        'loz': 'Legend of Zelda', 'dim': 'Dimensions', 'cmf': 'Collectible Minifigure',
         'coltlm': 'The LEGO Movie', 'colsh': 'Super Heroes',
-        'col': 'Collectible Series', 'njo': 'Ninjago',
+        'col': 'Collectible Series', 'pm': 'Pirates of the Caribbean', 'njo': 'Ninjago',
     }
-    prefix = re.match(r'^([a-z]+)', fig_id.lower() or '').group(1) if fig_id else ''
+    prefix = (re.match(r'^([a-z]+)', fig_id.lower()) or re.match(r'', '')).group(0)
     results["category"] = theme_map.get(prefix, 'Minifigure')
 
-    auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
     for condition in ("U", "N"):
         try:
             r = requests.get(
@@ -831,8 +789,10 @@ def get_minifig_price(fig_id):
             )
             if r.status_code == 200:
                 results[condition] = r.json().get("data", {})
-        except Exception:
-            pass
+            else:
+                print(f"[BrickLink price] {condition} {fig_id} → {r.status_code}", file=sys.stderr)
+        except Exception as e:
+            print(f"[BrickLink price] error: {e}", file=sys.stderr)
 
     return jsonify(results)
 
