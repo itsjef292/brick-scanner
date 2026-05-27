@@ -768,46 +768,71 @@ def add_minifig():
 
 @app.route("/api/minifig_price/<fig_id>")
 def get_minifig_price(fig_id):
-    auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
     results = {}
-    category = None
+    BE_API_KEY = os.environ.get("BRICKECONOMY_API_KEY", "")
 
-    # Extract theme from minifigure ID prefix (e.g., "sw1094" = Star Wars)
-    # Common prefixes: sw=Star Wars, hp=Harry Potter, lor=LOTR, dim=Dimensions, cmf=Collectible, etc.
-    theme_prefix_match = re.match(r'^([a-z]+)', fig_id.lower() if fig_id else '')
-    theme_prefix = theme_prefix_match.group(1) if theme_prefix_match else ''
+    if BE_API_KEY:
+        try:
+            resp = requests.get(
+                f"https://www.brickeconomy.com/api/v1/minifig/{fig_id}",
+                headers={"Authorization": f"Bearer {BE_API_KEY}"},
+                timeout=10,
+            )
+            print(f"[BrickEconomy] {fig_id} → {resp.status_code}: {resp.text[:400]}", file=sys.stderr)
+            if resp.status_code == 200:
+                be = resp.json()
+                # Map BrickEconomy fields → our U/N format.
+                # Log above shows exact field names if these guesses are wrong.
+                def _price(val):
+                    try:
+                        return {"avg_price": float(val)} if val else None
+                    except (TypeError, ValueError):
+                        return None
 
+                used = (be.get("value_used") or be.get("used_value") or
+                        be.get("price_used") or be.get("used_price") or
+                        be.get("used"))
+                new  = (be.get("value_new")  or be.get("new_value")  or
+                        be.get("price_new")  or be.get("new_price")  or
+                        be.get("new"))
+
+                if _price(used): results["U"] = _price(used)
+                if _price(new):  results["N"] = _price(new)
+
+                theme = (be.get("theme") or be.get("theme_name") or
+                         be.get("category") or be.get("subtheme"))
+                if theme:
+                    results["category"] = theme
+
+                if results.get("U") or results.get("N"):
+                    return jsonify(results)
+                # No price fields matched — fall through to BrickLink
+                print(f"[BrickEconomy] no price fields found in: {list(be.keys())}", file=sys.stderr)
+        except Exception as e:
+            print(f"[BrickEconomy] error: {e}", file=sys.stderr)
+
+    # BrickLink fallback (works locally; may be blocked on cloud hosting)
     theme_map = {
-        'sw': 'Star Wars',
-        'hp': 'Harry Potter',
-        'lor': 'Lord of the Rings',
-        'loz': 'Legend of Zelda',
-        'dim': 'Dimensions',
-        'cmf': 'Collectible Minifigure',
-        'coltlm': 'The LEGO Movie',
-        'colsh': 'Super Heroes',
-        'col': 'Collectible Series',
-        'pm': 'Pirates of the Caribbean',
-        'njo': 'Ninjago',
+        'sw': 'Star Wars', 'hp': 'Harry Potter', 'lor': 'Lord of the Rings',
+        'dim': 'Dimensions', 'cmf': 'Collectible Minifigure',
+        'coltlm': 'The LEGO Movie', 'colsh': 'Super Heroes',
+        'col': 'Collectible Series', 'njo': 'Ninjago',
     }
+    prefix = re.match(r'^([a-z]+)', fig_id.lower() or '').group(1) if fig_id else ''
+    results["category"] = theme_map.get(prefix, 'Minifigure')
 
-    category = theme_map.get(theme_prefix, 'Minifigure')
-
-    # Fetch pricing for each condition
+    auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
     for condition in ("U", "N"):
-        # Get pricing data
-        price_resp = requests.get(
-            f"https://api.bricklink.com/api/store/v1/items/MINIFIG/{fig_id}/price",
-            params={"guide_type": "sold", "new_or_used": condition, "currency_code": "USD"},
-            auth=auth,
-            timeout=8,
-        )
-        if price_resp.status_code == 200:
-            results[condition] = price_resp.json().get("data", {})
-
-    # Add category to results
-    if category:
-        results["category"] = category
+        try:
+            r = requests.get(
+                f"https://api.bricklink.com/api/store/v1/items/MINIFIG/{fig_id}/price",
+                params={"guide_type": "sold", "new_or_used": condition, "currency_code": "USD"},
+                auth=auth, timeout=8,
+            )
+            if r.status_code == 200:
+                results[condition] = r.json().get("data", {})
+        except Exception:
+            pass
 
     return jsonify(results)
 
