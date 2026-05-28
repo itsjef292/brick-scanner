@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Daily offline-catalog refresh (launchd LaunchAgent).
+
+  Install:
+    cp com.brickscanner.catalog-refresh.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.brickscanner.catalog-refresh.plist
+
+  Run once now to test:
+    launchctl start com.brickscanner.catalog-refresh
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.brickscanner.catalog-refresh.plist
+
+  Runs every day at 04:30. If the Mac is asleep at that time, launchd runs it
+  at the next wake. Logs go to catalog_refresh.log in the project folder.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.brickscanner.catalog-refresh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jef/Claude/Brick Scanner/refresh_catalog.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <!-- The script writes its own timestamped catalog_refresh.log; launchd only
+         captures stray stdout/stderr (e.g. uncaught tracebacks) here. -->
+    <key>StandardOutPath</key>
+    <string>/Users/jef/Claude/Brick Scanner/catalog_refresh.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jef/Claude/Brick Scanner/catalog_refresh.launchd.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

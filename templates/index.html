@@ -848,6 +848,66 @@
       position: sticky; top: 0; background: var(--surface2); z-index: 1;
     }
     .src-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Offline-catalog footer on the scan screen */
+    .catalog-footer {
+      margin-top: 22px; padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .catalog-info { display: flex; flex-direction: column; gap: 2px; }
+    .catalog-label {
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
+    }
+    .catalog-updated { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+    .catalog-refresh-btn {
+      align-self: flex-start;
+      padding: 9px 16px; border: 1px solid var(--border-bright);
+      background: var(--surface3); color: var(--text);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-display); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.6px; text-transform: uppercase; cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .catalog-refresh-btn:hover:not(:disabled) { background: var(--border-bright); }
+    .catalog-refresh-btn:disabled { opacity: 0.55; cursor: default; }
+    .catalog-msg { font-size: 12px; color: var(--muted); min-height: 0; }
+    .catalog-msg.ok { color: #22C55E; }
+    .catalog-msg.err { color: #ff6b6b; }
+
+    /* Collapsible "what changed in the last update" list */
+    .catalog-changes { margin-top: 2px; }
+    .catalog-changes-toggle {
+      display: flex; align-items: center; gap: 7px;
+      background: none; border: none; padding: 4px 0; cursor: pointer;
+      font-family: var(--font-display); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.5px; color: var(--text); text-align: left;
+    }
+    #catalogChangesArrow { color: var(--yellow); font-size: 10px; }
+    .catalog-changes-body {
+      margin-top: 8px; padding: 10px 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      max-height: 240px; overflow-y: auto;
+    }
+    .cc-group { margin-bottom: 10px; }
+    .cc-group:last-child { margin-bottom: 0; }
+    .cc-group-head {
+      font-family: var(--font-display); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .cc-item {
+      display: flex; gap: 8px; font-size: 12px; line-height: 1.5;
+      padding: 1px 0;
+    }
+    .cc-sign { font-family: var(--font-mono); width: 12px; flex-shrink: 0; }
+    .cc-sign.add { color: #22C55E; }
+    .cc-sign.rem { color: #ff6b6b; }
+    .cc-num { font-family: var(--font-mono); color: var(--yellow); flex-shrink: 0; }
+    .cc-name { color: var(--text); min-width: 0; word-break: break-word; }
+    .cc-more { font-size: 11px; color: var(--muted); font-style: italic; padding-top: 3px; }
     .local-result:hover { background: var(--surface3); }
     .local-result img {
       width: 50px; height: 50px; object-fit: contain;
@@ -949,6 +1009,25 @@
     <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.4;">
       Scan or search a minifig to add it to your Rebrickable collection.
     </p>
+  </div>
+
+  <!-- Offline catalog footer: last-updated + manual refresh (local dev only) -->
+  <div id="catalogFooter" class="catalog-footer" style="display:none;">
+    <div class="catalog-info">
+      <span class="catalog-label">Offline catalog</span>
+      <span id="catalogUpdated" class="catalog-updated">—</span>
+    </div>
+    <button id="catalogRefreshBtn" class="catalog-refresh-btn" onclick="refreshCatalog()">
+      Check for updates
+    </button>
+    <div id="catalogMsg" class="catalog-msg"></div>
+    <div id="catalogChanges" class="catalog-changes" style="display:none;">
+      <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()">
+        <span id="catalogChangesArrow">▶</span>
+        <span id="catalogChangesSummary"></span>
+      </button>
+      <div id="catalogChangesBody" class="catalog-changes-body" style="display:none;"></div>
+    </div>
   </div>
 </div>
 
@@ -1331,7 +1410,7 @@
       <button class="btn green" id="addAllPartsBtn" onclick="showAddPartsListPicker()" style="display:none;margin-bottom:0;">Add Parts</button>
     </div>
     <button class="btn green" id="addBtn" onclick="addItem()">Add to List</button>
-    <button class="btn secondary" onclick="goTo('screen-scan')">Retake Photo</button>
+    <button class="btn secondary" id="retakeBtn" onclick="goTo('screen-scan')">Retake Photo</button>
   </div>
 </div>
 
@@ -1840,7 +1919,15 @@
 
   // Open a catalog part in the identify screen. Uses local name/image immediately,
   // then enriches with Rebrickable details (BrickLink id, canonical image) if online.
+  // Manual searches have no scan photo — drop any photo from a previous scan so
+  // the identify screen doesn't display the wrong image.
+  function clearCapturedPhoto() {
+    if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
+    capturedObjectUrl = null;
+  }
+
   async function openPartFromSearch(partNum, name, img) {
+    clearCapturedPhoto();
     const item = { type: 'part', id: partNum, name: name, img_url: img, bl_id: null, candidate_colors: [] };
     try {
       const resp = await fetch(`/api/part/${encodeURIComponent(partNum)}`);
@@ -1856,6 +1943,7 @@
   }
 
   async function openMinifigFromSearch(figNum, name, img) {
+    clearCapturedPhoto();
     const item = { type: 'minifig', id: figNum, name: name, img_url: img, bl_id: null };
     try {
       const resp = await fetch(`/api/minifig/${encodeURIComponent(figNum)}`);
@@ -1869,6 +1957,145 @@
     document.getElementById('minifigSearchInput').value = '';
     showIdentifyScreen({ items: [item] });
   }
+
+  // ── Offline catalog footer: last-updated + manual refresh (local dev only) ──
+  let _catalogPollTimer = null;
+
+  function _fmtCatalog(info) {
+    const el = document.getElementById('catalogUpdated');
+    if (info.present && info.last_updated_human) {
+      let txt = 'Updated ' + info.last_updated_human;
+      if (info.db_size_mb) txt += ' · ' + info.db_size_mb + ' MB';
+      el.textContent = txt;
+    } else {
+      el.textContent = info.present ? 'Present' : 'Not built yet';
+    }
+  }
+
+  function _showCatalogResult(res) {
+    const msg = document.getElementById('catalogMsg');
+    if (!res) { msg.textContent = ''; msg.className = 'catalog-msg'; return; }
+    msg.className = 'catalog-msg ' + (res.ok ? 'ok' : 'err');
+    const n = (res.updated || []).length;
+    msg.textContent = res.message + (res.changed && n
+      ? ` (${n} table${n === 1 ? '' : 's'})` : '');
+  }
+
+  function _pollCatalog() {
+    if (_catalogPollTimer) return;
+    _catalogPollTimer = setInterval(async () => {
+      let info;
+      try { info = await fetch('/api/catalog/status').then(r => r.json()); }
+      catch (e) { return; }
+      if (!info.running) {
+        clearInterval(_catalogPollTimer); _catalogPollTimer = null;
+        const btn = document.getElementById('catalogRefreshBtn');
+        btn.disabled = false; btn.textContent = 'Check for updates';
+        _fmtCatalog(info);
+        _showCatalogResult(info.last_result);
+        _renderChanges(info.last_changes);
+      }
+    }, 2000);
+  }
+
+  async function loadCatalogStatus() {
+    const footer = document.getElementById('catalogFooter');
+    try {
+      const info = await fetch('/api/catalog/status').then(r => r.json());
+      if (!info.can_refresh) { footer.style.display = 'none'; return; }  // hide in prod
+      footer.style.display = 'flex';
+      _fmtCatalog(info);
+      _renderChanges(info.last_changes);
+      const btn = document.getElementById('catalogRefreshBtn');
+      if (info.running) {
+        btn.disabled = true; btn.textContent = 'Updating…';
+        document.getElementById('catalogMsg').textContent = 'Checking Rebrickable and rebuilding…';
+        _pollCatalog();
+      } else {
+        btn.disabled = false; btn.textContent = 'Check for updates';
+        _showCatalogResult(info.last_result);
+      }
+    } catch (e) {
+      footer.style.display = 'none';
+    }
+  }
+
+  async function refreshCatalog() {
+    const btn = document.getElementById('catalogRefreshBtn');
+    const msg = document.getElementById('catalogMsg');
+    btn.disabled = true; btn.textContent = 'Updating…';
+    msg.className = 'catalog-msg'; msg.textContent = 'Checking Rebrickable and rebuilding…';
+    try {
+      const r = await fetch('/api/catalog/refresh', { method: 'POST' });
+      if (!r.ok && r.status !== 202) {
+        msg.className = 'catalog-msg err'; msg.textContent = 'Refresh not available here.';
+        btn.disabled = false; btn.textContent = 'Check for updates';
+        return;
+      }
+      _pollCatalog();
+    } catch (e) {
+      msg.className = 'catalog-msg err'; msg.textContent = 'Network error.';
+      btn.disabled = false; btn.textContent = 'Check for updates';
+    }
+  }
+
+  const _ccKinds = [['sets', 'sets'], ['minifigs', 'figs'], ['parts', 'parts']];
+
+  function _renderChanges(changes) {
+    const wrap = document.getElementById('catalogChanges');
+    if (!changes || !changes.summary) { wrap.style.display = 'none'; return; }
+
+    const summaryBits = [];
+    let total = 0;
+    _ccKinds.forEach(([k, label]) => {
+      const s = changes.summary[k] || { added: 0, removed: 0 };
+      total += s.added + s.removed;
+      const bits = [];
+      if (s.added) bits.push('+' + s.added);
+      if (s.removed) bits.push('−' + s.removed);
+      if (bits.length) summaryBits.push(bits.join('/') + ' ' + label);
+    });
+    if (!total) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+
+    let prefix = '';
+    if (changes.timestamp) {
+      const d = new Date(changes.timestamp);
+      if (!isNaN(d)) prefix = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' update — ';
+    }
+    document.getElementById('catalogChangesSummary').textContent = prefix + summaryBits.join(', ');
+
+    const row = (sign, cls, it) =>
+      `<div class="cc-item"><span class="cc-sign ${cls}">${sign}</span>` +
+      `<span class="cc-num">${escapeHtml(it.num || '')}</span>` +
+      `<span class="cc-name">${escapeHtml(it.name || '')}</span></div>`;
+
+    let html = '';
+    _ccKinds.forEach(([k, label]) => {
+      const grp = changes[k];
+      if (!grp) return;
+      const added = grp.added || [], removed = grp.removed || [];
+      if (!added.length && !removed.length) return;
+      const s = changes.summary[k] || { added: 0, removed: 0 };
+      html += '<div class="cc-group"><div class="cc-group-head">' +
+        escapeHtml(label.toUpperCase()) + ` (+${s.added}` + (s.removed ? ` / −${s.removed}` : '') + ')</div>';
+      added.forEach(it => { html += row('+', 'add', it); });
+      removed.forEach(it => { html += row('−', 'rem', it); });
+      if (grp.truncated) html += '<div class="cc-more">…list truncated</div>';
+      html += '</div>';
+    });
+    document.getElementById('catalogChangesBody').innerHTML = html;
+  }
+
+  function toggleCatalogChanges() {
+    const body = document.getElementById('catalogChangesBody');
+    const arrow = document.getElementById('catalogChangesArrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    arrow.textContent = open ? '▶' : '▼';
+  }
+
+  loadCatalogStatus();
 
   function extractBlId(item) {
     const bl = (item.external_sites || []).find(s => s.name === 'bricklink');
@@ -2320,8 +2547,17 @@
 
     const items = data.items || [];
     goTo('screen-identify');
-    document.getElementById('photoBanner').src = capturedObjectUrl || '';
-    document.getElementById('userThumb').src = capturedObjectUrl || '';
+    // Only show the captured-photo banner/thumb when there's an actual scan photo;
+    // manual searches have no photo, so hide them (don't reuse the last scan's image).
+    const hasPhoto = !!capturedObjectUrl;
+    const banner = document.getElementById('photoBanner');
+    const userThumb = document.getElementById('userThumb');
+    banner.src = capturedObjectUrl || '';
+    banner.style.display = hasPhoto ? '' : 'none';
+    userThumb.src = capturedObjectUrl || '';
+    userThumb.style.display = hasPhoto ? '' : 'none';
+    // Label the back button to match how we got here (scan vs. manual search).
+    document.getElementById('retakeBtn').textContent = hasPhoto ? 'Retake Photo' : 'Back to Scan';
     const errEl = document.getElementById('identifyError');
     errEl.style.display = 'none';
 

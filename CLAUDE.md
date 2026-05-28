@@ -39,7 +39,49 @@ pip3 install flask requests python-dotenv requests-oauthlib
 ```bash
 # Build the local SQLite catalog from the Rebrickable CSV dump in "Brick Parts/"
 python3 build_brick_db.py        # produces ./brick_parts.db (~195 MB)
+
+# Download the CSV dump from Rebrickable's public CDN (used on deploy + refresh)
+python3 download_csvs.py         # → "Brick Parts/" (only the 9 tables the catalog uses)
+
+# Daily auto-refresh: HEAD-check for changes, rebuild + atomically swap if changed
+python3 refresh_catalog.py [--force]
 ```
+
+> **⚠️ LOCAL-ONLY FEATURE — catalog refresh, change tracking, and the daily job
+> do not run on Render (by design).** Render rebuilds `brick_parts.db` from scratch
+> on every deploy onto an ephemeral filesystem, so there is no persisted prior
+> catalog to diff against and no non-deploy rebuild trigger. All of this is gated
+> off in production: `IS_RENDER` (the `RENDER` env var) makes `can_refresh` false →
+> the scan-screen footer is hidden and `POST /api/catalog/refresh` returns 403. On
+> Render the catalog is simply whatever was current at the last deploy. Making it
+> work there would require persisting a prior catalog index (R2/S3 or a persistent
+> disk) + a Render Cron Job — intentionally not done.
+
+**Manual refresh button (scan screen, local only):** A footer at the bottom of `#screen-scan`
+shows "Offline catalog — Updated <date> · <size>" and a "Check for updates" button.
+Backend: `GET /api/catalog/status` (freshness + `can_refresh` + `last_changes`) and
+`POST /api/catalog/refresh` (runs `refresh_catalog.run()` in a daemon thread; the
+frontend polls status every 2s).
+
+**Change tracking:** Each rebuild diffs the old vs new catalog on `part_num`/`fig_num`/
+`set_num` (`refresh_catalog._diff_catalog`, run before the atomic swap while both DBs
+exist) and writes added/removed items per category to `.catalog_changes.json` (capped at
+`CHANGES_CAP`=500/category). The scan-screen footer renders this as a collapsible list
+(`#catalogChanges` / `_renderChanges()`): a summary line ("May 28 update — +2/−1 sets, …")
+that expands to grouped SETS/FIGS/PARTS with green `+`/red `−` rows. Hidden when there are
+no additions/removals. The footer is hidden where `can_refresh` is false —
+i.e. on Render (`IS_RENDER`, detected via the `RENDER` env var), where refresh is
+disabled (returns 403) since the filesystem is ephemeral.
+
+**Daily refresh automation (local dev):** `refresh_catalog.py` checks Rebrickable's
+CDN via cheap HEAD requests (ETag/Last-Modified vs `.catalog_manifest.json`); if any
+table changed it re-downloads the full dump, rebuilds into `brick_parts.db.new`, and
+`os.replace`s it in. The dev server opens a fresh SQLite connection per request, so it
+picks up the new DB with **no restart** (zero-downtime swap). Scheduled daily at 04:30
+via a launchd LaunchAgent (`com.brickscanner.catalog-refresh.plist` → `refresh_catalog.sh`);
+install/uninstall instructions are in the plist header. Logs: `catalog_refresh.log`
+(clean, timestamped) and `catalog_refresh.launchd.log` (raw stdout/stderr). All refresh
+artifacts are git-ignored.
 
 The `Brick Parts/` folder (Rebrickable CSV bulk download) and the generated
 `brick_parts.db` are **git-ignored** (local dev only). The app degrades

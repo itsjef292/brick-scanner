@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 import os
 import re
 import sys
+import json
+import datetime
 import sqlite3
 import requests
 import time
@@ -32,7 +34,19 @@ RATE_LIMIT_STATUS = {"is_limited": False, "reset_time": None}  # Track rate limi
 # build_brick_db.py loads "Brick Parts/*.csv" into this file. It powers offline
 # search (parts/minifigs/sets) so lookups don't consume the 60 req/min API quota.
 # Absent on production → offline search degrades gracefully (returns a notice).
-LOCAL_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brick_parts.db")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+LOCAL_DB_PATH = os.path.join(_HERE, "brick_parts.db")
+CATALOG_MANIFEST_PATH = os.path.join(_HERE, ".catalog_manifest.json")
+CATALOG_CHANGES_PATH = os.path.join(_HERE, ".catalog_changes.json")
+
+# Manual catalog-refresh state (the "refresh now" button on the scan screen).
+# LOCAL-ONLY FEATURE: refresh + change tracking are disabled on Render. Render's
+# filesystem is ephemeral (DB rebuilt from scratch each deploy), so there's no
+# prior catalog to diff and no rebuild trigger. When IS_RENDER, can_refresh is
+# false (footer hidden) and /api/catalog/refresh returns 403.
+IS_RENDER = os.environ.get("RENDER") is not None
+_catalog_lock = threading.Lock()
+_catalog_state = {"running": False, "last_result": None}
 
 
 def local_db():
@@ -355,6 +369,68 @@ def get_status():
             pass
 
     return jsonify(status)
+
+
+@app.route("/api/catalog/status")
+def catalog_status():
+    """Offline-catalog freshness + refresh capability (for the scan-screen footer)."""
+    present = os.path.exists(LOCAL_DB_PATH)
+    info = {
+        "present": present,
+        "can_refresh": not IS_RENDER,
+        "running": _catalog_state["running"],
+        "last_result": _catalog_state["last_result"],
+    }
+    if present:
+        mt = os.path.getmtime(LOCAL_DB_PATH)
+        dt = datetime.datetime.fromtimestamp(mt)
+        info["last_updated_iso"] = dt.isoformat(timespec="seconds")
+        # e.g. "May 28, 2026 at 3:30 PM" (strip leading zero from hour portably)
+        info["last_updated_human"] = dt.strftime("%b %d, %Y at %I:%M %p").replace(" 0", " ")
+        info["db_size_mb"] = round(os.path.getsize(LOCAL_DB_PATH) / 1_000_000, 1)
+    # Date of the underlying Rebrickable data, if we have a manifest.
+    try:
+        with open(CATALOG_MANIFEST_PATH) as f:
+            man = json.load(f)
+        info["data_date"] = man.get("inventory_parts", {}).get("last_modified")
+    except (OSError, ValueError):
+        pass
+    # What the most recent update added/removed (parts/minifigs/sets), if recorded.
+    try:
+        with open(CATALOG_CHANGES_PATH) as f:
+            info["last_changes"] = json.load(f)
+    except (OSError, ValueError):
+        pass
+    return jsonify(info)
+
+
+@app.route("/api/catalog/refresh", methods=["POST"])
+def catalog_refresh():
+    """Kick off a manual catalog refresh in the background (local dev only)."""
+    if IS_RENDER:
+        return jsonify({"error": "Refresh is only available on the local dev instance"}), 403
+
+    with _catalog_lock:
+        if _catalog_state["running"]:
+            return jsonify({"status": "running"}), 202
+        _catalog_state["running"] = True
+        _catalog_state["last_result"] = None
+
+    force = bool((request.get_json(silent=True) or {}).get("force"))
+
+    def _worker():
+        try:
+            import refresh_catalog
+            result = refresh_catalog.run(force=force)
+        except Exception as e:
+            print(f"⚠ Catalog refresh error: {e}")
+            result = {"ok": False, "changed": False, "message": str(e), "updated": []}
+        with _catalog_lock:
+            _catalog_state["running"] = False
+            _catalog_state["last_result"] = result
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return jsonify({"status": "started"}), 202
 
 
 @app.route("/api/colors")
