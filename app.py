@@ -2,8 +2,10 @@ from flask import Flask, render_template, request, jsonify
 import os
 import re
 import sys
+import sqlite3
 import requests
 import time
+import threading
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth1
 
@@ -26,35 +28,209 @@ COLORS_CACHE = {"data": None, "timestamp": None}  # Cache colors to avoid repeat
 COLORS_CACHE_DURATION = 3600  # 1 hour in seconds
 RATE_LIMIT_STATUS = {"is_limited": False, "reset_time": None}  # Track rate limit state
 
+# ── Offline catalog (local SQLite built from the Rebrickable CSV dump) ─────────
+# build_brick_db.py loads "Brick Parts/*.csv" into this file. It powers offline
+# search (parts/minifigs/sets) so lookups don't consume the 60 req/min API quota.
+# Absent on production → offline search degrades gracefully (returns a notice).
+LOCAL_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brick_parts.db")
+
+
+def local_db():
+    """Return a read-only-ish connection to the local catalog, or None if absent."""
+    if not os.path.exists(LOCAL_DB_PATH):
+        return None
+    conn = sqlite3.connect(LOCAL_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+# ── Local-catalog lookups used during a scan (each falls back to the live API
+#    in the caller when it returns None, so production without a DB is unchanged).
+
+def _local_resolve_part(bl_id):
+    """Map a BrickLink part id → Rebrickable part using the local catalog.
+
+    Heuristic: Rebrickable aligns its part_num with BrickLink's for the vast
+    majority of standard parts, so a BrickLink id that exists verbatim in the
+    parts table is the same physical part. Printed/variant parts whose numbers
+    differ simply miss here → caller falls back to the authoritative API.
+    Returns {part_num, name, img_url} or None.
+    """
+    if not bl_id:
+        return None
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT part_num, name, img_url FROM parts WHERE part_num = ?",
+            (bl_id,),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def _local_resolve_minifig(name):
+    """Find the best fig_num in the local catalog by word overlap with `name`,
+    mirroring the live-API search heuristic. Returns {fig_num, name, img_url} or None.
+    """
+    if not name:
+        return None
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        search_name = re.split(r' - | \(', name)[0].strip()
+        if not search_name:
+            return None
+        rows = conn.execute(
+            "SELECT fig_num, name, img_url FROM minifigs WHERE name LIKE ? LIMIT 50",
+            (f"%{search_name}%",),
+        ).fetchall()
+        if not rows:
+            return None
+        full_words = set(re.findall(r'\w+', name.lower()))
+        best = max(rows, key=lambda r: len(full_words & set(re.findall(r'\w+', r["name"].lower()))))
+        return dict(best)
+    finally:
+        conn.close()
+
+
+def _local_part_colors(part_num):
+    """Available colors for a part (+ num_sets), from the local catalog.
+    Returns a list shaped like Rebrickable's /parts/<n>/colors/ results, or None.
+    """
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        rows = conn.execute(
+            """
+            SELECT ip.color_id AS color_id, c.name AS color_name, c.rgb AS rgb,
+                   COUNT(DISTINCT inv.set_num) AS num_sets
+            FROM inventory_parts ip
+            JOIN inventories inv ON inv.id = ip.inventory_id
+            LEFT JOIN colors c ON c.id = ip.color_id
+            WHERE ip.part_num = ?
+            GROUP BY ip.color_id, c.name, c.rgb
+            ORDER BY num_sets DESC
+            """,
+            (part_num,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def _local_minifig_sets(fig_num):
+    """Sets that contain a minifig, from the local catalog.
+    Returns a list shaped like Rebrickable's /minifigs/<f>/sets/ results, or None.
+    """
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        rows = conn.execute(
+            """
+            SELECT s.set_num, s.name AS name, s.year AS year, s.img_url AS set_img_url
+            FROM inventory_minifigs im
+            JOIN inventories inv ON inv.id = im.inventory_id
+            JOIN sets s ON s.set_num = inv.set_num
+            WHERE im.fig_num = ?
+            GROUP BY s.set_num
+            ORDER BY s.year DESC
+            LIMIT 30
+            """,
+            (fig_num,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def _local_minifig_parts(fig_num):
+    """Parts that make up a minifig (from its own latest inventory), from the
+    local catalog. Returns a list shaped like Rebrickable's /minifigs/<f>/parts/
+    results (nested part/color objects), or None.
+    """
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        inv = conn.execute(
+            "SELECT id FROM inventories WHERE set_num = ? ORDER BY version DESC LIMIT 1",
+            (fig_num,),
+        ).fetchone()
+        if inv is None:
+            return []
+        rows = conn.execute(
+            """
+            SELECT ip.part_num, p.name AS part_name, ip.img_url AS part_img,
+                   ip.color_id, c.name AS color_name, c.rgb AS rgb, ip.quantity
+            FROM inventory_parts ip
+            LEFT JOIN parts p ON p.part_num = ip.part_num
+            LEFT JOIN colors c ON c.id = ip.color_id
+            WHERE ip.inventory_id = ?
+            ORDER BY ip.quantity DESC
+            """,
+            (inv["id"],),
+        ).fetchall()
+        return [{
+            "part": {
+                "part_num": r["part_num"],
+                "name": r["part_name"],
+                "part_img_url": r["part_img"],
+            },
+            "color": {
+                "id": r["color_id"],
+                "name": r["color_name"],
+                "rgb": r["rgb"],
+            },
+            "quantity": r["quantity"],
+        } for r in rows]
+    finally:
+        conn.close()
+
 # ── Rate Limiter for Rebrickable API (60 req/min = 1 req/sec) ──────────────────
-RB_RATE_LIMITER = {
-    "last_request_time": 0,
-    "min_interval": 1.0,  # 1 second minimum between requests (60 req/min)
-    "requests_made": 0,
-    "reset_time": time.time() + 60
-}
+# IMPORTANT: This limiter is only correct when the app runs as a SINGLE process
+# (gunicorn --workers 1) with multiple threads. Each thread atomically reserves a
+# 1-second slot under a shared lock, so outbound requests are globally spaced ≥1s
+# apart and never exceed 60/min. Running multiple workers would give each its own
+# limiter and multiply the real rate — do not raise --workers above 1.
+RB_MIN_INTERVAL = 1.0  # seconds between requests (60 req/min)
+_rb_lock = threading.Lock()
+_rb_next_slot = 0.0          # monotonic time the next request may be sent
+_rb_window_start = 0.0       # wall-clock start of current logging window
+_rb_window_count = 0         # requests sent in current logging window
+
 
 def throttle_rebrickable_request():
-    """Enforce rate limiting: max 1 request per second to Rebrickable"""
-    global RB_RATE_LIMITER
+    """Globally space Rebrickable requests ≥1s apart across all threads.
 
-    now = time.time()
+    Each caller reserves the next available time slot under a lock (fast), then
+    sleeps until that slot WITHOUT holding the lock, so threads don't block each
+    other while waiting — they just queue up one slot apart.
+    """
+    global _rb_next_slot, _rb_window_start, _rb_window_count
 
-    # Reset counter every minute
-    if now > RB_RATE_LIMITER["reset_time"]:
-        RB_RATE_LIMITER["requests_made"] = 0
-        RB_RATE_LIMITER["reset_time"] = now + 60
+    with _rb_lock:
+        now = time.monotonic()
+        slot = max(now, _rb_next_slot)
+        _rb_next_slot = slot + RB_MIN_INTERVAL
+        wait = slot - now
 
-    # Calculate time to wait
-    time_since_last = now - RB_RATE_LIMITER["last_request_time"]
-    wait_time = max(0, RB_RATE_LIMITER["min_interval"] - time_since_last)
+        # Per-minute counter purely for log visibility
+        wall = time.time()
+        if wall - _rb_window_start >= 60:
+            _rb_window_start = wall
+            _rb_window_count = 0
+        _rb_window_count += 1
+        count = _rb_window_count
 
-    if wait_time > 0:
-        print(f"⏳ Rate limit: waiting {wait_time:.2f}s before next Rebrickable request ({RB_RATE_LIMITER['requests_made']}/60 requests used)")
-        time.sleep(wait_time)
-
-    RB_RATE_LIMITER["last_request_time"] = time.time()
-    RB_RATE_LIMITER["requests_made"] += 1
+    if wait > 0:
+        print(f"⏳ Rate limit: waiting {wait:.2f}s before next Rebrickable request ({count}/60 this minute)")
+        time.sleep(wait)
 
 def rebrickable_get(endpoint, params=None):
     """Make a throttled GET request to Rebrickable API"""
@@ -342,49 +518,60 @@ def identify():
             # Minifigs default to "fig-{bl_id}" format even if search fails
             rb_id = f"fig-{bl_id}" if item_type == "minifig" else bl_id
             if item_type == "minifig":
-                try:
-                    # Rebrickable doesn't support bricklink_id filtering for minifigs.
-                    # Strip color/variant suffix (after " - " or "(") for a cleaner search term,
-                    # then pick the result with the most word overlap against the full name.
-                    name = ci.get("name", "")
-                    search_name = re.split(r' - | \(', name)[0].strip() if name else ""
-                    if search_name:
+                name = ci.get("name", "")
+                # Prefer the offline catalog (no API quota); fall back to the live API.
+                local_fig = _local_resolve_minifig(name)
+                if local_fig:
+                    rb_id = local_fig["fig_num"]
+                else:
+                    try:
+                        # Rebrickable doesn't support bricklink_id filtering for minifigs.
+                        # Strip color/variant suffix (after " - " or "(") for a cleaner search term,
+                        # then pick the result with the most word overlap against the full name.
+                        search_name = re.split(r' - | \(', name)[0].strip() if name else ""
+                        if search_name:
+                            rb_resp = requests.get(
+                                f"{RB_BASE}/lego/minifigs/",
+                                params={"key": API_KEY, "search": search_name, "page_size": 8},
+                                timeout=5,
+                            )
+                            if rb_resp.status_code == 200:
+                                results = rb_resp.json().get("results", [])
+                                if results:
+                                    full_words = set(re.findall(r'\w+', name.lower()))
+                                    def _overlap(r):
+                                        return len(full_words & set(re.findall(r'\w+', r['name'].lower())))
+                                    rb_id = max(results, key=_overlap)['set_num']
+                    except Exception:
+                        pass
+                img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
+            else:
+                # Prefer the offline catalog (no API quota); fall back to the live API.
+                local_part = _local_resolve_part(bl_external_id)
+                if local_part:
+                    rb_id = local_part["part_num"]
+                    img_url = local_part["img_url"] or \
+                        f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
+                else:
+                    rb_part = None
+                    try:
                         rb_resp = requests.get(
-                            f"{RB_BASE}/lego/minifigs/",
-                            params={"key": API_KEY, "search": search_name, "page_size": 8},
+                            f"{RB_BASE}/lego/parts/",
+                            params={"key": API_KEY, "bricklink_id": bl_external_id},
                             timeout=5,
                         )
                         if rb_resp.status_code == 200:
                             results = rb_resp.json().get("results", [])
                             if results:
-                                full_words = set(re.findall(r'\w+', name.lower()))
-                                def _overlap(r):
-                                    return len(full_words & set(re.findall(r'\w+', r['name'].lower())))
-                                rb_id = max(results, key=_overlap)['set_num']
-                except Exception:
-                    pass
-                img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
-            else:
-                rb_part = None
-                try:
-                    rb_resp = requests.get(
-                        f"{RB_BASE}/lego/parts/",
-                        params={"key": API_KEY, "bricklink_id": bl_external_id},
-                        timeout=5,
-                    )
-                    if rb_resp.status_code == 200:
-                        results = rb_resp.json().get("results", [])
-                        if results:
-                            rb_part = results[0]
-                            rb_id = rb_part["part_num"]
-                except Exception:
-                    pass
-                # Use Rebrickable image if available, otherwise BrickLink
-                img_url = ""
-                if rb_part and rb_part.get("part_img_url"):
-                    img_url = rb_part["part_img_url"]
-                else:
-                    img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
+                                rb_part = results[0]
+                                rb_id = rb_part["part_num"]
+                    except Exception:
+                        pass
+                    # Use Rebrickable image if available, otherwise BrickLink
+                    if rb_part and rb_part.get("part_img_url"):
+                        img_url = rb_part["part_img_url"]
+                    else:
+                        img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
 
             # Build candidate_colors with Rebrickable IDs (parts only)
             rb_colors = []
@@ -491,10 +678,17 @@ def get_part(part_num):
 
 @app.route("/api/part_colors/<part_num>")
 def get_part_colors(part_num):
+    # Prefer the offline catalog (no API quota); fall back to the live API.
+    # Empty result → part isn't in any local inventory, so try the API instead.
+    local = _local_part_colors(part_num)
+    if local:
+        return jsonify({"count": len(local), "results": local}), 200
     resp = rebrickable_get(
         f"/lego/parts/{part_num}/colors/",
         params={"key": API_KEY, "page_size": 100},
     )
+    if resp is None:
+        return jsonify({"error": "Failed to fetch part colors", "results": []}), 503
     return jsonify(resp.json()), resp.status_code
 
 
@@ -636,6 +830,10 @@ def create_partlist():
 
 @app.route("/api/minifig_sets/<set_num>")
 def get_minifig_sets(set_num):
+    # Prefer the offline catalog (no API quota); fall back to the live API.
+    local = _local_minifig_sets(set_num)
+    if local:
+        return jsonify({"count": len(local), "results": local}), 200
     resp = requests.get(
         f"{RB_BASE}/lego/minifigs/{set_num}/sets/",
         params={"key": API_KEY, "page_size": 30},
@@ -799,7 +997,10 @@ def get_minifig_price(fig_id):
 
 @app.route("/api/minifig_parts/<minifig_id>")
 def get_minifig_parts(minifig_id):
-    """Fetch parts that make up a minifigure from Rebrickable API."""
+    """Fetch parts that make up a minifigure (offline catalog first, API fallback)."""
+    local = _local_minifig_parts(minifig_id)
+    if local:
+        return jsonify({"count": len(local), "results": local})
     try:
         parts_resp = requests.get(
             f"{RB_BASE}/lego/minifigs/{minifig_id}/parts/",
@@ -813,6 +1014,171 @@ def get_minifig_parts(minifig_id):
     except Exception as e:
         print(f"Error fetching minifig parts: {e}")
         return jsonify({"error": str(e), "count": 0, "results": []}), 500
+
+
+def _api_search_fallback(kind, query, limit):
+    """Search the live Rebrickable API when the offline DB is unavailable.
+
+    Returns results in the same shape as the offline search so the frontend
+    renders them identically (just with source='api'). Costs API quota.
+    """
+    if kind == "minifigs":
+        resp = rebrickable_get("/lego/minifigs/", params={
+            "key": API_KEY, "search": query, "page_size": limit,
+        })
+        rows = (resp.json().get("results", []) if resp and resp.status_code == 200 else [])
+        return [{
+            "type": "minifig",
+            "fig_num": r.get("set_num"),       # Rebrickable uses set_num for fig id
+            "name": r.get("set_name"),
+            "num_parts": r.get("num_parts"),
+            "img_url": r.get("set_img_url"),
+        } for r in rows]
+
+    if kind == "sets":
+        resp = rebrickable_get("/lego/sets/", params={
+            "key": API_KEY, "search": query, "page_size": limit, "ordering": "-year",
+        })
+        rows = (resp.json().get("results", []) if resp and resp.status_code == 200 else [])
+        return [{
+            "type": "set",
+            "set_num": r.get("set_num"),
+            "name": r.get("name"),
+            "year": r.get("year"),
+            "part_count": r.get("num_parts"),
+            "theme": None,
+            "img_url": r.get("set_img_url"),
+        } for r in rows]
+
+    # parts
+    resp = rebrickable_get("/lego/parts/", params={
+        "key": API_KEY, "search": query, "page_size": limit,
+    })
+    rows = (resp.json().get("results", []) if resp and resp.status_code == 200 else [])
+    return [{
+        "type": "part",
+        "part_num": r.get("part_num"),
+        "name": r.get("name"),
+        "img_url": r.get("part_img_url"),
+        "category": None,
+    } for r in rows]
+
+
+@app.route("/api/local/search")
+def local_search():
+    """Catalog search. Prefers the offline SQLite DB (no Rebrickable quota);
+    falls back to the live Rebrickable API if the DB is absent.
+
+    Query params:
+      q     — search term (matches name or catalog number)
+      type  — 'parts' | 'minifigs' | 'sets'  (default 'parts')
+      limit — max results (default 30, capped 100)
+
+    Response includes "source": "offline" | "api" so the UI can show which
+    data source served the results.
+    """
+    query = request.args.get("q", "").strip()
+    kind = request.args.get("type", "parts").strip().lower()
+    try:
+        limit = min(int(request.args.get("limit", 30)), 100)
+    except (TypeError, ValueError):
+        limit = 30
+
+    if not query:
+        return jsonify({"error": "Please enter a search term", "results": []}), 400
+
+    conn = local_db()
+    if conn is None:
+        # No offline catalog → fall back to the live Rebrickable API.
+        try:
+            results = _api_search_fallback(kind, query, limit)
+            return jsonify({"results": results, "count": len(results), "source": "api"})
+        except Exception as e:
+            print(f"Error in API search fallback: {e}")
+            return jsonify({"error": str(e), "results": [], "source": "api"}), 500
+
+    like = f"%{query}%"
+    prefix = f"{query}%"
+    try:
+        if kind == "minifigs":
+            rows = conn.execute(
+                """
+                SELECT fig_num, name, num_parts, img_url FROM minifigs
+                WHERE fig_num = :q OR fig_num LIKE :prefix OR name LIKE :like
+                ORDER BY
+                  CASE WHEN fig_num = :q THEN 0
+                       WHEN fig_num LIKE :prefix THEN 1
+                       WHEN name LIKE :prefix THEN 2
+                       ELSE 3 END,
+                  name
+                LIMIT :limit
+                """,
+                {"q": query, "prefix": prefix, "like": like, "limit": limit},
+            ).fetchall()
+            results = [{
+                "type": "minifig",
+                "fig_num": r["fig_num"],
+                "name": r["name"],
+                "num_parts": r["num_parts"],
+                "img_url": r["img_url"],
+            } for r in rows]
+
+        elif kind == "sets":
+            rows = conn.execute(
+                """
+                SELECT s.set_num, s.name, s.year, s.num_parts, s.img_url, t.name AS theme
+                FROM sets s LEFT JOIN themes t ON t.id = s.theme_id
+                WHERE s.set_num = :q OR s.set_num LIKE :prefix OR s.name LIKE :like
+                ORDER BY
+                  CASE WHEN s.set_num = :q THEN 0
+                       WHEN s.set_num LIKE :prefix THEN 1
+                       WHEN s.name LIKE :prefix THEN 2
+                       ELSE 3 END,
+                  s.year DESC
+                LIMIT :limit
+                """,
+                {"q": query, "prefix": prefix, "like": like, "limit": limit},
+            ).fetchall()
+            results = [{
+                "type": "set",
+                "set_num": r["set_num"],
+                "name": r["name"],
+                "year": r["year"],
+                "part_count": r["num_parts"],
+                "theme": r["theme"],
+                "img_url": r["img_url"],
+            } for r in rows]
+
+        else:  # parts
+            rows = conn.execute(
+                """
+                SELECT p.part_num, p.name, p.img_url, c.name AS category
+                FROM parts p LEFT JOIN part_categories c ON c.id = p.part_cat_id
+                WHERE p.part_num = :q OR p.part_num LIKE :prefix OR p.name LIKE :like
+                ORDER BY
+                  CASE WHEN p.part_num = :q THEN 0
+                       WHEN p.part_num LIKE :prefix THEN 1
+                       WHEN p.name LIKE :prefix THEN 2
+                       ELSE 3 END,
+                  p.name
+                LIMIT :limit
+                """,
+                {"q": query, "prefix": prefix, "like": like, "limit": limit},
+            ).fetchall()
+            results = [{
+                "type": "part",
+                "part_num": r["part_num"],
+                "name": r["name"],
+                "img_url": r["img_url"],
+                "category": r["category"],
+            } for r in rows]
+
+        return jsonify({"results": results, "count": len(results), "source": "offline"})
+    except Exception as e:
+        print(f"Error in local_search: {e}")
+        return jsonify({"error": str(e), "results": []}), 500
+    finally:
+        conn.close()
 
 
 @app.route("/api/search_sets")

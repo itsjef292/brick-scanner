@@ -2,18 +2,25 @@ services:
   - type: web
     name: brick-scanner
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:10000 --workers 4 --timeout 60 app:app
+    # Build the offline catalog from Rebrickable's public CSV dump, then drop the
+    # raw CSVs (the ~195MB brick_parts.db is all the app needs at runtime).
+    buildCommand: pip install -r requirements.txt && python download_csvs.py && python build_brick_db.py && rm -rf "Brick Parts"
+    # Single worker keeps the in-process rate limiter global (60 req/min cap);
+    # threads give concurrency for this I/O-bound app without multiplying the rate.
+    startCommand: gunicorn --bind 0.0.0.0:10000 --workers 1 --threads 8 --worker-class gthread --timeout 60 app:app
     envVars:
+      # Secrets are NOT stored in this file. Set each value in the Render
+      # dashboard (Environment tab); sync:false keeps the blueprint from
+      # overwriting or exposing them.
       - key: REBRICKABLE_API_KEY
-        value: REDACTED_REBRICKABLE_API_KEY
+        sync: false
       - key: REBRICKABLE_USER_TOKEN
-        value: REDACTED_REBRICKABLE_USER_TOKEN
+        sync: false
       - key: BL_CONSUMER_KEY
-        value: REDACTED_BL_CONSUMER_KEY
+        sync: false
       - key: BL_CONSUMER_SECRET
-        value: REDACTED_BL_CONSUMER_SECRET
+        sync: false
       - key: BL_TOKEN
-        value: REDACTED_BL_TOKEN
+        sync: false
       - key: BL_TOKEN_SECRET
-        value: REDACTED_BL_TOKEN_SECRET
+        sync: false

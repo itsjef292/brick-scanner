@@ -825,6 +825,44 @@
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 14px;
     }
+
+    /* Offline catalog search results (parts / minifigs dropdown) */
+    .local-results {
+      margin-top: 10px; background: var(--surface2);
+      border: 1px solid var(--border-bright); border-radius: var(--radius);
+      max-height: 50vh; overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .local-result {
+      display: flex; gap: 10px; padding: 10px;
+      border-bottom: 1px solid var(--border); cursor: pointer;
+      transition: background 0.15s; align-items: center;
+    }
+    .local-result:last-child { border-bottom: none; }
+    /* Data-source badge shown above search results */
+    .source-badge {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
+      position: sticky; top: 0; background: var(--surface2); z-index: 1;
+    }
+    .src-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .local-result:hover { background: var(--surface3); }
+    .local-result img {
+      width: 50px; height: 50px; object-fit: contain;
+      background: var(--bg); border-radius: 4px; flex-shrink: 0;
+    }
+    .local-result .lr-num {
+      font-family: var(--font-mono); font-size: 13px;
+      color: var(--yellow); margin-bottom: 2px;
+    }
+    .local-result .lr-name {
+      color: var(--text); font-size: 13px; word-break: break-word;
+    }
+    .local-result .lr-meta {
+      color: var(--muted); font-size: 12px; margin-top: 3px;
+    }
   </style>
 </head>
 <body>
@@ -856,24 +894,26 @@
 <div class="screen active" id="screen-scan">
   <!-- Parts search box -->
   <div id="partsSearchSection" class="search-section">
-    <label>Search by part number</label>
+    <label>Search parts by name or number</label>
     <div class="search-row">
-      <input id="partSearchInput" type="text" placeholder="e.g., 3710"
-        onkeydown="if(event.key==='Enter')searchPartByNumber()">
-      <button class="search-btn" onclick="searchPartByNumber()">Search</button>
+      <input id="partSearchInput" type="text" placeholder="e.g., 3710 or plate 1 x 2"
+        onkeydown="if(event.key==='Enter')searchPartsLocal()">
+      <button class="search-btn" onclick="searchPartsLocal()">Search</button>
     </div>
     <div id="partSearchError" style="display:none;"></div>
+    <div id="partSearchResults" class="local-results" style="display:none;"></div>
   </div>
 
   <!-- Minifig search box -->
   <div id="minifigSearchSection" class="search-section" style="display:none;">
-    <label>Search by minifig ID or BrickLink code</label>
+    <label>Search minifigs by name or ID</label>
     <div class="search-row">
-      <input id="minifigSearchInput" type="text" placeholder="e.g., sw1094 or fig-000001"
-        onkeydown="if(event.key==='Enter')searchMinifigById()">
-      <button class="search-btn" onclick="searchMinifigById()">Search</button>
+      <input id="minifigSearchInput" type="text" placeholder="e.g., Darth Vader or fig-000001"
+        onkeydown="if(event.key==='Enter')searchMinifigsLocal()">
+      <button class="search-btn" onclick="searchMinifigsLocal()">Search</button>
     </div>
     <div id="minifigSearchError" style="display:none;"></div>
+    <div id="minifigSearchResults" class="local-results" style="display:none;"></div>
   </div>
 
   <div class="scan-area">
@@ -1711,6 +1751,123 @@
       errorDiv.style.color = '#ff6b6b';
       errorDiv.style.display = 'block';
     }
+  }
+
+  // ── Offline catalog search (parts / minifigs) ──────────────────────────
+  // Searches the local SQLite DB (no Rebrickable quota). Results feed into the
+  // existing identify screen, so view + add-to-list work the same as scanning.
+  async function searchLocal(kind, inputId, errId, resultsId) {
+    const q = document.getElementById(inputId).value.trim();
+    const err = document.getElementById(errId);
+    const res = document.getElementById(resultsId);
+    err.style.display = 'none';
+    if (!q) { res.style.display = 'none'; return; }
+    res.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">Searching…</div>';
+    res.style.display = 'block';
+    try {
+      const resp = await fetch(`/api/local/search?type=${kind}s&q=${encodeURIComponent(q)}`);
+      const data = await resp.json();
+      if (!resp.ok) {
+        res.style.display = 'none';
+        err.textContent = data.unavailable
+          ? 'Offline catalog not available on this server.'
+          : (data.error || 'Search failed');
+        err.style.color = '#ff6b6b';
+        err.style.display = 'block';
+        return;
+      }
+      renderLocalResults(resultsId, data.results || [], kind, data.source);
+    } catch (e) {
+      res.style.display = 'none';
+      err.textContent = 'Network error. Please try again.';
+      err.style.color = '#ff6b6b';
+      err.style.display = 'block';
+    }
+  }
+
+  function searchPartsLocal() { searchLocal('part', 'partSearchInput', 'partSearchError', 'partSearchResults'); }
+  function searchMinifigsLocal() { searchLocal('minifig', 'minifigSearchInput', 'minifigSearchError', 'minifigSearchResults'); }
+
+  // Badge showing which data source served the results.
+  // Green = local offline DB (no API quota); amber = live Rebrickable API.
+  function sourceBadge(source, count) {
+    const offline = source !== 'api';
+    const color = offline ? '#22C55E' : '#F5A623';
+    const label = offline ? 'Offline catalog' : 'Rebrickable API';
+    const plural = count === 1 ? 'result' : 'results';
+    return `<div class="source-badge">
+      <span class="src-dot" style="background:${color};box-shadow:0 0 6px ${color}"></span>
+      ${escapeHtml(label)} · ${count} ${plural}
+    </div>`;
+  }
+
+  function renderLocalResults(containerId, results, kind, source) {
+    const el = document.getElementById(containerId);
+    const fallbackImg = kind === 'minifig' ? '/static/minifig.png' : '/static/brick.svg';
+    const badge = sourceBadge(source, results.length);
+    if (!results.length) {
+      el.innerHTML = badge + '<div style="padding:12px;color:var(--muted);font-size:13px;">No matches found</div>';
+      el.style.display = 'block';
+      return;
+    }
+    el.innerHTML = badge + results.map((r, i) => {
+      const num = escapeHtml(kind === 'minifig' ? (r.fig_num || '') : (r.part_num || ''));
+      const name = escapeHtml(r.name || '');
+      const img = r.img_url ? escapeHtml(r.img_url) : fallbackImg;
+      const meta = kind === 'minifig'
+        ? (r.num_parts ? escapeHtml(String(r.num_parts)) + ' parts' : '')
+        : escapeHtml(r.category || '');
+      return `
+        <div class="local-result" data-idx="${i}">
+          <img src="${img}" onerror="this.src='${fallbackImg}'">
+          <div style="flex:1;min-width:0;">
+            <div class="lr-num">${num}</div>
+            <div class="lr-name">${name}</div>
+            ${meta ? `<div class="lr-meta">${meta}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+    el.style.display = 'block';
+    el.querySelectorAll('.local-result').forEach(node => {
+      node.addEventListener('click', () => {
+        const r = results[parseInt(node.getAttribute('data-idx'), 10)];
+        el.style.display = 'none';
+        if (kind === 'minifig') openMinifigFromSearch(r.fig_num, r.name, r.img_url);
+        else openPartFromSearch(r.part_num, r.name, r.img_url);
+      });
+    });
+  }
+
+  // Open a catalog part in the identify screen. Uses local name/image immediately,
+  // then enriches with Rebrickable details (BrickLink id, canonical image) if online.
+  async function openPartFromSearch(partNum, name, img) {
+    const item = { type: 'part', id: partNum, name: name, img_url: img, bl_id: null, candidate_colors: [] };
+    try {
+      const resp = await fetch(`/api/part/${encodeURIComponent(partNum)}`);
+      if (resp.ok) {
+        const p = await resp.json();
+        item.name = p.name || name;
+        item.img_url = p.part_img_url || img;
+        item.bl_id = p.external_id || null;
+      }
+    } catch (e) { /* offline: fall back to local data */ }
+    document.getElementById('partSearchInput').value = '';
+    showIdentifyScreen({ items: [item] });
+  }
+
+  async function openMinifigFromSearch(figNum, name, img) {
+    const item = { type: 'minifig', id: figNum, name: name, img_url: img, bl_id: null };
+    try {
+      const resp = await fetch(`/api/minifig/${encodeURIComponent(figNum)}`);
+      if (resp.ok) {
+        const m = await resp.json();
+        item.name = m.name || name;
+        item.img_url = m.fig_img_url || m.set_img_url || img;
+        item.bl_id = m.external_id || null;
+      }
+    } catch (e) { /* offline: fall back to local data */ }
+    document.getElementById('minifigSearchInput').value = '';
+    showIdentifyScreen({ items: [item] });
   }
 
   function extractBlId(item) {
@@ -3640,28 +3797,31 @@
     }
 
     try {
-      const resp = await fetch(`/api/search_sets?q=${encodeURIComponent(query)}`);
+      const resp = await fetch(`/api/local/search?type=sets&q=${encodeURIComponent(query)}`);
       const data = await resp.json();
 
       if (!resp.ok) {
-        resultsDiv.innerHTML = `<div style="padding:12px;color:#ff6b6b;font-size:13px;">${escapeHtml(data.error || 'Search failed')}</div>`;
+        const msg = data.unavailable
+          ? 'Offline catalog not available on this server.'
+          : (data.error || 'Search failed');
+        resultsDiv.innerHTML = `<div style="padding:12px;color:#ff6b6b;font-size:13px;">${escapeHtml(msg)}</div>`;
         resultsDiv.style.display = 'block';
         return;
       }
 
       const sets = data.results || [];
       if (sets.length === 0) {
-        resultsDiv.innerHTML = `<div style="padding:12px;color:#aaa;font-size:13px;">No sets found</div>`;
+        resultsDiv.innerHTML = sourceBadge(data.source, 0) + `<div style="padding:12px;color:#aaa;font-size:13px;">No sets found</div>`;
         resultsDiv.style.display = 'block';
         return;
       }
 
       // Format and display results
-      let html = '';
+      let html = sourceBadge(data.source, sets.length);
       sets.forEach((set, idx) => {
         const dataSetNum = escapeHtml(set.set_num || '');
         const dataSetName = escapeHtml(set.name || '');
-        const imgUrl = set.image_url ? escapeHtml(set.image_url) : '/static/brick.svg';
+        const imgUrl = set.img_url ? escapeHtml(set.img_url) : '/static/brick.svg';
         const displayYear = set.year ? 'Year: ' + escapeHtml(String(set.year)) : '—';
         const displayParts = set.part_count ? ' • ' + escapeHtml(String(set.part_count)) + ' parts' : '';
 

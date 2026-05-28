@@ -34,6 +34,19 @@ python3 app.py
 pip3 install flask requests python-dotenv requests-oauthlib
 ```
 
+### Offline Catalog (local search)
+
+```bash
+# Build the local SQLite catalog from the Rebrickable CSV dump in "Brick Parts/"
+python3 build_brick_db.py        # produces ./brick_parts.db (~195 MB)
+```
+
+The `Brick Parts/` folder (Rebrickable CSV bulk download) and the generated
+`brick_parts.db` are **git-ignored** (local dev only). The app degrades
+gracefully when `brick_parts.db` is absent — offline search returns a
+"not available" notice and everything else works unchanged, so production
+(which has no DB) is unaffected.
+
 ### Environment Setup
 
 ```bash
@@ -70,6 +83,9 @@ Flask server with 10+ endpoints:
 - `GET /api/minifig_sets/<set_num>` — Get sets containing a minifig
 - `POST /api/add_minifig` — Add minifig to list
 - `GET /api/minifig_price/<fig_id>` — Fetch BrickLink pricing (OAuth1)
+
+**Offline Catalog Search:**
+- `GET /api/local/search?q=&type=parts|minifigs|sets&limit=` — Search by name or catalog number. Prefers the local SQLite catalog (`brick_parts.db`, no Rebrickable quota); **falls back to the live Rebrickable API when the DB is absent** (e.g. production). Response includes `"source": "offline" | "api"` so the UI can badge the data source.
 
 **Core Identification:**
 - `POST /api/identify` — Submit photo to Brickognize API, return detected parts with color candidates
@@ -130,6 +146,19 @@ Single-page app with 5 screens:
 
 ## Recent Changes
 
+**Offline Catalog Search (May 2026):**
+- New local search over the full Rebrickable catalog (~62k parts, ~16k minifigs, ~26k sets) backed by a local SQLite DB — instant and not subject to the 60 req/min Rebrickable rate limit
+- `build_brick_db.py` loads the `Brick Parts/` CSV dump into `brick_parts.db` (parts, minifigs, sets, colors, categories, themes, inventories; derives per-part thumbnails and distinct part/color combos)
+- Backend: `GET /api/local/search?q=&type=parts|minifigs|sets` — prefers the local DB, **falls back to the live Rebrickable API when the DB is absent** (`_api_search_fallback()`), returning `"source": "offline" | "api"`
+- Frontend: parts/minifigs scan screens now search by **name or number** (results dropdown, `.local-result`); Sets tab search repointed from `/api/search_sets` to the local DB. Clicking a part/minifig result opens the existing identify screen (view + add-to-list); set results open the existing set-details screen
+- **Data-source badge** (`sourceBadge()` / `.source-badge`): a sticky header above search results showing 🟢 "Offline catalog" (local DB, no quota) or 🟡 "Rebrickable API" (live fallback) + result count
+- **Scanning also uses the local catalog** when present (each falls back to the live API if the DB is absent or has no local data for that item):
+  - `/api/identify` resolves BrickLink→Rebrickable part ids (`_local_resolve_part`, identity match) and minifig fig_nums by word overlap (`_local_resolve_minifig`) locally — previously up to ~5 *un-throttled* Rebrickable calls per scan
+  - `/api/part_colors/<part_num>` → `_local_part_colors` (color picker + accurate `num_sets` from inventories)
+  - `/api/minifig_sets/<fig>` → `_local_minifig_sets`; `/api/minifig_parts/<fig>` → `_local_minifig_parts`
+  - Still live (cannot be local): photo recognition (Brickognize), minifig pricing (BrickLink), and all user-inventory calls (`partlists`, inventory checks, `part_in_lists`)
+- `Brick Parts/` and `brick_parts.db` are git-ignored (local dev only)
+
 **Frontend Redesign (May 2026):**
 - Complete visual overhaul of `templates/index.html` — all JS and functionality preserved
 - **Design system:** CSS custom properties (`--yellow`/`--bg`/`--surface` etc.), Google Fonts (Barlow Condensed + Barlow + Space Mono)
@@ -177,6 +206,11 @@ Single-page app with 5 screens:
 **Image URL Fix:** Rebrickable `part_img_url` now used for parts (fallback to BrickLink) to avoid dead image links. Color-specific images are now cached for better performance.
 
 **Quantity Reset:** Moved to start of identify screen to prevent async rendering timing issues on iOS Safari.
+
+**Sets Search Results Overflow Fix (May 2026):**
+- `setSearchResults` div was `position:absolute` inside `.sets-search-card` (`position:relative`)
+- `.screen` has `overflow-x:hidden`, which Safari treats as creating a new overflow context — clipping absolutely positioned descendants
+- Fix: moved `setSearchResults` outside the card as a sibling div in normal document flow; removed `position:relative` from `.sets-search-card`
 
 **Rate Limiting & Security Improvements (May 2026):**
 
@@ -393,20 +427,20 @@ I will:
 
 ### API Key Management
 
-**Local (.env file):**
+**Local (.env file — git-ignored, never commit real values):**
 ```
-REBRICKABLE_API_KEY=REDACTED_REBRICKABLE_API_KEY
-REBRICKABLE_USER_TOKEN=REDACTED_REBRICKABLE_USER_TOKEN
-BL_CONSUMER_KEY=REDACTED_BL_CONSUMER_KEY
-BL_CONSUMER_SECRET=REDACTED_BL_CONSUMER_SECRET
-BL_TOKEN=REDACTED_BL_TOKEN
-BL_TOKEN_SECRET=REDACTED_BL_TOKEN_SECRET
+REBRICKABLE_API_KEY=<your-rebrickable-api-key>
+REBRICKABLE_USER_TOKEN=<your-rebrickable-user-token>
+BL_CONSUMER_KEY=<your-bricklink-consumer-key>
+BL_CONSUMER_SECRET=<your-bricklink-consumer-secret>
+BL_TOKEN=<your-bricklink-token>
+BL_TOKEN_SECRET=<your-bricklink-token-secret>
 ```
 
 **Cloud (Render environment variables):**
-- Same 6 variables set in Render dashboard
-- Never committed to git (for security)
-- Used by production instance
+- Same 6 variables set in the Render dashboard (Environment tab)
+- `render.yaml` declares them with `sync: false` so the blueprint never stores or exposes the values
+- Never committed to git (for security). NOTE: earlier revisions committed real keys in `render.yaml`/`CLAUDE.md` — those values are in git history and must be rotated.
 
 ### Cost Estimation
 
@@ -435,6 +469,7 @@ python3 app.py
 - EXIF: iPhone always returns portrait; bbox must be rotated for alignment
 - Safari form inputs: Type conversions (number ↔ text) can cause issues; reset early in function
 - Cache: Hard refresh on iPhone with Cmd+Shift+R to clear cache
+- **Safari overflow clipping:** `overflow-x: hidden` on `.screen` creates a new stacking context in Safari that clips `position:absolute` children. Fix: move absolutely-positioned popups/dropdowns out of the clipped ancestor as sibling elements in normal document flow instead.
 
 ---
 
@@ -442,5 +477,7 @@ python3 app.py
 
 - **app.py** — Flask server, all API endpoints, OAuth1 signing for BrickLink
 - **templates/index.html** — 5200+ lines: HTML, CSS, vanilla JS, canvas color detection
+- **build_brick_db.py** — Builds `brick_parts.db` (offline search) from the `Brick Parts/` CSV dump
 - **static/** — Minifig PNG, brick SVG (parts tab icon)
 - **.env** — API credentials (git-ignored)
+- **brick_parts.db / Brick Parts/** — Offline catalog DB + source CSVs (git-ignored, local dev only)

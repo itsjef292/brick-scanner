@@ -3,3 +3,9 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Offline catalog: Rebrickable CSV dump + generated SQLite DB (local dev only,
+# ~330MB total). Rebuild locally with: python3 build_brick_db.py
+Brick Parts/
+brick_parts.db
+templates/index.html.bak
