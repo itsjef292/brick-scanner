@@ -23,9 +23,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Basic development server (localhost:5001)
 python3 app.py
 
-# With ngrok tunnel for public access (see start.sh)
+# Foreground run that prints the private Tailscale URL (see start.sh).
+# Stop the autostart agent first if it's loaded — both bind :5001.
 ./start.sh
 ```
+
+> The app is normally kept running by a launchd autostart agent and reached
+> privately over Tailscale — see **Private Access (Tailscale + autostart)** under
+> Deployment below. `start.sh` is now for foreground/manual runs; the ngrok tunnel
+> line was removed from it (the static ngrok domain config is left intact for
+> optional future use).
 
 ### Dependencies
 
@@ -411,6 +418,36 @@ When editing styles, **always use CSS custom properties** (`var(--yellow)`, `var
    - Auto-deploys when you push to GitHub
    - ~$5-50/month depending on usage
 
+### Private Access (Tailscale + autostart) — local-only
+
+Instead of (or alongside) Render, the local instance is reachable privately
+from a phone over **Tailscale** — no public exposure, no ngrok, no port
+forwarding. The app binds `0.0.0.0:5001`, so it's available on the tailnet
+interface; traffic is WireGuard-encrypted and limited to devices signed into
+the same tailnet (`itsjeff292@`). The app uses a native file input (not
+`getUserMedia`), so plain HTTP is fine — no HTTPS needed.
+
+- **Reach it from the phone:** install the Tailscale app, sign into the same
+  account, then open `http://jefs-macbook-pro.<tailnet>.ts.net:5001` (MagicDNS
+  name — IP-independent) or the raw tailnet IP. `start.sh` auto-detects and
+  prints the current Tailscale URL.
+- **Tailscale install (macOS):** `brew install --cask tailscale` (the GUI app
+  auto-starts at login and stays connected). The CLI lives at
+  `/Applications/Tailscale.app/Contents/MacOS/Tailscale` (`… status` / `… ip -4`).
+
+**Autostart agent (`com.brickscanner.app.plist`):** a launchd LaunchAgent that
+keeps the Flask server up so the app is always reachable while the Mac is logged
+in. `RunAtLoad` starts it at login; `KeepAlive` restarts it on crash/exit.
+`WorkingDirectory` is the project dir (so `load_dotenv()` finds `.env`); runs
+`/usr/bin/python3 app.py`; logs to `app.log` (git-ignored). Install/stop/uninstall
+instructions are in the plist header (`launchctl load|stop|start|unload …`).
+
+> **Caveats:** (1) LaunchAgents start at *login*, not pre-login boot — for
+> unattended uptime after a reboot, enable automatic login and prevent sleep.
+> (2) The agent and `start.sh` both bind `:5001` — don't run both; `launchctl
+> stop com.brickscanner.app` before a foreground `start.sh`. (3) This is
+> local-only (like the catalog-refresh agent); Render is unaffected.
+
 ### Development Workflow
 
 **Golden Rule:** All development happens locally. Only push to main when explicitly instructed.
@@ -523,3 +560,6 @@ python3 app.py
 - **static/** — Minifig PNG, brick SVG (parts tab icon)
 - **.env** — API credentials (git-ignored)
 - **brick_parts.db / Brick Parts/** — Offline catalog DB + source CSVs (git-ignored, local dev only)
+- **start.sh** — Foreground run; auto-detects and prints the private Tailscale URL
+- **com.brickscanner.app.plist** — launchd autostart agent for the Flask server (local-only; runs at login, restarts on crash → `app.log`)
+- **com.brickscanner.catalog-refresh.plist / refresh_catalog.sh** — launchd daily catalog-refresh job, 07:30 ET (local-only)
