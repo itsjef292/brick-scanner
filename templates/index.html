@@ -3992,7 +3992,7 @@
   })();
 
   // ── Image Modal ─────────────────────────────────────────────────────
-  function openImageModal(src, partNum) {
+  function openImageModal(src, partNum, linkType) {
     const modal = document.getElementById('imageModal');
     const img = document.getElementById('modalImage');
     const link = document.getElementById('modalPartLink');
@@ -4000,7 +4000,9 @@
     img.src = src;
 
     if (partNum) {
-      link.href = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}`;
+      // linkType 'M' => minifig catalog link; default 'P' => part
+      const param = linkType === 'M' ? 'M' : 'P';
+      link.href = `https://www.bricklink.com/v2/catalog/catalogitem.page?${param}=${partNum}`;
       link.textContent = partNum;
     } else {
       link.textContent = '—';
@@ -4160,7 +4162,7 @@
 
         html += `
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:flex-start;">
-            <img src="${partImage}" alt="${partNum}" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;">
+            <img src="${partImage}" alt="${partNum}" onclick="openImageModal('${partImage.replace(/'/g, "\\'")}', '${partNum.replace(/'/g, "\\'")}')" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:#0080FF;font-size:13px;margin-bottom:2px;">${partNum}</div>
               <div style="color:#fff;font-size:12px;margin-bottom:4px;word-break:break-word;">${partName}</div>
@@ -4216,7 +4218,7 @@
 
         html += `
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:flex-start;">
-            <img src="${figImage}" alt="${figNum}" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;">
+            <img src="${figImage}" alt="${figNum}" onclick="openImageModal('${figImage.replace(/'/g, "\\'")}', '${figNum.replace(/'/g, "\\'")}', 'M')" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:#0080FF;font-size:13px;margin-bottom:2px;">${figNum}</div>
               <div style="color:#fff;font-size:12px;word-break:break-word;">${figName}</div>
