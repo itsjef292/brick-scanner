@@ -1268,6 +1268,18 @@ def _api_search_fallback(kind, query, limit):
     } for r in rows]
 
 
+@app.route("/api/resolve_part/<part_id>")
+def resolve_part(part_id):
+    """Resolve a BrickLink (or Rebrickable) part id to a Rebrickable part via the
+    local catalog: exact match → bl_aliases (authoritative BrickLink map) → mold
+    heuristic. Used by the voice-add flow, where users speak BrickLink numbers
+    (e.g. "3068" → 3068b). Returns {part_num, name, img_url} or 404."""
+    p = _local_resolve_part(part_id)
+    if p:
+        return jsonify(p)
+    return jsonify({"error": "not found"}), 404
+
+
 @app.route("/api/local/search")
 def local_search():
     """Catalog search. Prefers the offline SQLite DB (no Rebrickable quota);

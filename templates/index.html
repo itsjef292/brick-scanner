@@ -4491,12 +4491,24 @@
     document.getElementById('voiceError').style.display = 'none';
     if (!parsed || !parsed.partNum) { showVoiceError('Didn’t catch a part number — try again.'); return; }
     setVoiceStatus(`Looking up ${parsed.partNum}…`);
-    let results = [];
+    // 1. Authoritative BrickLink→Rebrickable resolution (users speak BrickLink
+    //    numbers, e.g. "3068" → 3068b). 2. Fall back to fuzzy name/number search.
+    let hit = null;
     try {
-      const r = await fetch(`/api/local/search?type=parts&q=${encodeURIComponent(parsed.partNum)}&limit=10`).then(r => r.json());
-      results = (r && r.results) || [];
+      const r = await fetch(`/api/resolve_part/${encodeURIComponent(parsed.partNum)}`);
+      if (r.ok) {
+        const p = await r.json();
+        hit = { part_num: p.part_num, name: p.name, img_url: p.img_url };
+      }
     } catch (e) {}
-    const hit = _pickVoicePart(results, parsed.partNum);
+    if (!hit) {
+      let results = [];
+      try {
+        const r = await fetch(`/api/local/search?type=parts&q=${encodeURIComponent(parsed.partNum)}&limit=10`).then(r => r.json());
+        results = (r && r.results) || [];
+      } catch (e) {}
+      hit = _pickVoicePart(results, parsed.partNum);
+    }
     if (!hit) {
       showVoiceError(`No part found for "${parsed.partNum}". Check the number and try again.`);
       return;

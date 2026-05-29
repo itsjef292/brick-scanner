@@ -283,8 +283,10 @@ Single-page app with 5 screens:
 - `parseVoiceInput()` extracts: **color** (longest catalog color-name phrase match
   against the `colors` list), **quantity** (explicit `quantity/qty/times/x N`, or a small
   trailing number; number-words supported), and **part number** (the normalized
-  remainder). `_pickVoicePart()` resolves it against the local catalog (exact, then
-  mold-variant preferring `b`).
+  remainder). The part is resolved **BrickLink-first** via `GET /api/resolve_part/<id>`
+  (`_local_resolve_part`: exact → `bl_aliases` BrickLink map → mold heuristic) since
+  users speak BrickLink numbers (e.g. "3068" → 3068b); only if that 404s does it fall
+  back to fuzzy name/number search (`_pickVoicePart`).
 - Reuses the **identify screen as the confirm card**: `submitVoiceText()` → `openPartFromSearch()`
   (now awaited) → pre-fills quantity and `applyColor(parsed color)`; the user reviews and
   taps the existing "Add to List" (so list selection / picker behavior is unchanged).
