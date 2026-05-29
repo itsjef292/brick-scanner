@@ -2693,8 +2693,9 @@
         `rgb(${detectedRgb.r},${detectedRgb.g},${detectedRgb.b})`;
       document.getElementById('debugSwatch').style.display = 'inline-block';
       const dbgDark = Math.round((detectedRgb.darkFraction || 0) * 100);
+      const dbgHsv = rgbToHsv(detectedRgb.r, detectedRgb.g, detectedRgb.b);
       document.getElementById('debugLabel').textContent =
-        `rgb(${detectedRgb.r},${detectedRgb.g},${detectedRgb.b}) avg=${dbgAvg} dark=${dbgDark}%`;
+        `rgb(${detectedRgb.r},${detectedRgb.g},${detectedRgb.b}) hue=${Math.round(dbgHsv.h)} sat=${dbgHsv.s.toFixed(2)} avg=${dbgAvg} dark=${dbgDark}%`;
       document.getElementById('debugLabel').style.display = 'block';
     }
 

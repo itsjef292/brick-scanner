@@ -114,6 +114,49 @@ def _local_resolve_part(bl_id):
         conn.close()
 
 
+def _local_all_colors():
+    """Full color list from the local catalog in Rebrickable-API shape, or None.
+
+    The catalog's colors table is complete (~275 colors) and instant, vs the
+    live Rebrickable fetch which is rate-limited and degrades to a tiny 45-color
+    FALLBACK list that omits Medium Azure and most specialty colors — which made
+    color matching pick a wrong nearby color. Returns [{id,name,rgb,is_trans}].
+    """
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        rows = conn.execute("SELECT id, name, rgb, is_trans FROM colors").fetchall()
+        return [
+            {"id": r["id"], "name": r["name"], "rgb": r["rgb"] or "",
+             "is_trans": str(r["is_trans"]).strip().lower() in ("true", "1", "t")}
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def _local_color_id_by_name(name):
+    """Resolve a color NAME → Rebrickable color id via the local catalog.
+
+    Brickognize returns BrickLink-namespaced color ids (e.g. color-156 =
+    Medium Azure), not Rebrickable ids, but the color *names* line up. Returns
+    the int id or None.
+    """
+    if not name:
+        return None
+    conn = local_db()
+    if conn is None:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT id FROM colors WHERE name = ? COLLATE NOCASE", (name,)
+        ).fetchone()
+        return row["id"] if row else None
+    finally:
+        conn.close()
+
+
 def _local_resolve_minifig(name):
     """Find the best fig_num in the local catalog by word overlap with `name`,
     mirroring the live-API search heuristic. Returns {fig_num, name, img_url} or None.
@@ -489,6 +532,16 @@ def get_colors_hybrid():
         print(f"✓ Returning cached colors ({len(COLORS_CACHE['data'])} colors)")
         return jsonify(COLORS_CACHE["data"])
 
+    # Prefer the local catalog: complete (~275 colors) and instant, no Rebrickable
+    # quota. Falls back to the live API + FALLBACK_COLORS only when the DB is absent.
+    local_colors = _local_all_colors()
+    if local_colors:
+        local_colors.sort(key=lambda c: c["name"])
+        print(f"✓ Returning {len(local_colors)} colors from local catalog")
+        COLORS_CACHE["data"] = local_colors
+        COLORS_CACHE["timestamp"] = now
+        return jsonify(local_colors)
+
     all_colors = []
 
     # Fetch from Rebrickable only (BrickLink adds too many API calls)
@@ -678,13 +731,20 @@ def identify():
                     else:
                         img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
 
-            # Build candidate_colors with Rebrickable IDs (parts only)
+            # Build candidate_colors with Rebrickable IDs (parts only).
+            # Brickognize's numeric color ids are BrickLink-namespaced (e.g.
+            # color-156 = Medium Azure ≠ Rebrickable 156), so resolve the correct
+            # Rebrickable id by NAME via the local catalog; fall back to the raw
+            # stripped id only when the name can't be resolved.
             rb_colors = []
             if item_type != "minifig":
                 for c in ci.get("candidate_colors", []):
-                    c_rb_id = _brk_color_id(c.get("id", ""))
+                    cname = c.get("name", "")
+                    c_rb_id = _local_color_id_by_name(cname)
+                    if c_rb_id is None:
+                        c_rb_id = _brk_color_id(c.get("id", ""))
                     if c_rb_id:
-                        rb_colors.append({"id": c_rb_id, "name": c.get("name", "")})
+                        rb_colors.append({"id": str(c_rb_id), "name": cname})
 
             item = {
                 "id": rb_id,
