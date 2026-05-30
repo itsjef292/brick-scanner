@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Maintaining this file — keep it lean.** CLAUDE.md is reloaded into context on
+> *every* turn, so size directly costs tokens and speed (the harness warns at 40k
+> chars; a hook warns at 32k). Do **not** append changelog/"Recent Changes" entries
+> here — those go in **`CHANGELOG.md`**. Machine setup, Tailscale, and Render
+> deploy/keys detail go in **`SETUP.md`**. This file should hold only durable
+> guidance Claude needs to work in the repo (architecture, commands, patterns,
+> conventions). When something here goes stale, edit it in place rather than adding
+> a new section.
+
 ## Project Overview
 
 **Brick Scanner** is a mobile-friendly web app that identifies LEGO parts from phone camera photos. The app:
