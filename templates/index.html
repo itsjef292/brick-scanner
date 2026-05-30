@@ -1254,6 +1254,14 @@
     </div>
   </div>
   <div id="setSearchResults" style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+
+  <div id="mySetsSection" style="padding:0 14px 24px;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin:18px 0 12px;">
+      <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Sets</div>
+      <div id="mySetsCount" style="font-family:var(--font-mono);font-size:12px;color:var(--muted2);"></div>
+    </div>
+    <div id="mySetsGrid"></div>
+  </div>
 </div>
 
 <!-- Screen: Set Details -->
@@ -1263,7 +1271,20 @@
       <div id="setDetailTitle" style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);letter-spacing:0.3px;">Loading...</div>
       <div id="setDetailInfo" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
     </div>
-    <button onclick="goTo('screen-sets')" class="back-btn">← Back</button>
+    <button onclick="goTo('screen-sets'); loadMySets();" class="back-btn">← Back</button>
+  </div>
+  <div id="setOwnedBar" style="margin:12px 14px 0;">
+    <button id="setOwnAddBtn" class="btn" onclick="addOwnedSet()" style="width:100%;padding:13px 16px;font-size:14px;">+ Add to My Sets</button>
+    <div id="setOwnStepper" style="display:none;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;">
+      <span style="width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#6fd79b,var(--green) 75%);flex-shrink:0;"></span>
+      <span style="color:var(--green);font-weight:600;font-size:14px;">In My Sets</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+        <button class="list-adjust-btn remove" onclick="removeOwnedSetOne()" aria-label="Remove one">−</button>
+        <span id="setOwnQty" style="font-family:var(--font-mono);font-weight:700;color:var(--text);min-width:26px;text-align:center;">×1</span>
+        <button class="list-adjust-btn add" onclick="addOwnedSet()" aria-label="Add one">+</button>
+      </div>
+    </div>
+    <div id="setOwnMsg" style="display:none;font-size:12px;margin-top:6px;"></div>
   </div>
   <div class="price-section" id="setPriceSection" style="display:none;margin:12px 14px 0;">
     <div class="price-label">BrickLink Price Guide (last 6 months)</div>
@@ -1663,6 +1684,7 @@
       document.getElementById('screen-lists').classList.remove('active');
       document.getElementById('screen-shopping').classList.remove('active');
       document.getElementById('screen-sets').classList.add('active');
+      loadMySets();
     } else if (m === 'shopping') {
       document.getElementById('screen-scan').classList.remove('active');
       document.getElementById('screen-lists').classList.remove('active');
@@ -4431,6 +4453,9 @@
     window.currentSetNum = setNum;
     window.currentSetName = setName;
 
+    // Owned ("My Sets") status — reflect whether this set is in the collection
+    loadOwnedSetStatus(setNum);
+
     // BrickLink sold price (last 6 months, Used + New)
     const sps = document.getElementById('setPriceSection');
     document.getElementById('setPriceGrid').innerHTML =
@@ -4446,6 +4471,121 @@
 
     // Show parts view by default
     showSetPartsView();
+  }
+
+  // ── Owned sets ("My Sets" collection) ──────────────────────────────────
+  function _renderOwnedSetUI(owned, qty) {
+    const addBtn = document.getElementById('setOwnAddBtn');
+    const stepper = document.getElementById('setOwnStepper');
+    if (owned) {
+      addBtn.style.display = 'none';
+      stepper.style.display = 'flex';
+      document.getElementById('setOwnQty').textContent = `×${qty}`;
+    } else {
+      addBtn.style.display = 'block';
+      stepper.style.display = 'none';
+    }
+  }
+  function _setOwnMsg(text, isErr) {
+    const m = document.getElementById('setOwnMsg');
+    if (!text) { m.style.display = 'none'; return; }
+    m.textContent = text;
+    m.style.color = isErr ? 'var(--red)' : 'var(--muted)';
+    m.style.display = 'block';
+  }
+  function loadOwnedSetStatus(setNum) {
+    _renderOwnedSetUI(false, 0);
+    _setOwnMsg('');
+    fetch(`/api/owned_sets/${encodeURIComponent(setNum)}`)
+      .then(r => r.json())
+      .then(d => _renderOwnedSetUI(!!d.owned, d.quantity || 0))
+      .catch(() => {});
+  }
+  function addOwnedSet() {
+    const setNum = window.currentSetNum;
+    if (!setNum) return;
+    _setOwnMsg('');
+    fetch('/api/add_set', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set_num: setNum, quantity: 1 })
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) { _setOwnMsg(`Couldn’t add: ${data.detail || data.error || 'try again'}`, true); return; }
+      const qty = data.quantity || 1;
+      _renderOwnedSetUI(true, qty);
+      showToast(data._updated ? `Now ×${qty} in My Sets` : 'Added to My Sets');
+    })
+    .catch(() => _setOwnMsg('Network error.', true));
+  }
+  function removeOwnedSetOne() {
+    const setNum = window.currentSetNum;
+    if (!setNum) return;
+    _setOwnMsg('');
+    fetch('/api/remove_set_one', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set_num: setNum })
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) { _setOwnMsg(`Couldn’t update: ${data.error || 'try again'}`, true); return; }
+      const qty = data.quantity || 0;
+      _renderOwnedSetUI(qty > 0, qty);
+      if (qty === 0) showToast('Removed from My Sets');
+    })
+    .catch(() => _setOwnMsg('Network error.', true));
+  }
+
+  // ── "My Sets" — the owned-set collection, shown on the Sets tab ──────────
+  function loadMySets() {
+    const grid = document.getElementById('mySetsGrid');
+    const countEl = document.getElementById('mySetsCount');
+    grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Loading your sets…</p>';
+    countEl.textContent = '';
+    fetch('/api/owned_sets')
+      .then(r => r.json())
+      .then(data => {
+        const sets = data.results || [];
+        if (data.error) {
+          grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Couldn’t load your sets.</p>';
+          return;
+        }
+        if (!sets.length) {
+          grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">No owned sets yet. Search a set above and tap “Add to My Sets.”</p>';
+          return;
+        }
+        const totalCopies = sets.reduce((n, s) => n + (s.quantity || 1), 0);
+        countEl.textContent = `${sets.length} set${sets.length === 1 ? '' : 's'} · ${totalCopies} owned`;
+        grid.innerHTML = sets.map(s => {
+          const num = escapeHtml(s.set_num || '');
+          const name = escapeHtml(s.name || s.set_num || '?');
+          const img = s.img_url ? escapeHtml(s.img_url) : '/static/brick.svg';
+          const meta = [s.year, s.num_parts ? `${s.num_parts} pcs` : ''].filter(Boolean).map(x => escapeHtml(String(x))).join(' · ');
+          const qty = s.quantity || 1;
+          return `<div class="my-set-row" data-set-num="${num}" data-set-name="${name}"
+              style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
+            <img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
+            <div style="flex:1;min-width:0;">
+              <div style="color:var(--text);font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:4px;">
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--yellow);">${num}</span>
+                ${meta ? `<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span><span style="font-size:12px;color:var(--muted);">${meta}</span>` : ''}
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:var(--font-mono);font-weight:700;color:var(--text);">×${qty}</div>
+              <div style="font-size:11px;color:var(--muted);">owned</div>
+            </div>
+          </div>`;
+        }).join('');
+        grid.querySelectorAll('.my-set-row').forEach(el => {
+          el.addEventListener('click', () => loadSetDetails(el.dataset.setNum, el.dataset.setName));
+        });
+        lazyLoadImages(grid);
+      })
+      .catch(() => {
+        grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Network error.</p>';
+      });
   }
 
   // Viewport-based lazy image loading. Native loading="lazy" is unreliable on

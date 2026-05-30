@@ -213,6 +213,12 @@ Flask server with 10+ endpoints:
 - `GET /api/minifig_price/<fig_id>` — BrickLink last-6-months sold price, Used + New (OAuth1; via `_bl_sold_price`) + theme category
 - `GET /api/set_price/<set_num>` — BrickLink last-6-months sold price for a set, Used + New (`_bl_sold_price("SET", …)`; bare set numbers default to `-1`)
 
+**Owned Sets ("My Sets" collection — the user's Rebrickable set collection at `/users/{token}/sets/`):**
+- `GET /api/owned_sets` — list every owned set (set_num, name, year, num_parts, img, quantity)
+- `GET /api/owned_sets/<set_num>` — `{owned, quantity}` for one set
+- `POST /api/add_set` — add a set (merges quantity if already owned)
+- `POST /api/remove_set_one` — decrement an owned set by 1 (deletes the entry at 0)
+
 **Offline Catalog Search:**
 - `GET /api/local/search?q=&type=parts|minifigs|sets&limit=` — Search by name or catalog number. Prefers the local SQLite catalog (`brick_parts.db`, no Rebrickable quota); **falls back to the live Rebrickable API when the DB is absent** (e.g. production). Response includes `"source": "offline" | "api"` so the UI can badge the data source. **BrickLink minifig ids** (e.g. `sw0131`): Rebrickable exposes no BrickLink minifig ids, so when a minifig query matches a BrickLink-id pattern and has no local hit, the id is translated to a name via the BrickLink API (`_bricklink_minifig_name`) and the best-matching Rebrickable figs are returned as **candidates** (`_local_minifig_search_by_name`, ranked by word overlap) along with a `"bl_match": {id, name}` field — the user picks the right one (names diverge between catalogs, so it's deliberately not a single auto-pick).
 
@@ -277,6 +283,18 @@ Single-page app with 5 screens:
 ---
 
 ## Recent Changes
+
+**Owned Sets — "My Sets" collection (May 2026):**
+- Track which sets you own (the user's Rebrickable set collection,
+  `/users/{token}/sets/` — syncs with rebrickable.com, separate from the
+  loose-parts inventory). Backend: `add_set` / `remove_set_one` (merge/decrement
+  like `add_part`), `owned_set_status`, `owned_sets` (list).
+- **Set-details screen:** an "+ Add to My Sets" button that becomes an "In My
+  Sets" bar with a `− ×N +` stepper once owned (`loadOwnedSetStatus`,
+  `addOwnedSet`, `removeOwnedSetOne`).
+- **Sets tab:** a "My Sets" section below the search lists owned sets (thumbnail,
+  name, set#, year · pcs, `×N owned`), each tappable → set-details
+  (`loadMySets`, loaded on `switchMode('sets')` + on back from set-details).
 
 **UI Redesign — "sorting station" + Inter (May 2026):**
 - Full visual overhaul via the `interface-design` plugin, captured in

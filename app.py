@@ -1400,6 +1400,113 @@ def add_minifig():
         return jsonify(resp.json()), resp.status_code
 
 
+# ── Owned sets ("My Sets" collection) — the user's Rebrickable set collection
+#    at /users/{token}/sets/. Lets you mark a searched set as owned. ──
+
+@app.route("/api/owned_sets/<set_num>")
+def owned_set_status(set_num):
+    """Is this set in the user's collection? → {owned, quantity}."""
+    resp = requests.get(
+        f"{RB_BASE}/users/{USER_TOKEN}/sets/{set_num}/",
+        params={"key": API_KEY},
+    )
+    if resp.status_code == 200:
+        return jsonify({"owned": True, "quantity": resp.json().get("quantity", 1)})
+    if resp.status_code == 404:
+        return jsonify({"owned": False, "quantity": 0})
+    return jsonify({"owned": False, "quantity": 0, "error": resp.text[:200]}), resp.status_code
+
+
+@app.route("/api/add_set", methods=["POST"])
+def add_set():
+    """Add a set to the user's collection (merges quantity if already owned)."""
+    data = request.json
+    set_num = data["set_num"]
+    quantity = int(data.get("quantity", 1))
+
+    print(f"[add_set] set_num={set_num} qty={quantity}")
+    item_url = f"{RB_BASE}/users/{USER_TOKEN}/sets/{set_num}/"
+    existing = requests.get(item_url, params={"key": API_KEY})
+
+    if existing.status_code == 200:
+        current_qty = int(existing.json().get("quantity", 0))
+        new_qty = current_qty + quantity
+        resp = requests.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
+        result = resp.json() if resp.content else {}
+        result.update({"_updated": True, "_previous_quantity": current_qty, "quantity": new_qty})
+        return jsonify(result), resp.status_code
+    else:
+        resp = requests.post(
+            f"{RB_BASE}/users/{USER_TOKEN}/sets/",
+            params={"key": API_KEY},
+            data={"set_num": set_num, "quantity": quantity},
+        )
+        print(f"[add_set] POST {resp.status_code}: {resp.text[:200]}")
+        result = resp.json() if resp.content else {}
+        if resp.status_code in (200, 201):
+            result["quantity"] = result.get("quantity", quantity)
+        return jsonify(result), resp.status_code
+
+
+@app.route("/api/remove_set_one", methods=["POST"])
+def remove_set_one():
+    """Decrement an owned set by 1 (delete the entry if it hits 0)."""
+    data = request.json
+    set_num = data["set_num"]
+    item_url = f"{RB_BASE}/users/{USER_TOKEN}/sets/{set_num}/"
+    existing = requests.get(item_url, params={"key": API_KEY})
+
+    if existing.status_code == 404:
+        return jsonify({"error": "Set is not in your collection.", "quantity": 0}), 404
+    if existing.status_code != 200:
+        return jsonify(existing.json()), existing.status_code
+
+    current_qty = int(existing.json().get("quantity", 0))
+    if current_qty <= 1:
+        resp = requests.delete(item_url, params={"key": API_KEY})
+        if resp.status_code == 204:
+            return jsonify({"_deleted": True, "_previous_quantity": current_qty, "quantity": 0}), 200
+        return jsonify(resp.json() if resp.content else {}), resp.status_code
+
+    new_qty = current_qty - 1
+    resp = requests.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
+    if resp.status_code == 200:
+        return jsonify({"_updated": True, "_previous_quantity": current_qty, "quantity": new_qty}), 200
+    return jsonify(resp.json() if resp.content else {}), resp.status_code
+
+
+@app.route("/api/owned_sets")
+def owned_sets_list():
+    """The user's owned-sets collection (paginated through, newest Rebrickable order)."""
+    out = []
+    page = 1
+    while page <= 100:
+        resp = rebrickable_get(
+            f"/users/{USER_TOKEN}/sets/",
+            params={"key": API_KEY, "page_size": 100, "page": page},
+        )
+        if resp is None or resp.status_code != 200:
+            if page == 1:
+                return jsonify({"error": "Couldn't fetch your sets", "results": []}), \
+                    (resp.status_code if resp is not None else 502)
+            break
+        data = resp.json()
+        for it in data.get("results", []):
+            s = it.get("set") or {}
+            out.append({
+                "set_num": s.get("set_num"),
+                "name": s.get("name"),
+                "year": s.get("year"),
+                "num_parts": s.get("num_parts"),
+                "img_url": s.get("set_img_url"),
+                "quantity": it.get("quantity", 1),
+            })
+        if not data.get("next"):
+            break
+        page += 1
+    return jsonify({"results": out, "count": len(out)})
+
+
 def _bl_sold_price(item_type, item_no):
     """BrickLink last-6-months SOLD price guide for an item, both Used and New.
     item_type: MINIFIG | SET | PART. Returns {"U": {...}, "N": {...}} where each
