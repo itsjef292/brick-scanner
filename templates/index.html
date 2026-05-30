@@ -4342,6 +4342,29 @@
     showSetPartsView();
   }
 
+  // Viewport-based lazy image loading. Native loading="lazy" is unreliable on
+  // iOS Safari for dynamically-inserted rows, while eagerly loading hundreds of
+  // <img> at once exhausts Safari's connection pool (failed loads → "?" broken
+  // placeholders as you scroll). IntersectionObserver loads each thumbnail only
+  // as it nears the viewport — reliable in both directions.
+  function lazyLoadImages(container) {
+    const imgs = container.querySelectorAll('img[data-src]');
+    if (!('IntersectionObserver' in window)) {
+      imgs.forEach(img => { img.src = img.dataset.src; img.removeAttribute('data-src'); });
+      return;
+    }
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const img = entry.target;
+        img.src = img.dataset.src;
+        img.removeAttribute('data-src');
+        obs.unobserve(img);
+      });
+    }, { rootMargin: '300px' });
+    imgs.forEach(img => io.observe(img));
+  }
+
   async function showSetPartsView() {
     const setNum = window.currentSetNum;
     if (!setNum) return;
@@ -4377,7 +4400,7 @@
 
         html += `
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:flex-start;">
-            <img src="${partImage}" alt="${partNum}" onclick="openImageModal('${partImage.replace(/'/g, "\\'")}', '${partNum.replace(/'/g, "\\'")}')" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;cursor:pointer;">
+            <img data-src="${partImage}" alt="${partNum}" onclick="openImageModal('${partImage.replace(/'/g, "\\'")}', '${partNum.replace(/'/g, "\\'")}')" onerror="this.onerror=null;this.src='/static/brick.svg'" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:#0080FF;font-size:13px;margin-bottom:2px;">${partNum}</div>
               <div style="color:#fff;font-size:12px;margin-bottom:4px;word-break:break-word;">${partName}</div>
@@ -4395,6 +4418,7 @@
       });
 
       contentDiv.innerHTML = html;
+      lazyLoadImages(contentDiv);
     } catch (err) {
       console.error('Error loading parts:', err);
       contentDiv.innerHTML = '<p style="color:#ff6b6b;padding:20px;">Failed to load parts</p>';
@@ -4433,7 +4457,7 @@
 
         html += `
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #333;align-items:flex-start;">
-            <img src="${figImage}" alt="${figNum}" onclick="openImageModal('${figImage.replace(/'/g, "\\'")}', '${figNum.replace(/'/g, "\\'")}', 'M')" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;cursor:pointer;">
+            <img data-src="${figImage}" alt="${figNum}" onclick="openImageModal('${figImage.replace(/'/g, "\\'")}', '${figNum.replace(/'/g, "\\'")}', 'M')" onerror="this.onerror=null;this.src='/static/minifig.png'" style="width:50px;height:50px;object-fit:contain;background:#222;border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:#0080FF;font-size:13px;margin-bottom:2px;">${figNum}</div>
               <div style="color:#fff;font-size:12px;word-break:break-word;">${figName}</div>
@@ -4447,6 +4471,7 @@
       });
 
       contentDiv.innerHTML = html;
+      lazyLoadImages(contentDiv);
     } catch (err) {
       console.error('Error loading minifigs:', err);
       contentDiv.innerHTML = '<p style="color:#ff6b6b;padding:20px;">Failed to load minifigs</p>';
