@@ -3,6 +3,14 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Minifig BrickLink-id row → search link (May 2026):**
+- Rebrickable's minifig API exposes **no BrickLink id** (`external_ids` is null for
+  figs), so a search-opened minifig had a dead "—" in the BRICKLINK ID row. It now
+  renders a **"Search BrickLink ↗"** link (BrickLink minifig catalog search by the
+  fig's name) when no id is known. Scanned minifigs / BL-id searches still show the
+  real id + copy button. `get_minifig` also now surfaces `external_id` from
+  `external_ids` if Rebrickable ever includes one (harmless no-op today).
+
 **Auto-refresh on resume + precise pull spinner (May 2026):**
 - **Stale-on-reopen fix:** iOS keeps an installed PWA's page suspended and
   *resumes* it (no reload), so data looked stale until a force-close. Now the

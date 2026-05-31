@@ -1418,7 +1418,15 @@ def get_minifig(minifig_id):
             params={"key": API_KEY},
         )
         if resp.status_code == 200:
-            return jsonify(resp.json()), 200
+            data = resp.json()
+            # Surface a BrickLink id as `external_id` if Rebrickable happens to
+            # include one (its minifig endpoint usually doesn't — external_ids is
+            # null — but parts/some figs do; harmless when absent).
+            bl = (data.get("external_ids") or {}).get("BrickLink") or {}
+            ext_ids = bl.get("ext_ids") or []
+            if ext_ids and not data.get("external_id"):
+                data["external_id"] = ext_ids[0]
+            return jsonify(data), 200
     except Exception as e:
         print(f"Rebrickable lookup error: {e}")
 

@@ -3059,10 +3059,13 @@
     if (isMinifig) {
       document.getElementById('rbValue').innerHTML =
         `<a href="https://rebrickable.com/minifigs/${item.id}/" target="_blank">${item.id}</a>`;
+      // Rebrickable's API exposes no BrickLink minifig id, so for search-opened
+      // figs we usually have none — offer a BrickLink catalog search by name
+      // instead of a dead "—" (scanned figs / BL-id searches still show the id).
       document.getElementById('blValue').innerHTML = blId
         ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?M=${blId}" target="_blank">${blId}</a>
            <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
-        : '—';
+        : `<a href="https://www.bricklink.com/catalogList.asp?catType=M&q=${encodeURIComponent(item.name || '')}" target="_blank" style="color:var(--yellow);text-decoration:none;">Search BrickLink ↗</a>`;
       document.getElementById('categoryRow').style.display = 'none'; // Will be shown by renderMinifigPrice if available
     } else {
       document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
