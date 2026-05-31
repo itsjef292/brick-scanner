@@ -174,6 +174,7 @@ Rebrickable's `/users/{token}/minifigs/` is **read-only** (GET-only, no per-item
 - `POST /api/remove_minifig_one` — decrement by 1 (deletes the entry at 0)
 - `POST /api/owned_minifigs/<fig_num>/meta` — save condition + price_paid (no-op if not owned)
 - Shared JSON helpers: `_load_meta` / `_save_meta` / `_clean_meta` (used by both set + minifig stores).
+- **BrickLink price tracking:** `refresh_minifig_prices()` stores each fig's last-6-mo SOLD avg (`price_used`/`price_new`/`price_updated`) for figs that have a `bl_id` (skips the rest — no BrickLink minifig id). `POST /api/minifig_prices/refresh` triggers it (threaded); `/api/owned_minifigs` returns the prices; rows show a `BL ~$X` chip + collection-value total (`_figMarketPrice`). **Daily 05:00 local** via `com.brickscanner.minifig-prices` launchd agent (`refresh_minifig_prices.py`); LOCAL-ONLY.
 
 **Offline Catalog Search:**
 - `GET /api/local/search?q=&type=parts|minifigs|sets&limit=` — Search by name or catalog number. Prefers the local SQLite catalog (`brick_parts.db`, no Rebrickable quota); **falls back to the live Rebrickable API when the DB is absent** (e.g. production). Response includes `"source": "offline" | "api"` so the UI can badge the data source. **BrickLink minifig ids** (e.g. `sw0131`): Rebrickable exposes no BrickLink minifig ids, so when a minifig query matches a BrickLink-id pattern and has no local hit, the id is translated to a name via the BrickLink API (`_bricklink_minifig_name`) and the best-matching Rebrickable figs are returned as **candidates** (`_local_minifig_search_by_name`, ranked by word overlap) along with a `"bl_match": {id, name}` field — the user picks the right one (names diverge between catalogs, so it's deliberately not a single auto-pick).
@@ -431,3 +432,4 @@ python3 app.py
 - **install_agents.sh** — installs/refreshes both launchd agents for the current machine (substitutes `__PROJECT_DIR__` in the plist templates → `~/Library/LaunchAgents`, loads them); makes the agents path/user-independent
 - **com.brickscanner.app.plist** — launchd autostart agent template for the Flask server (local-only; runs at login, restarts on crash → `app.log`)
 - **com.brickscanner.catalog-refresh.plist / refresh_catalog.sh** — launchd daily catalog-refresh job template + self-locating wrapper, 07:30 ET (local-only)
+- **com.brickscanner.minifig-prices.plist / refresh_minifig_prices.sh / refresh_minifig_prices.py** — launchd daily BrickLink price refresh for the minifig collection, 05:00 local (local-only)

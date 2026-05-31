@@ -64,10 +64,11 @@ mic). See **Private Access (Tailscale + autostart)** below.
 `.plist` files are templates with `__PROJECT_DIR__`; the installer fills in this
 machine's real path, so username/location don't matter:
 ```bash
-./install_agents.sh    # substitutes paths, copies to ~/Library/LaunchAgents, loads both agents
+./install_agents.sh    # substitutes paths, copies to ~/Library/LaunchAgents, loads the agents
 ```
 This starts the always-on Flask server (`com.brickscanner.app`) and schedules the
-07:30-local catalog refresh (`com.brickscanner.catalog-refresh`). Re-running it is
+07:30-local catalog refresh (`com.brickscanner.catalog-refresh`) and the 05:00-local
+BrickLink minifig price refresh (`com.brickscanner.minifig-prices`). Re-running it is
 safe. (To run in the foreground instead, `launchctl stop com.brickscanner.app`
 first, then `./start.sh` — both bind :5001.)
 

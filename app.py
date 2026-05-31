@@ -1569,9 +1569,87 @@ def owned_minifigs_list():
             "quantity": e.get("quantity", 1),
             "condition": e.get("condition"),
             "price_paid": e.get("price_paid"),
+            "price_used": e.get("price_used"),
+            "price_new": e.get("price_new"),
+            "price_updated": e.get("price_updated"),
         })
     out.sort(key=lambda x: (x.get("name") or x["fig_num"]).lower())
     return jsonify({"results": out, "count": len(out)})
+
+
+def refresh_minifig_prices():
+    """Fetch BrickLink last-6-month SOLD averages (Used + New) for every owned
+    minifig that has a BrickLink id, and store them back into the local
+    collection (`price_used`/`price_new`/`price_updated`). Figs without a
+    BrickLink id can't be priced (Rebrickable exposes none) and are skipped.
+    Returns a summary. LOCAL-ONLY — the collection is empty on Render."""
+    coll = _load_meta(MINIFIG_COLLECTION_PATH)
+    targets = [(fn, e["bl_id"]) for fn, e in coll.items() if e.get("bl_id")]
+    results, priced, failed = {}, 0, 0
+
+    def _avg(guide, cond):
+        try:
+            v = (guide.get(cond) or {}).get("avg_price")
+            f = float(v)
+            return round(f, 2) if f > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    for fig_num, bl_id in targets:
+        guide = _bl_sold_price("MINIFIG", bl_id)
+        pu, pn = _avg(guide, "U"), _avg(guide, "N")
+        if pu is None and pn is None:
+            failed += 1
+        else:
+            priced += 1
+            results[fig_num] = (pu, pn)
+        time.sleep(0.4)  # be polite to the BrickLink API
+
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    # Merge into a FRESH read so a concurrent add/remove isn't clobbered.
+    with _meta_lock:
+        cur = _load_meta(MINIFIG_COLLECTION_PATH)
+        for fig_num, (pu, pn) in results.items():
+            if fig_num in cur:
+                cur[fig_num]["price_used"] = pu
+                cur[fig_num]["price_new"] = pn
+                cur[fig_num]["price_updated"] = now
+        _save_meta(MINIFIG_COLLECTION_PATH, cur)
+
+    summary = {"total": len(coll), "priced": priced, "failed": failed,
+               "skipped_no_bl_id": len(coll) - len(targets), "updated": now}
+    print(f"[minifig prices] {summary}", file=sys.stderr)
+    return summary
+
+
+_minifig_price_running = {"on": False}
+
+
+@app.route("/api/minifig_prices/refresh", methods=["POST"])
+def minifig_prices_refresh():
+    """Manually trigger a BrickLink price refresh for the minifig collection
+    (the daily 5am launchd job calls refresh_minifig_prices() directly). Runs in
+    a background thread so the request returns immediately."""
+    if _minifig_price_running["on"]:
+        return jsonify({"status": "already running"}), 202
+    _minifig_price_running["on"] = True  # set before returning so /status reflects it
+
+    def _run():
+        try:
+            refresh_minifig_prices()
+        except Exception as e:
+            print(f"[minifig prices] error: {e}", file=sys.stderr)
+        finally:
+            _minifig_price_running["on"] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "started"}), 202
+
+
+@app.route("/api/minifig_prices/status")
+def minifig_prices_status():
+    """Whether a minifig price refresh is currently running (for the UI poll)."""
+    return jsonify({"running": _minifig_price_running["on"]})
 
 
 # ── Owned sets ("My Sets" collection) — the user's Rebrickable set collection

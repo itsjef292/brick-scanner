@@ -25,3 +25,7 @@ app.log
 .set_meta.json.tmp
 .minifig_collection.json
 .minifig_collection.json.tmp
+
+# Daily minifig price-refresh logs (local dev only)
+minifig_prices.log
+minifig_prices.launchd.log

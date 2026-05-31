@@ -3,6 +3,39 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**BrickLink price tracking for My Minifigs + daily 5am refresh (May 2026):**
+- For every owned minifig that has a **BrickLink id**, the app fetches BrickLink's
+  **last-6-month SOLD average** (Used + New) and stores it on the collection entry
+  (`price_used`/`price_new`/`price_updated` in `.minifig_collection.json` — the
+  local user-data store; the SQLite catalog is read-only). Figs without a
+  BrickLink id can't be priced (Rebrickable exposes none) and are skipped.
+- Backend: `refresh_minifig_prices()` (iterates the collection, `_bl_sold_price`
+  per fig, 0.4s throttle, merges into a fresh read to avoid clobbering concurrent
+  edits); `POST /api/minifig_prices/refresh` (threaded manual trigger);
+  `/api/owned_minifigs` now returns the stored prices.
+- **Daily 05:00 local** via a new launchd LaunchAgent
+  (`com.brickscanner.minifig-prices.plist` → `refresh_minifig_prices.sh` →
+  `refresh_minifig_prices.py`, logs to `minifig_prices.log`); installed by
+  `./install_agents.sh`. **LOCAL-ONLY** (no cron on Render; collection is empty
+  there), same pattern as the catalog refresh.
+- Frontend: each My Minifigs / Lists-minifig row shows an azure **`BL ~$X`** chip
+  (6-mo avg for the fig's condition), and the count line shows an estimated
+  **collection value** (`≈$N`, Σ avg×qty). `_figMarketPrice` picks used/new by the
+  fig's condition.
+
+**My Sets + My Minifigs in the Lists dropdown (May 2026):**
+- The Lists-tab dropdown gained a **"Collections"** optgroup with **"My Sets"** and
+  **"My Minifigs"** — selecting either renders that collection in the list view
+  with the same live search (sets: name/set #/year · figs: name/fig #/BrickLink id),
+  count line, swipe-to-remove, and tap-to-open as the dedicated tabs. Implemented
+  via `_listMode` (`parts|minifigs|sets`) + `_listAllMinifigs`/`_listAllSets`,
+  `loadMinifigsIntoListView`/`loadSetsIntoListView` + `renderMinifigListRows`/
+  `renderSetListRows`. Row markup + wiring extracted into shared
+  `_minifigRowHtml`/`_renderMinifigRows` and `_setRowHtml`/`_renderSetRows` (reused
+  by `loadMyMinifigs`/`loadMySets`); `swipeRemoveOwnedMinifig`/`swipeRemoveOwnedSet`
+  take a per-view reload callback. Pull-to-refresh works here too (the dropdown
+  value routes through `loadListContents`).
+
 **"Already in My Minifigs" alert on scan (May 2026):**
 - When a scanned/opened minifig is already in the My Minifigs collection, the
   identify card shows a prominent green **"Already in My Minifigs ×N"** banner

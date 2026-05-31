@@ -1230,6 +1230,8 @@
       <svg id="myMinifigsChevron" viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--muted);transition:transform .15s;flex-shrink:0;"><path d="M7 10l5 5 5-5z"/></svg>
       <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Minifigs</div>
       <div id="myMinifigsCount" style="margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--muted2);"></div>
+      <button id="minifigPricesBtn" onclick="event.stopPropagation(); refreshMinifigPrices();" title="Refresh BrickLink prices"
+        style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
     </div>
     <div id="myMinifigsGrid"></div>
   </div>
@@ -1561,6 +1563,11 @@
       <span style="width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#7be0a6,var(--green) 75%);flex-shrink:0;"></span>
       <span style="color:var(--green);font-weight:700;font-size:14px;">Already in My Minifigs</span>
       <span id="minifigOwnedQty" style="margin-left:auto;font-family:var(--font-mono);font-weight:700;color:var(--green);"></span>
+    </div>
+    <!-- Red flag: no BrickLink id → can't fetch pricing -->
+    <div id="minifigNoBlBanner" style="display:none;align-items:center;gap:9px;margin-top:10px;padding:10px 13px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius-sm);">
+      <span style="font-size:15px;flex-shrink:0;">⚠️</span>
+      <span style="color:var(--red-text);font-weight:600;font-size:13px;line-height:1.35;">No BrickLink ID — pricing can’t be tracked. Scan it, or use the Search BrickLink link above to find its id.</span>
     </div>
     <div class="info-row" id="rbRow" style="margin-top:8px;">
       <span class="label">Rebrickable</span>
@@ -3053,9 +3060,11 @@
     const blId = isMinifig ? item.bl_id : extractBlId(item);
     selectedPart = { ...item, blId };
     renderInventoryStatus(0);
-    // Reset the "already owned" minifig banner; the minifig path re-shows it.
+    // Reset the minifig banners; the minifig path re-shows them as needed.
     const _ownedBanner = document.getElementById('minifigOwnedBanner');
     if (_ownedBanner) _ownedBanner.style.display = 'none';
+    const _noBlBanner = document.getElementById('minifigNoBlBanner');
+    if (_noBlBanner) _noBlBanner.style.display = 'none';
 
     document.getElementById('partName').textContent = decodeHtmlEntities(item.name || item.id);
     const catImg = document.getElementById('catalogImg');
@@ -3101,6 +3110,8 @@
       qtyWrap.style.display = 'none';
       addPartsBtn.style.display = '';
       renderInventoryStatus(0, 'hidden');
+      // Flag a missing BrickLink id — it means this fig can't be priced.
+      document.getElementById('minifigNoBlBanner').style.display = blId ? 'none' : 'flex';
       loadOwnedMinifigStatus(item.id);
     } else {
       addBtn.style.display = '';
@@ -3300,6 +3311,7 @@
       document.getElementById('colorSheet').classList.remove('open');
       document.getElementById('minifigOwnBar').style.display = 'none';
       document.getElementById('minifigOwnedBanner').style.display = 'none';
+      document.getElementById('minifigNoBlBanner').style.display = 'none';
       selectedPart = null;
       renderInventoryStatus(0, 'hidden');
       return;
@@ -4100,7 +4112,11 @@
   }
 
   // ── Lists browser ──────────────────────────────────────────────────────
-  let _listAllParts = [];  // full parts list held in memory for live search
+  let _listAllParts = [];      // full parts list held in memory for live search
+  let _listAllMinifigs = [];   // My Minifigs collection when viewed in the Lists tab
+  let _listAllSets = [];       // My Sets collection when viewed in the Lists tab
+  let _listMode = 'parts';     // 'parts' | 'minifigs' | 'sets' — Lists view contents
+  const _LIST_SEARCH_PH = 'Search this list — part #, name, or color';
 
   function populateListsViewSelect() {
     fetch('/api/partlists').then(r => r.json()).then(data => {
@@ -4114,6 +4130,17 @@
         if (l.id == prev) o.selected = true;
         sel.appendChild(o);
       });
+      // Collections (not Rebrickable parts lists): the local My Minifigs collection.
+      const og = document.createElement('optgroup');
+      og.label = 'Collections';
+      [['__sets__', 'My Sets'], ['__minifigs__', 'My Minifigs']].forEach(([val, label]) => {
+        const o = document.createElement('option');
+        o.value = val;
+        o.textContent = label;
+        o.selected = (prev === val);
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
       if (!prev && data.results.length) {
         sel.value = data.results[0].id;
         loadListContents();
@@ -4126,6 +4153,10 @@
     const grid = document.getElementById('listPartsGrid');
     const wrap = document.getElementById('listSearchWrap');
     document.getElementById('listLoadMore').style.display = 'none';
+    if (listId === '__minifigs__') return loadMinifigsIntoListView();
+    if (listId === '__sets__') return loadSetsIntoListView();
+    _listMode = 'parts';
+    document.getElementById('listSearchInput').placeholder = _LIST_SEARCH_PH;
     if (!listId) { grid.innerHTML = ''; _listAllParts = []; wrap.style.display = 'none'; return; }
     _listAllParts = [];
     wrap.style.display = 'none';
@@ -4150,7 +4181,109 @@
   }
 
   function filterListParts() {
-    renderListParts(document.getElementById('listSearchInput').value);
+    const q = document.getElementById('listSearchInput').value;
+    if (_listMode === 'minifigs') renderMinifigListRows(q);
+    else if (_listMode === 'sets') renderSetListRows(q);
+    else renderListParts(q);
+  }
+
+  // ── My Minifigs shown inside the Lists tab (dropdown → "My Minifigs") ──
+  function loadMinifigsIntoListView() {
+    _listMode = 'minifigs';
+    const grid = document.getElementById('listPartsGrid');
+    const wrap = document.getElementById('listSearchWrap');
+    document.getElementById('listSearchInput').value = '';
+    document.getElementById('listSearchInput').placeholder = 'Search minifigs — name, fig #, or BrickLink id';
+    grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">Loading…</p>';
+    return fetch('/api/owned_minifigs')
+      .then(r => r.json())
+      .then(data => {
+        _listAllMinifigs = data.results || [];
+        wrap.style.display = _listAllMinifigs.length ? 'block' : 'none';
+        renderMinifigListRows('');
+      })
+      .catch(() => { grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
+  }
+  // ── My Sets shown inside the Lists tab (dropdown → "My Sets") ──
+  function loadSetsIntoListView() {
+    _listMode = 'sets';
+    const grid = document.getElementById('listPartsGrid');
+    const wrap = document.getElementById('listSearchWrap');
+    document.getElementById('listSearchInput').value = '';
+    document.getElementById('listSearchInput').placeholder = 'Search sets — name, set #, or year';
+    grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">Loading…</p>';
+    return fetch('/api/owned_sets')
+      .then(r => r.json())
+      .then(data => {
+        _listAllSets = data.results || [];
+        wrap.style.display = _listAllSets.length ? 'block' : 'none';
+        renderSetListRows('');
+      })
+      .catch(() => { grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
+  }
+  function _reloadSetListView() {
+    const q = document.getElementById('listSearchInput').value;
+    return fetch('/api/owned_sets').then(r => r.json()).then(d => {
+      _listAllSets = d.results || [];
+      renderSetListRows(q);
+    }).catch(() => {});
+  }
+  function renderSetListRows(filterStr) {
+    const grid = document.getElementById('listPartsGrid');
+    const countEl = document.getElementById('listSearchCount');
+    const q = (filterStr || '').trim().toLowerCase();
+    if (!_listAllSets.length) {
+      grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">No owned sets yet.</p>';
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+    let sets = _listAllSets;
+    if (q) sets = sets.filter(s =>
+      (s.set_num || '').toLowerCase().includes(q) ||
+      (s.name || '').toLowerCase().includes(q) ||
+      String(s.year || '').includes(q));
+    if (countEl) countEl.textContent = q
+      ? `${sets.length} of ${_listAllSets.length} sets`
+      : `${_listAllSets.length} set${_listAllSets.length === 1 ? '' : 's'}`;
+    if (!sets.length) {
+      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:24px 0">No matches for “${escapeHtml(q)}”.</p>`;
+      return;
+    }
+    _renderSetRows(sets, grid, _reloadSetListView);
+  }
+
+  // Re-fetch + re-render the Lists minifig view, preserving the current search.
+  function _reloadMinifigListView() {
+    const q = document.getElementById('listSearchInput').value;
+    return fetch('/api/owned_minifigs').then(r => r.json()).then(d => {
+      _listAllMinifigs = d.results || [];
+      renderMinifigListRows(q);
+    }).catch(() => {});
+  }
+  function renderMinifigListRows(filterStr) {
+    const grid = document.getElementById('listPartsGrid');
+    const countEl = document.getElementById('listSearchCount');
+    const q = (filterStr || '').trim().toLowerCase();
+    if (!_listAllMinifigs.length) {
+      grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">No minifigs in your collection yet.</p>';
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+    let figs = _listAllMinifigs;
+    if (q) figs = figs.filter(f =>
+      (f.fig_num || '').toLowerCase().includes(q) ||
+      (f.name || '').toLowerCase().includes(q) ||
+      (f.bl_id || '').toLowerCase().includes(q));
+    const value = _minifigCollectionValue(figs);
+    const valTxt = value > 0 ? ` · ≈$${Math.round(value)}` : '';
+    if (countEl) countEl.textContent = (q
+      ? `${figs.length} of ${_listAllMinifigs.length} minifigs`
+      : `${_listAllMinifigs.length} minifig${_listAllMinifigs.length === 1 ? '' : 's'}`) + valTxt;
+    if (!figs.length) {
+      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:24px 0">No matches for “${escapeHtml(q)}”.</p>`;
+      return;
+    }
+    _renderMinifigRows(figs, grid, _reloadMinifigListView);
   }
 
   function renderListParts(filterStr) {
@@ -5173,45 +5306,7 @@
         }
         const totalCopies = sets.reduce((n, s) => n + (s.quantity || 1), 0);
         countEl.textContent = `${sets.length} set${sets.length === 1 ? '' : 's'} · ${totalCopies} owned`;
-        grid.innerHTML = sets.map(s => {
-          const num = escapeHtml(s.set_num || '');
-          const name = escapeHtml(s.name || s.set_num || '?');
-          const img = s.img_url ? escapeHtml(s.img_url) : '/static/brick.svg';
-          const meta = [s.year, s.num_parts ? `${s.num_parts} pcs` : ''].filter(Boolean).map(x => escapeHtml(String(x))).join(' · ');
-          const qty = s.quantity || 1;
-          const cond = s.condition === 'used' ? 'Used' : (s.condition === 'new' ? 'New' : '');
-          const price = (s.price_paid !== null && s.price_paid !== undefined)
-            ? `$${Number(s.price_paid).toFixed(2)}` : '';
-          const purchaseBits = [
-            cond ? `<span style="font-size:11px;color:var(--muted);">${cond}</span>` : '',
-            price ? `<span style="font-family:var(--font-mono);font-size:11px;color:var(--green);">${price}</span>` : '',
-          ].filter(Boolean).join('<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>');
-          return `<div class="my-set-row" data-set-num="${num}" data-set-name="${name}"
-              style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
-            <img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
-            <div style="flex:1;min-width:0;">
-              <div style="color:var(--text);font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
-              <div style="display:flex;align-items:center;gap:7px;margin-top:4px;">
-                <span style="font-family:var(--font-mono);font-size:12px;color:var(--yellow);">${num}</span>
-                ${meta ? `<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span><span style="font-size:12px;color:var(--muted);">${meta}</span>` : ''}
-              </div>
-            </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div style="font-family:var(--font-mono);font-weight:700;color:var(--text);">×${qty}</div>
-              ${purchaseBits
-                ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">${purchaseBits}</div>`
-                : '<div style="font-size:11px;color:var(--muted);">owned</div>'}
-            </div>
-          </div>`;
-        }).join('');
-        grid.querySelectorAll('.my-set-row').forEach(el => {
-          el.addEventListener('click', () => {
-            if (consumeSwipe(el)) return;
-            loadSetDetails(el.dataset.setNum, el.dataset.setName);
-          });
-          makeSwipeRemovable(el, (ctl) => swipeRemoveOwnedSet(el.dataset.setNum, ctl));
-        });
-        lazyLoadImages(grid);
+        _renderSetRows(sets, grid, loadMySets);
       })
       .catch(() => {
         grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Network error.</p>';
@@ -5228,6 +5323,32 @@
     const chev = document.getElementById('myMinifigsChevron');
     if (grid) grid.style.display = _myMinifigsCollapsed ? 'none' : '';
     if (chev) chev.style.transform = _myMinifigsCollapsed ? 'rotate(-90deg)' : '';
+  }
+  // Manually trigger a BrickLink price refresh for the collection, then poll the
+  // server's status (the refresh runs in a background thread) and reload when done.
+  function refreshMinifigPrices() {
+    const btn = document.getElementById('minifigPricesBtn');
+    if (btn) btn.disabled = true;
+    fetch('/api/minifig_prices/refresh', { method: 'POST' })
+      .then(r => r.json())
+      .then(() => { showToast('Refreshing BrickLink prices…'); _pollMinifigPrices(0); })
+      .catch(() => { showToast('Couldn’t refresh prices'); if (btn) btn.disabled = false; });
+  }
+  function _pollMinifigPrices(tries) {
+    const finish = (msg) => {
+      const btn = document.getElementById('minifigPricesBtn');
+      if (btn) btn.disabled = false;
+      loadMyMinifigs();
+      if (msg) showToast(msg);
+    };
+    if (tries > 60) return finish('');  // ~90s safety cap
+    fetch('/api/minifig_prices/status')
+      .then(r => r.json())
+      .then(s => {
+        if (s.running) setTimeout(() => _pollMinifigPrices(tries + 1), 1500);
+        else finish('Prices updated');
+      })
+      .catch(() => finish(''));
   }
   function toggleMyMinifigs() {
     _myMinifigsCollapsed = !_myMinifigsCollapsed;
@@ -5314,27 +5435,138 @@
   // Swipe "Remove 1" actions for the My Sets / My Minifigs browse rows. On
   // success they reload the whole list (no search filter to preserve, and it
   // re-wraps the rows); on error they reset the swipe button.
-  function swipeRemoveOwnedSet(setNum, ctl) {
+  function swipeRemoveOwnedSet(setNum, ctl, reloadFn) {
     fetch('/api/remove_set_one', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ set_num: setNum }) })
       .then(r => r.json().then(data => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) { showToast('Couldn’t remove set'); ctl.fail(); return; }
         const qty = data.quantity || 0;
         showToast(qty === 0 ? 'Removed from My Sets' : `Now ×${qty} in My Sets`);
-        loadMySets();
+        (reloadFn || loadMySets)();
       })
       .catch(() => { showToast('Network error'); ctl.fail(); });
   }
-  function swipeRemoveOwnedMinifig(figNum, ctl) {
+
+  // Shared set-row renderer used by both the Sets-tab "My Sets" section and the
+  // Lists-tab "My Sets" view. `reloadFn` is what a swipe-remove calls to refresh.
+  function _setRowHtml(s) {
+    const num = escapeHtml(s.set_num || '');
+    const name = escapeHtml(s.name || s.set_num || '?');
+    const img = s.img_url ? escapeHtml(s.img_url) : '/static/brick.svg';
+    const meta = [s.year, s.num_parts ? `${s.num_parts} pcs` : ''].filter(Boolean).map(x => escapeHtml(String(x))).join(' · ');
+    const qty = s.quantity || 1;
+    const cond = s.condition === 'used' ? 'Used' : (s.condition === 'new' ? 'New' : '');
+    const price = (s.price_paid !== null && s.price_paid !== undefined) ? `$${Number(s.price_paid).toFixed(2)}` : '';
+    const purchaseBits = [
+      cond ? `<span style="font-size:11px;color:var(--muted);">${cond}</span>` : '',
+      price ? `<span style="font-family:var(--font-mono);font-size:11px;color:var(--green);">${price}</span>` : '',
+    ].filter(Boolean).join('<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>');
+    return `<div class="my-set-row" data-set-num="${num}" data-set-name="${name}"
+        style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
+      <img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="color:var(--text);font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:4px;">
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--yellow);">${num}</span>
+          ${meta ? `<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span><span style="font-size:12px;color:var(--muted);">${meta}</span>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--text);">×${qty}</div>
+        ${purchaseBits
+          ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">${purchaseBits}</div>`
+          : '<div style="font-size:11px;color:var(--muted);">owned</div>'}
+      </div>
+    </div>`;
+  }
+  function _renderSetRows(sets, gridEl, reloadFn) {
+    gridEl.innerHTML = sets.map(_setRowHtml).join('');
+    gridEl.querySelectorAll('.my-set-row').forEach(el => {
+      el.addEventListener('click', () => {
+        if (consumeSwipe(el)) return;
+        loadSetDetails(el.dataset.setNum, el.dataset.setName);
+      });
+      makeSwipeRemovable(el, (ctl) => swipeRemoveOwnedSet(el.dataset.setNum, ctl, reloadFn));
+    });
+    lazyLoadImages(gridEl);
+  }
+  function swipeRemoveOwnedMinifig(figNum, ctl, reloadFn) {
     fetch('/api/remove_minifig_one', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ set_num: figNum }) })
       .then(r => r.json().then(data => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) { showToast('Couldn’t remove minifig'); ctl.fail(); return; }
         const qty = data.quantity || 0;
         showToast(qty === 0 ? 'Removed from My Minifigs' : `Now ×${qty} in My Minifigs`);
-        loadMyMinifigs();
+        (reloadFn || loadMyMinifigs)();
       })
       .catch(() => { showToast('Network error'); ctl.fail(); });
+  }
+
+  // Shared minifig-row renderer used by both the scan-screen "My Minifigs"
+  // section and the Lists-tab "My Minifigs" view. `reloadFn` is what a
+  // swipe-remove calls to refresh that particular view.
+  // BrickLink 6-mo sold avg for the fig's condition (used→used, new→new, unset→
+  // prefer used; falls back to the other if one is missing). null if unpriced.
+  function _figMarketPrice(f) {
+    const u = (f.price_used != null) ? f.price_used : null;
+    const n = (f.price_new != null) ? f.price_new : null;
+    return f.condition === 'new' ? (n != null ? n : u) : (u != null ? u : n);
+  }
+  function _minifigCollectionValue(figs) {
+    return figs.reduce((s, f) => { const m = _figMarketPrice(f); return s + (m != null ? m * (f.quantity || 1) : 0); }, 0);
+  }
+  function _minifigRowHtml(f) {
+    const num = escapeHtml(f.fig_num || '');
+    const name = escapeHtml(f.name || f.fig_num || '?');
+    const img = f.img_url ? escapeHtml(f.img_url) : '/static/minifig.png';
+    const bl = f.bl_id ? escapeHtml(f.bl_id) : '';
+    const meta = f.num_parts ? `${f.num_parts} pcs` : '';
+    const dot = '<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>';
+    const blPart = bl
+      ? `<span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">BL ${bl}</span>`
+      : `<span style="font-size:11px;color:var(--red-text);background:var(--red-bg);border:1px solid var(--red-border);border-radius:4px;padding:1px 6px;">no BL id</span>`;
+    const idLine = [
+      `<span style="font-family:var(--font-mono);font-size:12px;color:var(--yellow);">${num}</span>`,
+      blPart,
+      meta ? `<span style="font-size:12px;color:var(--muted);">${meta}</span>` : '',
+    ].filter(Boolean).join(dot);
+    const qty = f.quantity || 1;
+    const cond = f.condition === 'used' ? 'Used' : (f.condition === 'new' ? 'New' : '');
+    const price = (f.price_paid !== null && f.price_paid !== undefined) ? `$${Number(f.price_paid).toFixed(2)}` : '';
+    const purchaseBits = [
+      cond ? `<span style="font-size:11px;color:var(--muted);">${cond}</span>` : '',
+      price ? `<span style="font-family:var(--font-mono);font-size:11px;color:var(--green);">${price}</span>` : '',
+    ].filter(Boolean).join(dot);
+    const mkt = _figMarketPrice(f);
+    const mktLine = mkt != null
+      ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);margin-top:2px;">BL ~$${mkt.toFixed(2)}</div>`
+      : '';
+    return `<div class="my-fig-row" data-fig-num="${num}" data-fig-name="${name}" data-fig-img="${img}"
+        style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
+      <img data-src="${img}" onerror="this.onerror=null;this.src='/static/minifig.png'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="color:var(--text);font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap;">${idLine}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-family:var(--font-mono);font-weight:700;color:var(--text);">×${qty}</div>
+        ${purchaseBits
+          ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">${purchaseBits}</div>`
+          : '<div style="font-size:11px;color:var(--muted);">owned</div>'}
+        ${mktLine}
+      </div>
+    </div>`;
+  }
+  function _renderMinifigRows(figs, gridEl, reloadFn) {
+    gridEl.innerHTML = figs.map(_minifigRowHtml).join('');
+    gridEl.querySelectorAll('.my-fig-row').forEach(el => {
+      el.addEventListener('click', () => {
+        if (consumeSwipe(el)) return;
+        openMinifigFromSearch(el.dataset.figNum, el.dataset.figName, el.dataset.figImg);
+      });
+      makeSwipeRemovable(el, (ctl) => swipeRemoveOwnedMinifig(el.dataset.figNum, ctl, reloadFn));
+    });
+    lazyLoadImages(gridEl);
   }
 
   // Back/Retake from the identify screen — refresh My Minifigs if we're in
@@ -5363,52 +5595,10 @@
           return;
         }
         const totalCopies = figs.reduce((n, f) => n + (f.quantity || 1), 0);
-        countEl.textContent = `${figs.length} fig${figs.length === 1 ? '' : 's'} · ${totalCopies} owned`;
-        grid.innerHTML = figs.map(f => {
-          const num = escapeHtml(f.fig_num || '');
-          const name = escapeHtml(f.name || f.fig_num || '?');
-          const img = f.img_url ? escapeHtml(f.img_url) : '/static/minifig.png';
-          const bl = f.bl_id ? escapeHtml(f.bl_id) : '';
-          const meta = f.num_parts ? `${f.num_parts} pcs` : '';
-          const dot = '<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>';
-          const idLine = [
-            `<span style="font-family:var(--font-mono);font-size:12px;color:var(--yellow);">${num}</span>`,
-            bl ? `<span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">BL ${bl}</span>` : '',
-            meta ? `<span style="font-size:12px;color:var(--muted);">${meta}</span>` : '',
-          ].filter(Boolean).join(dot);
-          const qty = f.quantity || 1;
-          const cond = f.condition === 'used' ? 'Used' : (f.condition === 'new' ? 'New' : '');
-          const price = (f.price_paid !== null && f.price_paid !== undefined)
-            ? `$${Number(f.price_paid).toFixed(2)}` : '';
-          const purchaseBits = [
-            cond ? `<span style="font-size:11px;color:var(--muted);">${cond}</span>` : '',
-            price ? `<span style="font-family:var(--font-mono);font-size:11px;color:var(--green);">${price}</span>` : '',
-          ].filter(Boolean).join('<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>');
-          return `<div class="my-fig-row" data-fig-num="${num}" data-fig-name="${name}" data-fig-img="${img}"
-              style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
-            <img data-src="${img}" onerror="this.onerror=null;this.src='/static/minifig.png'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
-            <div style="flex:1;min-width:0;">
-              <div style="color:var(--text);font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
-              <div style="display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap;">
-                ${idLine}
-              </div>
-            </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div style="font-family:var(--font-mono);font-weight:700;color:var(--text);">×${qty}</div>
-              ${purchaseBits
-                ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">${purchaseBits}</div>`
-                : '<div style="font-size:11px;color:var(--muted);">owned</div>'}
-            </div>
-          </div>`;
-        }).join('');
-        grid.querySelectorAll('.my-fig-row').forEach(el => {
-          el.addEventListener('click', () => {
-            if (consumeSwipe(el)) return;
-            openMinifigFromSearch(el.dataset.figNum, el.dataset.figName, el.dataset.figImg);
-          });
-          makeSwipeRemovable(el, (ctl) => swipeRemoveOwnedMinifig(el.dataset.figNum, ctl));
-        });
-        lazyLoadImages(grid);
+        const value = _minifigCollectionValue(figs);
+        countEl.textContent = `${figs.length} fig${figs.length === 1 ? '' : 's'} · ${totalCopies} owned`
+          + (value > 0 ? ` · ≈$${Math.round(value)}` : '');
+        _renderMinifigRows(figs, grid, loadMyMinifigs);
       })
       .catch(() => {
         grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Network error.</p>';

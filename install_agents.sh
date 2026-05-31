@@ -11,17 +11,19 @@
 # Agents installed:
 #   com.brickscanner.app             — keeps the Flask server up (RunAtLoad + KeepAlive)
 #   com.brickscanner.catalog-refresh — daily offline-catalog refresh at 07:30 local
+#   com.brickscanner.minifig-prices  — daily BrickLink price refresh at 05:00 local
 #
 # Uninstall:
 #   launchctl unload ~/Library/LaunchAgents/com.brickscanner.app.plist
 #   launchctl unload ~/Library/LaunchAgents/com.brickscanner.catalog-refresh.plist
+#   launchctl unload ~/Library/LaunchAgents/com.brickscanner.minifig-prices.plist
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 LA="$HOME/Library/LaunchAgents"
 mkdir -p "$LA"
 
-for label in com.brickscanner.app com.brickscanner.catalog-refresh; do
+for label in com.brickscanner.app com.brickscanner.catalog-refresh com.brickscanner.minifig-prices; do
   src="$DIR/$label.plist"
   dst="$LA/$label.plist"
   if [ ! -f "$src" ]; then
@@ -39,6 +41,6 @@ for label in com.brickscanner.app com.brickscanner.catalog-refresh; do
 done
 
 echo ""
-echo "  Done. The app autostarts at login; the catalog refreshes daily at 07:30 local."
+echo "  Done. App autostarts at login; catalog refreshes 07:30, minifig prices 05:00 local."
 echo "  Reach it over Tailscale — run ./start.sh once to print the URL, or use the"
 echo "  always-on agent and open  http://<this-mac>.<tailnet>.ts.net:5001  on your phone."
