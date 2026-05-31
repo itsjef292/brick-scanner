@@ -3,6 +3,16 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**"Already in My Minifigs" alert on scan (May 2026):**
+- When a scanned/opened minifig is already in the My Minifigs collection, the
+  identify card shows a prominent green **"Already in My Minifigs ×N"** banner
+  under the name, and a **scan** (captured photo present) also fires an instant
+  toast (`✓ Already in My Minifigs — ×N`) so you know during rapid scanning
+  without reading the card. Driven off the existing owned-status check
+  (`loadOwnedMinifigStatus` → `_renderOwnedMinifigUI`); banner resets per card.
+  (Match is by resolved Rebrickable fig_num, so a fig added via search may not
+  match a later scan if the catalogs resolve it to different variants.)
+
 **Minifig BrickLink-id row → search link (May 2026):**
 - Rebrickable's minifig API exposes **no BrickLink id** (`external_ids` is null for
   figs), so a search-opened minifig had a dead "—" in the BRICKLINK ID row. It now

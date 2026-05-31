@@ -1556,6 +1556,12 @@
     <div class="part-info">
       <div class="part-name" id="partName">—</div>
     </div>
+    <!-- Prominent "you already own this" banner for minifigs in My Minifigs -->
+    <div id="minifigOwnedBanner" style="display:none;align-items:center;gap:9px;margin-top:10px;padding:10px 13px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);">
+      <span style="width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#7be0a6,var(--green) 75%);flex-shrink:0;"></span>
+      <span style="color:var(--green);font-weight:700;font-size:14px;">Already in My Minifigs</span>
+      <span id="minifigOwnedQty" style="margin-left:auto;font-family:var(--font-mono);font-weight:700;color:var(--green);"></span>
+    </div>
     <div class="info-row" id="rbRow" style="margin-top:8px;">
       <span class="label">Rebrickable</span>
       <span class="value" id="rbValue">—</span>
@@ -3047,6 +3053,9 @@
     const blId = isMinifig ? item.bl_id : extractBlId(item);
     selectedPart = { ...item, blId };
     renderInventoryStatus(0);
+    // Reset the "already owned" minifig banner; the minifig path re-shows it.
+    const _ownedBanner = document.getElementById('minifigOwnedBanner');
+    if (_ownedBanner) _ownedBanner.style.display = 'none';
 
     document.getElementById('partName').textContent = decodeHtmlEntities(item.name || item.id);
     const catImg = document.getElementById('catalogImg');
@@ -3290,6 +3299,7 @@
       document.getElementById('altSection').style.display = 'none';
       document.getElementById('colorSheet').classList.remove('open');
       document.getElementById('minifigOwnBar').style.display = 'none';
+      document.getElementById('minifigOwnedBanner').style.display = 'none';
       selectedPart = null;
       renderInventoryStatus(0, 'hidden');
       return;
@@ -3731,6 +3741,11 @@
     const addBtn = document.getElementById('figOwnAddBtn');
     const stepper = document.getElementById('figOwnStepper');
     const meta = document.getElementById('figOwnMeta');
+    const banner = document.getElementById('minifigOwnedBanner');
+    if (banner) {
+      banner.style.display = owned ? 'flex' : 'none';
+      if (owned) document.getElementById('minifigOwnedQty').textContent = `×${qty}`;
+    }
     if (owned) {
       addBtn.style.display = 'none';
       stepper.style.display = 'flex';
@@ -3777,7 +3792,12 @@
     _figOwnMsg('');
     fetch(`/api/owned_minifigs/${encodeURIComponent(figNum)}`)
       .then(r => r.json())
-      .then(d => _renderOwnedMinifigUI(!!d.owned, d.quantity || 0, d.condition, d.price_paid))
+      .then(d => {
+        _renderOwnedMinifigUI(!!d.owned, d.quantity || 0, d.condition, d.price_paid);
+        // On a scan (a captured photo is present), surface an instant toast so
+        // you know you already have it without scanning the card for the badge.
+        if (d.owned && capturedObjectUrl) showToast(`✓ Already in My Minifigs — ×${d.quantity || 1}`);
+      })
       .catch(() => {});
   }
   function addMinifig() {
