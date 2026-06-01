@@ -8,7 +8,7 @@
   <!-- PWA / installable web app -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="app-version" content="{{ app_version }}">
-  <meta name="theme-color" content="#0C1014">
+  <meta name="theme-color" content="#0A0E12">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -27,17 +27,17 @@
       --yellow-glow-md: rgba(59,158,255,0.22);
       /* Bluish-gray elevation — LEGO's real structural neutral, in the azure
          hue family. baseplate → brick-1 → brick-2 → raised. */
-      --bg: #0C1014;
-      --surface: #141A22;
-      --surface2: #1B2330;
-      --surface3: #232E3D;
-      --socket: #080B0F;            /* inset inputs — darker = "type here" */
+      --bg: #0A0E12;
+      --surface: #12171E;
+      --surface2: #1A212B;
+      --surface3: #24303F;
+      --socket: #06090D;            /* inset inputs — darker = "type here" */
       /* Seams — low-opacity bluish; disappear until you look for them. */
       --border: rgba(150,180,215,0.10);
       --border-bright: rgba(150,180,215,0.20);
       /* Ink hierarchy — cool, four levels. */
-      --text: #EAEEF4;
-      --muted: #9EAAB9;
+      --text: #E8ECF1;
+      --muted: #9BA6B4;
       --muted2: #697686;
       --blue: #3B9EFF;
       /* LEGO primaries — used only where colour carries meaning. */
@@ -141,9 +141,9 @@
     .mode-tab .tab-ico { width: 20px; height: 20px; fill: currentColor; display: block; }
     .mode-tab.active {
       background: var(--yellow);
-      color: #fff;
+      color: #06121F;
     }
-    .mode-tab.active img { filter: brightness(10) saturate(0); }
+    .mode-tab.active img { filter: brightness(0) saturate(0); }
 
     /* ── Screens ── */
     .screen { display: none; width: 100%; max-width: var(--max-w); flex-direction: column; box-sizing: border-box; overflow-x: clip; }
@@ -187,7 +187,7 @@
     .search-row .search-btn {
       padding: 10px 14px;
       background: var(--yellow);
-      color: #fff;
+      color: #06121F;
       border: none;
       border-radius: var(--radius-sm);
       font-family: var(--font-display);
@@ -315,7 +315,7 @@
     /* ── Buttons ── */
     .btn {
       background: var(--yellow);
-      color: #fff;
+      color: #06121F;
       border: none;
       padding: 14px 28px;
       border-radius: var(--radius);
@@ -335,7 +335,7 @@
       color: var(--muted);
       font-size: 15px;
     }
-    .btn.green { background: var(--yellow); color: #fff; }
+    .btn.green { background: var(--yellow); color: #06121F; }
 
     /* ── List selector ── */
     .list-selector label {
@@ -870,7 +870,7 @@
     .voice-hint em { color: var(--text); font-style: normal; font-family: var(--font-mono); }
     .voice-mic {
       width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
-      background: var(--yellow); color: #fff; font-size: 34px;
+      background: var(--yellow); color: #06121F; font-size: 34px;
       display: flex; align-items: center; justify-content: center;
       transition: transform 0.15s, box-shadow 0.15s;
     }
@@ -896,7 +896,7 @@
       text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid var(--border-bright);
     }
     .voice-cancel { background: var(--surface3); color: var(--muted); }
-    .voice-go { background: var(--yellow); color: #fff; border-color: var(--yellow); }
+    .voice-go { background: var(--yellow); color: #06121F; border-color: var(--yellow); }
     .voice-error { font-size: 13px; color: #FCA5A5; text-align: center; }
     .voice-quick {
       display: flex; align-items: center; gap: 8px; width: 100%;
@@ -970,7 +970,7 @@
     }
     .file-input-row .action-btn { flex: 1; }
     .action-btn {
-      padding: 8px 14px; background: var(--yellow); color: #fff;
+      padding: 8px 14px; background: var(--yellow); color: #06121F;
       border: none; border-radius: var(--radius-sm);
       font-family: var(--font-display); font-size: 13px; font-weight: 700;
       letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
@@ -992,7 +992,7 @@
       font-family: var(--font-display); font-size: 13px; font-weight: 700;
       letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer;
     }
-    .shopping-tab.active { background: var(--yellow); color: #fff; }
+    .shopping-tab.active { background: var(--yellow); color: #06121F; }
     .shopping-tab:not(.active) { background: var(--surface3); color: var(--muted); }
 
     /* Set detail tabs */
@@ -1006,7 +1006,7 @@
       font-family: var(--font-display); font-size: 13px; font-weight: 700;
       letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer;
     }
-    .set-tab.active { background: var(--yellow); color: #fff; }
+    .set-tab.active { background: var(--yellow); color: #06121F; }
     .set-tab:not(.active) { background: var(--surface3); color: var(--muted); }
     .back-btn {
       padding: 8px 12px; background: var(--surface3); color: var(--text);
@@ -1210,14 +1210,14 @@
       <button onclick="deleteList()" title="Delete selected list"
         style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--surface3);color:var(--text);font-size:18px;line-height:1;cursor:pointer;border:1px solid var(--border-bright);">🗑</button>
       <button onclick="toggleNewList()" title="Create new list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--yellow);color:#fff;font-size:22px;font-weight:700;line-height:1;cursor:pointer;">+</button>
+        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--yellow);color:#06121F;font-size:22px;font-weight:700;line-height:1;cursor:pointer;">+</button>
     </div>
     <div id="newListRow" style="display:none;margin-top:10px;gap:8px;align-items:center;">
       <input id="newListName" type="text" placeholder="List name…"
         style="flex:1;padding:8px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:15px;background:var(--surface3);color:var(--text);"
         onkeydown="if(event.key==='Enter')createList()">
       <button onclick="createList()"
-        style="padding:8px 14px;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;cursor:pointer;">Create</button>
+        style="padding:8px 14px;background:var(--yellow);color:#06121F;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;cursor:pointer;">Create</button>
     </div>
   </div>
 
@@ -1653,7 +1653,7 @@
           style="width:100%;padding:9px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:14px;background:var(--surface3);color:var(--text);margin-bottom:8px;"
           onkeydown="if(event.key==='Enter')createPartListFromModal()">
         <button onclick="createPartListFromModal()"
-          style="width:100%;padding:9px;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
+          style="width:100%;padding:9px;background:var(--yellow);color:#06121F;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn secondary" onclick="document.getElementById('selectPartListModal').style.display='none'" style="margin:0;">Cancel</button>
@@ -1675,7 +1675,7 @@
           style="width:100%;padding:9px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:14px;background:var(--surface3);color:var(--text);margin-bottom:8px;"
           onkeydown="if(event.key==='Enter')createMinifigPartListFromModal()">
         <button onclick="createMinifigPartListFromModal()"
-          style="width:100%;padding:9px;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
+          style="width:100%;padding:9px;background:var(--yellow);color:#06121F;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn secondary" onclick="document.getElementById('addPartsListModal').style.display='none'" style="margin:0;">Cancel</button>
@@ -4824,7 +4824,7 @@
       listView.style.display = 'block';
       compView.style.display = 'none';
       listBtn.style.background = '#3B9EFF';
-      listBtn.style.color = '#fff';
+      listBtn.style.color = '#06121F';
       compBtn.style.background = 'var(--surface3)';
       compBtn.style.color = 'var(--muted)';
     } else {
@@ -4833,7 +4833,7 @@
       listBtn.style.background = 'var(--surface3)';
       listBtn.style.color = 'var(--muted)';
       compBtn.style.background = '#3B9EFF';
-      compBtn.style.color = '#fff';
+      compBtn.style.color = '#06121F';
       loadComparisonView();
     }
   }
@@ -4877,7 +4877,7 @@
         // Check for rate limit (429 Too Many Requests)
         if (partlistsResp.status === 429) {
           comparisonGrid.innerHTML =
-            '<p style="color:var(--red);text-align:center;padding:24px 0;">⚠️ Rebrickable API rate limited. Please wait 1-2 hours and try again. <button onclick="loadComparisonView(true)" style="margin-top:12px;padding:8px 16px;background:#3B9EFF;color:#fff;border:none;border-radius:4px;cursor:pointer;">Retry</button></p>';
+            '<p style="color:var(--red);text-align:center;padding:24px 0;">⚠️ Rebrickable API rate limited. Please wait 1-2 hours and try again. <button onclick="loadComparisonView(true)" style="margin-top:12px;padding:8px 16px;background:#3B9EFF;color:#06121F;border:none;border-radius:4px;cursor:pointer;">Retry</button></p>';
           return;
         }
 
@@ -4999,7 +4999,7 @@
             <div style="color:var(--muted);font-size:13px;">
               Inventory data: <span style="color:var(--green);">${cacheText}</span> (cached for 30 min)
             </div>
-            <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:#3B9EFF;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">
+            <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:#3B9EFF;color:#06121F;border:none;border-radius:4px;font-size:12px;cursor:pointer;">
               🔄 Refresh Now
             </button>
           </div>
@@ -5755,7 +5755,7 @@
 
     // Update tab styling
     document.getElementById('tabParts').style.background = '#3B9EFF';
-    document.getElementById('tabParts').style.color = '#fff';
+    document.getElementById('tabParts').style.color = '#06121F';
     document.getElementById('tabMinifigs').style.background = 'var(--surface3)';
     document.getElementById('tabMinifigs').style.color = 'var(--muted)';
 
@@ -5817,7 +5817,7 @@
     document.getElementById('tabParts').style.background = 'var(--surface3)';
     document.getElementById('tabParts').style.color = 'var(--muted)';
     document.getElementById('tabMinifigs').style.background = '#3B9EFF';
-    document.getElementById('tabMinifigs').style.color = '#fff';
+    document.getElementById('tabMinifigs').style.color = '#06121F';
 
     const contentDiv = document.getElementById('setDetailsContent');
     contentDiv.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">Loading minifigs...</p>';
@@ -5865,7 +5865,7 @@
   function showToast(message) {
     // Create a simple toast notification
     const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;background:#3B9EFF;color:#fff;padding:12px 16px;border-radius:8px;font-size:14px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    toast.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;background:#3B9EFF;color:#06121F;padding:12px 16px;border-radius:8px;font-size:14px;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
     toast.textContent = message;
     document.body.appendChild(toast);
 
