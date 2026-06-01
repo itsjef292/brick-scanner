@@ -1164,6 +1164,20 @@
 
 <!-- Screen 1: Scan -->
 <div class="screen active" id="screen-scan">
+  <!-- Scan area (live scan / take photo) — the primary action, kept at the top -->
+  <div class="scan-area">
+    <span class="scan-grid"></span>
+    <span class="corner-br"></span>
+    <span class="corner-tr"></span>
+    <div class="scan-socket" id="scanSocket"></div>
+    <video id="liveVideo" playsinline muted style="display:none;"></video>
+    <div id="liveScanning" style="display:none;"><span class="live-dot"></span>Scanning…</div>
+    <p id="scanHint">Take a photo of a LEGO part to identify it and add it to your parts list.</p>
+    <button class="btn" id="liveScanBtn" onclick="toggleLiveScan()" style="display:none;">Start Live Scan</button>
+    <button class="btn" id="takePhotoBtn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment">
+  </div>
+
   <!-- Parts search box -->
   <div id="partsSearchSection" class="search-section">
     <label>Search parts by name or number</label>
@@ -1187,19 +1201,6 @@
     </div>
     <div id="minifigSearchError" style="display:none;"></div>
     <div id="minifigSearchResults" class="local-results" style="display:none;"></div>
-  </div>
-
-  <div class="scan-area">
-    <span class="scan-grid"></span>
-    <span class="corner-br"></span>
-    <span class="corner-tr"></span>
-    <div class="scan-socket" id="scanSocket"></div>
-    <video id="liveVideo" playsinline muted style="display:none;"></video>
-    <div id="liveScanning" style="display:none;"><span class="live-dot"></span>Scanning…</div>
-    <p id="scanHint">Take a photo of a LEGO part to identify it and add it to your parts list.</p>
-    <button class="btn" id="liveScanBtn" onclick="toggleLiveScan()" style="display:none;">Start Live Scan</button>
-    <button class="btn" id="takePhotoBtn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment">
   </div>
 
   <!-- Parts list selector -->
