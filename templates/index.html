@@ -59,7 +59,11 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body { overflow-x: hidden; max-width: 100%; overscroll-behavior-y: contain; }
+    /* overflow-x: clip (not hidden) — `hidden` promotes overflow-y to `auto` per
+       spec, turning html/body into their own scroll containers; Samsung Internet /
+       Firefox on Android honor that strictly and the page ends up unable to scroll.
+       `clip` does the same horizontal clipping without that side effect. */
+    html, body { overflow-x: clip; max-width: 100%; overscroll-behavior-y: contain; }
 
     body {
       font-family: var(--font-body);
@@ -142,7 +146,7 @@
     .mode-tab.active img { filter: brightness(10) saturate(0); }
 
     /* ── Screens ── */
-    .screen { display: none; width: 100%; max-width: var(--max-w); flex-direction: column; box-sizing: border-box; overflow-x: hidden; }
+    .screen { display: none; width: 100%; max-width: var(--max-w); flex-direction: column; box-sizing: border-box; overflow-x: clip; }
     .screen.active { display: flex; }
 
     /* ── Screen 1: Scan ── */
