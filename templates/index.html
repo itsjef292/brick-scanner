@@ -1846,6 +1846,9 @@
       document.getElementById('screen-sets').classList.remove('active');
       document.getElementById('screen-shopping').classList.remove('active');
       document.getElementById('screen-scan').classList.add('active');
+      // Pick up lists created elsewhere since the page loaded (dropdown is
+      // otherwise only populated once at startup).
+      if (typeof refreshPartlistDropdown === 'function') refreshPartlistDropdown();
     }
     if (typeof syncLiveScan === 'function') syncLiveScan();
   }
@@ -1879,6 +1882,16 @@
       });
   }
   loadPartlists();
+
+  // Re-fetch the scan-screen "Add to parts list" dropdown while preserving the
+  // current selection. Called on scan-screen activation + resume so lists created
+  // elsewhere (or in another session) appear without a hard reload.
+  function refreshPartlistDropdown() {
+    const sel = document.getElementById('listSelect');
+    if (!sel) return;
+    const cur = parseInt(sel.value, 10);
+    return loadPartlists(Number.isNaN(cur) ? undefined : cur);
+  }
 
   function toggleNewList() {
     const row = document.getElementById('newListRow');
@@ -2245,6 +2258,12 @@
   function refreshActiveScreenData() {
     const fn = (typeof _ptrRefreshFn === 'function') ? _ptrRefreshFn() : null;
     if (fn) { try { fn(); } catch (e) {} }
+    // The scan screen isn't in _ptrRefreshFn (parts mode), so refresh its
+    // parts-list dropdown explicitly on resume.
+    const active = document.querySelector('.screen.active');
+    if (active && active.id === 'screen-scan' && typeof refreshPartlistDropdown === 'function') {
+      refreshPartlistDropdown();
+    }
   }
 
   // ── Gated auto-reload when a new app version is deployed ────────────────
