@@ -3,6 +3,23 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Fix: manually-saved BrickLink id not shown when reopening a fig (May 2026):**
+- A hand-entered `bl_id` persisted to the collection (it showed in the lists/rows)
+  but reopening the minifig showed it blank — opening fetches `/api/minifig/<fig>`
+  for the id, and Rebrickable supplies none. `owned_minifig_status` now returns the
+  stored `bl_id`, and `loadOwnedMinifigStatus` backfills it into the identify view
+  (re-renders the BRICKLINK ID row, clears the red flag, loads pricing).
+
+**Stop unsolicited camera-permission prompts (May 2026):**
+- Live auto-scan used to call `getUserMedia` on every app open / scan-screen entry
+  / resume, which re-prompted for camera permission whenever iOS hadn't persisted
+  the grant. Now `syncLiveScan` first checks the permission **silently** via the
+  Permissions API (`_queryCamPerm`) and **auto-starts only when it's already
+  `granted`** — otherwise it shows the "Start Live Scan" button so the prompt fires
+  only on an explicit tap. After the first grant it auto-starts silently on future
+  opens; if the grant lapses it shows the button again instead of nagging.
+  (Browsers without camera Permissions API → treated as not-granted → tap to start.)
+
 **Manually edit a minifig's BrickLink id (May 2026):**
 - The minifig identify card's BRICKLINK ID row now has an ✎ edit control (inline
   text input) so you can type/correct the id by hand — the fix for figs Rebrickable

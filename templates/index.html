@@ -2112,6 +2112,24 @@
   try { _liveEnabled = localStorage.getItem('liveScan') !== '0'; } catch (e) {}
   const liveSupported = () => !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
+  // Silently check the camera permission WITHOUT prompting. Returns
+  // 'granted' | 'prompt' | 'denied' | 'unknown'. We only auto-start the camera
+  // when it's already 'granted', so we never fire an unsolicited permission
+  // prompt on app open / resume — the prompt happens only when the user taps
+  // "Start Live Scan". (The Permissions API for 'camera' isn't supported on all
+  // browsers, e.g. older iOS Safari → 'unknown' → require a tap.)
+  let _camPerm = 'unknown';
+  function _queryCamPerm() {
+    if (!navigator.permissions || !navigator.permissions.query) return Promise.resolve('unknown');
+    return navigator.permissions.query({ name: 'camera' })
+      .then(st => {
+        _camPerm = st.state;
+        st.onchange = () => { _camPerm = st.state; if (typeof syncLiveScan === 'function') syncLiveScan(); };
+        return st.state;
+      })
+      .catch(() => 'unknown');
+  }
+
   function _setLiveUI(on) {
     const ids = { liveVideo: on, liveScanning: on };
     const off = { scanSocket: on, scanHint: on, takePhotoBtn: on };
@@ -2195,15 +2213,26 @@
 
   // Start/stop the camera based on whether the scan screen is showing (in a
   // parts/minifig mode). Called after every navigation (goTo + switchMode).
+  // Auto-starts ONLY when camera permission is already granted — otherwise it
+  // shows the "Start Live Scan" button so the permission prompt only fires on an
+  // explicit tap (no nagging prompt on every open/resume).
   function syncLiveScan() {
     const onScan = document.getElementById('screen-scan').classList.contains('active')
       && (mode === 'parts' || mode === 'minifigs');
-    if (onScan && _liveEnabled && liveSupported()) {
-      startLiveScan();
-    } else {
+    if (!(onScan && _liveEnabled && liveSupported())) {
       stopLiveScan();
       if (onScan) { const b = document.getElementById('liveScanBtn'); if (b) b.style.display = liveSupported() ? '' : 'none'; }
+      return;
     }
+    if (_liveRunning) return;
+    _queryCamPerm().then(state => {
+      // Re-check after the async gap — the user may have navigated away.
+      const still = document.getElementById('screen-scan').classList.contains('active')
+        && (mode === 'parts' || mode === 'minifigs') && _liveEnabled && !_liveRunning;
+      if (!still) return;
+      if (state === 'granted') startLiveScan();   // already allowed → no prompt
+      else _setLiveUI(false);                     // show "Start Live Scan"; tap → prompt
+    });
   }
   // Re-fetch the active screen's data (used on app resume + pull-to-refresh).
   // iOS keeps an installed PWA's page suspended and *resumes* it instead of
@@ -3841,6 +3870,17 @@
       .then(r => r.json())
       .then(d => {
         _renderOwnedMinifigUI(!!d.owned, d.quantity || 0, d.condition, d.price_paid);
+        // Backfill a manually-saved BrickLink id from the collection — Rebrickable
+        // doesn't supply one, so /api/minifig leaves selectedPart.blId empty even
+        // when we have a stored id. Only when the screen is still this fig.
+        if (d.owned && d.bl_id && selectedPart && selectedPart.id === figNum && !selectedPart.blId) {
+          selectedPart.blId = d.bl_id;
+          selectedPart.bl_id = d.bl_id;
+          _renderMinifigBlRow();
+          const noBl = document.getElementById('minifigNoBlBanner');
+          if (noBl) noBl.style.display = 'none';
+          _loadMinifigPriceFor(d.bl_id);
+        }
         // On a scan (a captured photo is present), surface an instant toast so
         // you know you already have it without scanning the card for the badge.
         if (d.owned && capturedObjectUrl) showToast(`✓ Already in My Minifigs — ×${d.quantity || 1}`);

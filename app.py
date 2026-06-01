@@ -1530,6 +1530,7 @@ def owned_minifig_status(fig_num):
             "quantity": entry.get("quantity", 1),
             "condition": entry.get("condition"),
             "price_paid": entry.get("price_paid"),
+            "bl_id": entry.get("bl_id"),
         })
     return jsonify({"owned": False, "quantity": 0})
 
