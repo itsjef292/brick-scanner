@@ -3,6 +3,14 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Fix: Lists-view stale-response race (May 2026):**
+- Selecting a Collection (My Minifigs / My Sets) in the Lists dropdown *before* the
+  auto-loaded first parts list finished fetching left the grid blank — the slow
+  `parts_all` response landed late and overwrote the collection render. Added a
+  per-load sequence token (`_listLoadSeq`): every loader/reload captures a seq and
+  discards its response if a newer selection has superseded it, so the last
+  selection always wins.
+
 **BrickLink price tracking for My Minifigs + daily 5am refresh (May 2026):**
 - For every owned minifig that has a **BrickLink id**, the app fetches BrickLink's
   **last-6-month SOLD average** (Used + New) and stores it on the collection entry

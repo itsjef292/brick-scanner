@@ -4116,6 +4116,7 @@
   let _listAllMinifigs = [];   // My Minifigs collection when viewed in the Lists tab
   let _listAllSets = [];       // My Sets collection when viewed in the Lists tab
   let _listMode = 'parts';     // 'parts' | 'minifigs' | 'sets' — Lists view contents
+  let _listLoadSeq = 0;        // bumped per load; stale fetch responses are discarded
   const _LIST_SEARCH_PH = 'Search this list — part #, name, or color';
 
   function populateListsViewSelect() {
@@ -4153,8 +4154,9 @@
     const grid = document.getElementById('listPartsGrid');
     const wrap = document.getElementById('listSearchWrap');
     document.getElementById('listLoadMore').style.display = 'none';
-    if (listId === '__minifigs__') return loadMinifigsIntoListView();
-    if (listId === '__sets__') return loadSetsIntoListView();
+    const seq = ++_listLoadSeq;  // invalidate any in-flight load (parts/minifigs/sets)
+    if (listId === '__minifigs__') return loadMinifigsIntoListView(seq);
+    if (listId === '__sets__') return loadSetsIntoListView(seq);
     _listMode = 'parts';
     document.getElementById('listSearchInput').placeholder = _LIST_SEARCH_PH;
     if (!listId) { grid.innerHTML = ''; _listAllParts = []; wrap.style.display = 'none'; return; }
@@ -4167,6 +4169,7 @@
     return fetch(`/api/partlists/${listId}/parts_all`)
       .then(r => r.json())
       .then(data => {
+        if (seq !== _listLoadSeq) return;  // a newer selection superseded this
         if (data.error) {
           grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>';
           return;
@@ -4188,7 +4191,8 @@
   }
 
   // ── My Minifigs shown inside the Lists tab (dropdown → "My Minifigs") ──
-  function loadMinifigsIntoListView() {
+  function loadMinifigsIntoListView(seq) {
+    seq = seq || ++_listLoadSeq;
     _listMode = 'minifigs';
     const grid = document.getElementById('listPartsGrid');
     const wrap = document.getElementById('listSearchWrap');
@@ -4198,14 +4202,16 @@
     return fetch('/api/owned_minifigs')
       .then(r => r.json())
       .then(data => {
+        if (seq !== _listLoadSeq) return;  // superseded by a newer selection
         _listAllMinifigs = data.results || [];
         wrap.style.display = _listAllMinifigs.length ? 'block' : 'none';
         renderMinifigListRows('');
       })
-      .catch(() => { grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
+      .catch(() => { if (seq === _listLoadSeq) grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
   }
   // ── My Sets shown inside the Lists tab (dropdown → "My Sets") ──
-  function loadSetsIntoListView() {
+  function loadSetsIntoListView(seq) {
+    seq = seq || ++_listLoadSeq;
     _listMode = 'sets';
     const grid = document.getElementById('listPartsGrid');
     const wrap = document.getElementById('listSearchWrap');
@@ -4215,15 +4221,18 @@
     return fetch('/api/owned_sets')
       .then(r => r.json())
       .then(data => {
+        if (seq !== _listLoadSeq) return;  // superseded by a newer selection
         _listAllSets = data.results || [];
         wrap.style.display = _listAllSets.length ? 'block' : 'none';
         renderSetListRows('');
       })
-      .catch(() => { grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
+      .catch(() => { if (seq === _listLoadSeq) grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
   }
   function _reloadSetListView() {
+    const seq = ++_listLoadSeq;
     const q = document.getElementById('listSearchInput').value;
     return fetch('/api/owned_sets').then(r => r.json()).then(d => {
+      if (seq !== _listLoadSeq) return;
       _listAllSets = d.results || [];
       renderSetListRows(q);
     }).catch(() => {});
@@ -4254,8 +4263,10 @@
 
   // Re-fetch + re-render the Lists minifig view, preserving the current search.
   function _reloadMinifigListView() {
+    const seq = ++_listLoadSeq;
     const q = document.getElementById('listSearchInput').value;
     return fetch('/api/owned_minifigs').then(r => r.json()).then(d => {
+      if (seq !== _listLoadSeq) return;
       _listAllMinifigs = d.results || [];
       renderMinifigListRows(q);
     }).catch(() => {});
