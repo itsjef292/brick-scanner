@@ -3077,13 +3077,10 @@
     if (isMinifig) {
       document.getElementById('rbValue').innerHTML =
         `<a href="https://rebrickable.com/minifigs/${item.id}/" target="_blank">${item.id}</a>`;
-      // Rebrickable's API exposes no BrickLink minifig id, so for search-opened
-      // figs we usually have none — offer a BrickLink catalog search by name
-      // instead of a dead "—" (scanned figs / BL-id searches still show the id).
-      document.getElementById('blValue').innerHTML = blId
-        ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?M=${blId}" target="_blank">${blId}</a>
-           <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
-        : `<a href="https://www.bricklink.com/catalogList.asp?catType=M&q=${encodeURIComponent(item.name || '')}" target="_blank" style="color:var(--yellow);text-decoration:none;">Search BrickLink ↗</a>`;
+      // Rebrickable exposes no BrickLink minifig id, so for search-opened figs we
+      // usually have none — show a search link + an ✎ edit control to enter it by
+      // hand (which enables pricing). See _renderMinifigBlRow.
+      _renderMinifigBlRow();
       document.getElementById('categoryRow').style.display = 'none'; // Will be shown by renderMinifigPrice if available
     } else {
       document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
@@ -3329,19 +3326,7 @@
       document.getElementById('setsSection').style.display = 'block';
 
       // Fetch price + sets in parallel
-      const blId = items[0].bl_id;
-      if (blId) {
-        document.getElementById('priceGrid').innerHTML =
-          '<span style="color:var(--muted);font-size:13px">Loading price…</span>';
-        document.getElementById('priceSection').style.display = 'block';
-        fetch(`/api/minifig_price/${blId}`)
-          .then(r => r.json())
-          .then(data => renderMinifigPrice(data))
-          .catch(() => {
-            document.getElementById('priceGrid').innerHTML =
-              '<span style="color:var(--muted);font-size:13px">Price unavailable</span>';
-          });
-      }
+      _loadMinifigPriceFor(items[0].bl_id);
 
       fetch(`/api/minifig_sets/${items[0].id}`)
         .then(r => r.json())
@@ -3750,6 +3735,7 @@
 
   // ── Owned minifigs ("My Minifigs" collection) — mirrors the owned-set bar ──
   function _renderOwnedMinifigUI(owned, qty, condition, pricePaid) {
+    window.currentFigOwned = !!owned;   // so the BL-id editor knows whether to persist
     const addBtn = document.getElementById('figOwnAddBtn');
     const stepper = document.getElementById('figOwnStepper');
     const meta = document.getElementById('figOwnMeta');
@@ -3798,6 +3784,55 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ condition: window.currentFigCondition, price_paid: price })
     }).catch(() => _figOwnMsg('Couldn’t save purchase info.', true));
+  }
+  // Render the minifig BRICKLINK ID row from selectedPart.blId: the id (link +
+  // copy) or a "Search BrickLink" link when absent — both with an ✎ edit button.
+  function _renderMinifigBlRow() {
+    const cell = document.getElementById('blValue');
+    if (!cell) return;
+    const blId = (selectedPart && selectedPart.blId) ? String(selectedPart.blId) : '';
+    const esc = (s) => escapeHtml(s);
+    const editBtn = `<button class="copy-btn" onclick="editMinifigBlId()" title="Edit BrickLink id">✎</button>`;
+    if (blId) {
+      cell.innerHTML = `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(blId)}" target="_blank">${esc(blId)}</a>
+        <button class="copy-btn" onclick="copyText('${blId.replace(/'/g, "\\'")}', event)" title="Copy">⧉</button> ${editBtn}`;
+    } else {
+      const name = (selectedPart && selectedPart.name) || '';
+      cell.innerHTML = `<a href="https://www.bricklink.com/catalogList.asp?catType=M&q=${encodeURIComponent(name)}" target="_blank" style="color:var(--yellow);text-decoration:none;">Search BrickLink ↗</a> ${editBtn}`;
+    }
+  }
+  function editMinifigBlId() {
+    const cell = document.getElementById('blValue');
+    if (!cell || !selectedPart) return;
+    const cur = selectedPart.blId ? String(selectedPart.blId) : '';
+    cell.innerHTML = `<input id="blIdInput" type="text" value="${escapeHtml(cur)}" placeholder="e.g. sw0530"
+        autocapitalize="off" autocorrect="off" spellcheck="false"
+        style="width:120px;background:var(--socket);border:1px solid var(--border-bright);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:13px;padding:5px 8px;outline:none;"
+        onkeydown="if(event.key==='Enter')saveMinifigBlId(); else if(event.key==='Escape')_renderMinifigBlRow();">
+      <button class="copy-btn" onclick="saveMinifigBlId()" title="Save" style="color:var(--green);">✓</button>`;
+    const inp = document.getElementById('blIdInput');
+    if (inp) { inp.focus(); inp.select(); }
+  }
+  function saveMinifigBlId() {
+    const inp = document.getElementById('blIdInput');
+    if (!inp || !selectedPart) return;
+    const val = inp.value.trim();
+    selectedPart.blId = val || null;
+    selectedPart.bl_id = selectedPart.blId;   // keep both in sync (add_minifig reads blId)
+    _renderMinifigBlRow();
+    // Clear/keep the "no BrickLink id" flag and refresh the live price panel.
+    const noBl = document.getElementById('minifigNoBlBanner');
+    if (noBl) noBl.style.display = selectedPart.blId ? 'none' : 'flex';
+    _loadMinifigPriceFor(selectedPart.blId);
+    // Persist to the collection if this fig is already owned (else it's saved on Add).
+    if (window.currentFigOwned) {
+      fetch(`/api/owned_minifigs/${encodeURIComponent(selectedPart.id)}/blid`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bl_id: selectedPart.blId })
+      })
+        .then(() => showToast(selectedPart.blId ? 'BrickLink id saved' : 'BrickLink id cleared'))
+        .catch(() => showToast('Couldn’t save BrickLink id'));
+    }
   }
   function loadOwnedMinifigStatus(figNum) {
     _renderOwnedMinifigUI(false, 0);
@@ -3993,6 +4028,18 @@
     if (sectionEl) sectionEl.style.display = 'block';
   }
 
+  // Load the BrickLink price-guide panel for a given BrickLink id (hides it if none).
+  function _loadMinifigPriceFor(blId) {
+    const sec = document.getElementById('priceSection');
+    const grid = document.getElementById('priceGrid');
+    if (!blId) { sec.style.display = 'none'; if (grid) grid.innerHTML = ''; return; }
+    grid.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading price…</span>';
+    sec.style.display = 'block';
+    fetch(`/api/minifig_price/${encodeURIComponent(blId)}`)
+      .then(r => r.json())
+      .then(data => renderMinifigPrice(data))
+      .catch(() => { grid.innerHTML = '<span style="color:var(--muted);font-size:13px">Price unavailable</span>'; });
+  }
   function renderMinifigPrice(data) {
     // Display theme/category in the info section if available
     if (data.category) {

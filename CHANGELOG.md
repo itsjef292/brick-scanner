@@ -3,6 +3,16 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Manually edit a minifig's BrickLink id (May 2026):**
+- The minifig identify card's BRICKLINK ID row now has an ✎ edit control (inline
+  text input) so you can type/correct the id by hand — the fix for figs Rebrickable
+  gives no BrickLink id for. On save it updates `selectedPart.blId` (so it's
+  captured if you then Add), clears the red "no BL id" flag, and refreshes the live
+  price panel. If the fig is already owned it persists immediately via
+  `POST /api/owned_minifigs/<fig>/blid` (which also clears stored prices on change
+  so the next refresh re-fetches). Row rendering factored into `_renderMinifigBlRow`;
+  `editMinifigBlId`/`saveMinifigBlId`; price load into `_loadMinifigPriceFor`.
+
 **Fix: Lists-view stale-response race (May 2026):**
 - Selecting a Collection (My Minifigs / My Sets) in the Lists dropdown *before* the
   auto-loaded first parts list finished fetching left the grid blank — the slow

@@ -1552,6 +1552,28 @@ def minifig_owned_meta(fig_num):
     return jsonify({"condition": entry["condition"], "price_paid": entry["price_paid"]})
 
 
+@app.route("/api/owned_minifigs/<fig_num>/blid", methods=["POST"])
+def minifig_set_blid(fig_num):
+    """Manually set/clear the BrickLink id on an owned minifig (so it can be
+    priced). Body: {bl_id: "sw0530"|null}. Clears stored prices when the id
+    changes so a refresh re-fetches. No-op if the minifig isn't owned."""
+    bl_id = (request.json or {}).get("bl_id")
+    bl_id = bl_id.strip() if isinstance(bl_id, str) and bl_id.strip() else None
+    with _meta_lock:
+        coll = _load_meta(MINIFIG_COLLECTION_PATH)
+        entry = coll.get(fig_num)
+        if entry is None:
+            return jsonify({"bl_id": None})
+        if entry.get("bl_id") != bl_id:
+            entry["bl_id"] = bl_id
+            entry["price_used"] = None
+            entry["price_new"] = None
+            entry["price_updated"] = None
+        coll[fig_num] = entry
+        _save_meta(MINIFIG_COLLECTION_PATH, coll)
+    return jsonify({"bl_id": bl_id})
+
+
 @app.route("/api/owned_minifigs")
 def owned_minifigs_list():
     """The local owned-minifig collection (quantity + condition + price), name-sorted."""
