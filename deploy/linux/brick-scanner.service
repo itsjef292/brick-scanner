@@ -1,0 +1,30 @@
+# Brick Scanner — Flask app (systemd system service).
+#
+# Linux equivalent of com.brickscanner.app.plist (macOS launchd). Keeps the
+# Flask server running on port 5001 so the app is always reachable over
+# Tailscale. Unlike a macOS LaunchAgent (which only starts at *login*), a
+# systemd system service starts at *boot* with no login required — true
+# unattended uptime, which is the whole point of the VM.
+#
+# TEMPLATE: __PROJECT_DIR__, __USER__, and __PY__ are filled in by
+# ./install_systemd.sh at install time, so it works on any path/user/venv.
+#
+# Logs go to the systemd journal:  journalctl -u brick-scanner -f
+# app.py calls load_dotenv(), so WorkingDirectory must be the project dir for
+# the API credentials in .env to load.
+
+[Unit]
+Description=Brick Scanner Flask app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__PY__ app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# Brick Scanner — daily offline-catalog refresh (systemd oneshot).
+#
+# Linux equivalent of com.brickscanner.catalog-refresh.plist. Run on a schedule
+# by brick-scanner-catalog-refresh.timer (07:30 daily). The script writes its
+# own timestamped catalog_refresh.log; stray stdout/stderr goes to the journal:
+#   journalctl -u brick-scanner-catalog-refresh
+#
+# We call the venv python on refresh_catalog.py directly (not refresh_catalog.sh,
+# whose hardcoded /usr/bin/python3 would miss the venv's installed deps).
+#
+# TEMPLATE: __PROJECT_DIR__, __USER__, __PY__ filled in by ./install_systemd.sh.
+
+[Unit]
+Description=Brick Scanner offline-catalog refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__PY__ refresh_catalog.py
