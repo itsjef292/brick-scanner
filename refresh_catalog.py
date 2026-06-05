@@ -32,6 +32,7 @@ import download_csvs
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANIFEST = os.path.join(HERE, ".catalog_manifest.json")
 CHANGES = os.path.join(HERE, ".catalog_changes.json")
+LAST_CHECKED = os.path.join(HERE, ".catalog_last_checked")
 LOG = os.path.join(HERE, "catalog_refresh.log")
 DB = build_brick_db.DEFAULT_DB
 SRC = download_csvs.DEFAULT_DEST
@@ -167,6 +168,8 @@ def run(force=False):
     the Flask app (e.g. a manual "refresh now" button) or the CLI.
     """
     log("=== catalog refresh start ===")
+    with open(LAST_CHECKED, "w") as f:
+        f.write(datetime.datetime.now().isoformat(timespec="seconds"))
 
     try:
         remote = remote_manifest()

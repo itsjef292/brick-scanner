@@ -3,6 +3,64 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Subtract a set from a parts list (June 2026):**
+- New **Subtract a Set** tool in the Lists → *Manage list* section. Enter a set
+  number against the selected parts list to preview how many needed pieces that
+  set would cover — matched on exact `(part_num, color_id)`, removable qty per line
+  is `min(set_qty, list_qty)` — then confirm to decrement the list.
+- **Backend:** `GET /api/partlists/<id>/set_overlap?set_num=X` returns the per-line
+  breakdown (`list_qty`, `set_qty`, `remove_qty`, `remaining_qty`) + totals; nothing
+  is mutated. `POST /api/partlists/<id>/subtract_set` applies the confirmed deltas
+  (throttled PUT new qty / DELETE at 0). Bare set numbers normalize to `-1`
+  (`_normalize_set_num`); set parts include spares. Shared
+  `_fetch_partlist_parts_map()` helper (also now used by list-compare).
+- **Frontend:** results modal mirroring the Compare modal (`runSetSubtract` /
+  `_renderSetSubtract` / `confirmSetSubtract`); reloads the list on success.
+
+**CMF (Collectible Minifigure) box-code scanning (June 2026):**
+- Identify which figure is inside a sealed CMF box by reading the **Data Matrix
+  code** on the box bottom (right of the barcode). Recent boxes (Series 25+, 2024
+  on) encode a **7-digit number** that maps — via a **per-series, per-region lookup
+  table** (no algorithm) — to the figure. Older blind bags carry no readable code.
+- **Data:** `cmf_codes.json` (git-tracked) maps each 7-digit code → `{series, name}`
+  (both US/Mexico and EU/Czech regional codes). Seeded with **Series 25**
+  (both regions) and **Series 29** (US codes; set 71052). **Community-sourced
+  (Jay's Brick Blog / BrickNav) and unverified** — confirm against
+  a physical box. Add a series by appending code→name entries (see the `_template`
+  key in the file).
+- **Backend:** `GET /api/cmf/lookup/<code>` resolves a code → figure, enriching it
+  with a Rebrickable `fig_num` + image via the offline catalog (`_enrich_cmf_figure`
+  → `_local_resolve_minifig`; degrades to name/series only when the catalog is
+  absent, e.g. Render). `GET /api/cmf/series` lists series+figures we have data for.
+  Table cached with mtime-based reload (`_load_cmf_codes`).
+- **Frontend:** a dedicated **CMF** bottom-nav tab (`switchMode('cmf')` →
+  `#screen-cmf`) with a live viewfinder + **manual 7-digit entry** fallback; a hit
+  shows the figure + **Add to My Minifigs**. The camera starts on tab-enter and is
+  released on leave/background (`_cmfEnterTab`/`_cmfStopScan`, hooked into
+  `switchMode` + `visibilitychange`).
+- **Decoding (iOS-robust):** ZXing (`@zxing/library`, vendored at
+  `static/zxing.min.js`) instead of the native `BarcodeDetector` (unsupported on
+  iOS Safari). The first cut used `decodeFromVideoDevice`, which grabbed a low-res
+  stream and wouldn't read these tiny codes on iOS; replaced with a **manual
+  high-res snapshot loop** — open a 1080p rear stream and every 400 ms decode a
+  full-resolution frame via the core `DataMatrixReader` (`TRY_HARDER`) on a canvas
+  luminance source (`_cmfDecodeFrame`).
+- **Capture log (build the table in-app):** an unknown-but-valid 7-digit code opens
+  a **tagger** — search the minifig catalog, pick the figure, and the pair is saved
+  to a local `.cmf_captured.json` (git-ignored; `POST /api/cmf/capture`,
+  `GET /api/cmf/captured`). `/api/cmf/lookup` checks captured after curated, so a
+  tagged box is recognised from then on. This is how Series 29 (and beyond) gets
+  built from **verified scans** rather than unreliable scraped tables — after the
+  BrickNav Series 29 table proved wrong against a physical box (real code `6623274`
+  = Cute Witch). LOCAL-ONLY.
+
+**Move Cart tab into Part Lists; declutter the Lists screen (June 2026):**
+- Removed the **Cart** bottom-nav tab and folded its Shopping List + Gap Analysis
+  into the **Part Lists** screen behind a top **My Lists / Shopping** toggle
+  (`switchListsMode`). Separately, the per-list Import/Export/Compare tools were
+  collapsed into a single **"Manage list"** expander (`toggleListTools`) so the
+  parts grid is the immediate content.
+
 **Fix: manually-saved BrickLink id not shown when reopening a fig (May 2026):**
 - A hand-entered `bl_id` persisted to the collection (it showed in the lists/rows)
   but reopening the minifig showed it blank — opening fetches `/api/minifig/<fig>`

@@ -100,7 +100,7 @@
       font-family: var(--font-display);
       font-size: 22px;
       font-weight: 700;
-      color: var(--yellow);
+      color: #C87941;
       letter-spacing: 1px;
       text-transform: uppercase;
     }
@@ -123,9 +123,10 @@
       background: transparent;
       color: var(--muted);
       font-family: var(--font-display);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
+      text-align: center;
       text-transform: uppercase;
       cursor: pointer;
       border-radius: var(--radius-sm);
@@ -868,6 +869,30 @@
     }
     .voice-hint { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5; }
     .voice-hint em { color: var(--text); font-style: normal; font-family: var(--font-mono); }
+
+    /* CMF result "pop-out" over the camera view (WhatFig-style) */
+    .cmf-pop {
+      position: absolute; inset: 0; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(8,11,15,0.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    }
+    .cmf-pop.show { display: flex; }
+    .cmf-pop-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 16px; }
+    .cmf-pop-card img {
+      width: 140px; height: 140px; object-fit: contain;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,0.55));
+    }
+    .cmf-pop-name {
+      font-family: var(--font-display); font-weight: 700; font-size: 18px;
+      color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.6); text-align: center;
+    }
+    .cmf-pop-series { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.82); }
+    .cmf-pop.show .cmf-pop-card { animation: cmfPop .42s cubic-bezier(.2,.9,.3,1.25) both; }
+    @keyframes cmfPop {
+      0% { transform: scale(.5); opacity: 0; }
+      60% { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
     .voice-mic {
       width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
       background: var(--yellow); color: #06121F; font-size: 34px;
@@ -932,9 +957,6 @@
       text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
     }
 
-    /* ── Shopping screen ── */
-    #screen-shopping { padding: 0; }
-
     /* ── Sets screen ── */
     #screen-sets { padding: 20px 16px; gap: 16px; }
 
@@ -953,9 +975,6 @@
     .list-search-count {
       font-family: var(--font-display); font-size: 11px; color: var(--muted);
       margin-top: 6px; text-transform: uppercase; letter-spacing: 0.6px;
-    }
-    .lists-import-section {
-      padding: 14px; border-bottom: 1px solid var(--border);
     }
     .sub-label {
       font-family: var(--font-display); font-size: 11px; color: var(--muted);
@@ -981,6 +1000,37 @@
       border: 1px solid var(--red-border);
     }
     .status-text { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    /* Collapsible "Manage list" tools (Import / Export / Compare) */
+    .list-tools { border-bottom: 1px solid var(--border); }
+    .list-tools-toggle {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 13px 14px; background: none; border: none; cursor: pointer;
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
+      text-align: left;
+    }
+    .list-tools-arrow { margin-left: auto; color: var(--yellow); font-size: 10px; }
+    .list-tools-body {
+      flex-direction: column; gap: 18px; padding: 2px 14px 16px;
+    }
+    .list-tool-group .sub-label { margin-bottom: 10px; }
+
+    /* List compare */
+    .compare-tab {
+      flex: 1; padding: 10px 6px; background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--muted); font-family: var(--font-display); font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.6px; cursor: pointer; transition: color .15s, border-color .15s;
+    }
+    .compare-tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+    .cmp-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 20px; font-family: var(--font-mono);
+      font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    }
+    .cmp-tag-a  { background: rgba(59,158,255,0.15); color: var(--yellow); }
+    .cmp-tag-b  { background: rgba(70,201,126,0.15); color: var(--green); }
+    .cmp-tag-ab { background: rgba(59,158,255,0.12); color: var(--yellow); }
 
     /* Shopping tabs */
     .shopping-tabs {
@@ -1056,6 +1106,7 @@
       letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
     }
     .catalog-updated { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+    .catalog-checked { font-family: var(--font-mono); font-size: 11px; color: var(--muted2); }
     .catalog-refresh-btn {
       align-self: flex-start;
       padding: 9px 16px; border: 1px solid var(--border-bright);
@@ -1154,8 +1205,8 @@
   <button class="mode-tab" data-mode="lists" onclick="switchMode('lists')">
     <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="4" rx="1.3"/><rect x="4" y="10" width="16" height="4" rx="1.3"/><rect x="4" y="16" width="16" height="4" rx="1.3"/></svg><span>Part Lists</span>
   </button>
-  <button class="mode-tab" data-mode="shopping" onclick="switchMode('shopping')">
-    <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h2l2.2 10.5h9l1.8-7.5H7"/><circle cx="9.5" cy="19.2" r="1.3"/><circle cx="16.5" cy="19.2" r="1.3"/></svg><span>Cart</span>
+  <button class="mode-tab" data-mode="cmf" onclick="switchMode('cmf')">
+    <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20h.01M20 20v-3"/></svg><span>CMF</span>
   </button>
 </div>
 
@@ -1246,6 +1297,7 @@
     <div class="catalog-info">
       <span class="catalog-label">Offline catalog</span>
       <span id="catalogUpdated" class="catalog-updated">—</span>
+      <span id="catalogChecked" class="catalog-checked"></span>
     </div>
     <button id="catalogRefreshBtn" class="catalog-refresh-btn" onclick="refreshCatalog()">
       Check for updates
@@ -1263,6 +1315,12 @@
 
 <!-- Screen: Lists browser -->
 <div class="screen" id="screen-lists">
+  <div class="shopping-tabs">
+    <button id="listsModeLists" class="shopping-tab active" onclick="switchListsMode('lists')">My Lists</button>
+    <button id="listsModeShop" class="shopping-tab" onclick="switchListsMode('shopping')">Shopping</button>
+  </div>
+
+  <div id="listsModeListsView">
   <div class="lists-view-header">
     <select id="listsViewSelect" onchange="loadListContents()">
       <option value="">Select a list…</option>
@@ -1277,52 +1335,89 @@
     <div id="listSearchCount" class="list-search-count"></div>
   </div>
 
-  <div class="lists-import-section">
-    <div class="sub-label">Import CSV</div>
-    <div class="file-input-row">
-      <input type="file" id="csvFileInput" accept=".csv">
-      <button class="action-btn" onclick="importCSV()">Import</button>
-    </div>
-    <div id="csvStatus" class="status-text"></div>
-  </div>
+  <div id="listTools" class="list-tools">
+    <button class="list-tools-toggle" onclick="toggleListTools()" aria-expanded="false">
+      <span>Manage list</span>
+      <span id="listToolsArrow" class="list-tools-arrow">▶</span>
+    </button>
+    <div id="listToolsBody" class="list-tools-body" style="display:none;">
+      <div class="list-tool-group">
+        <div class="sub-label">Import CSV</div>
+        <div class="file-input-row">
+          <input type="file" id="csvFileInput" accept=".csv">
+          <button class="action-btn" onclick="importCSV()">Import</button>
+        </div>
+        <div id="csvStatus" class="status-text"></div>
+      </div>
 
-  <div class="lists-import-section">
-    <div class="sub-label">Export</div>
-    <button class="action-btn" onclick="exportBricklink()">🛒 Export to BrickLink Wanted List</button>
-    <div id="blExportStatus" class="status-text"></div>
+      <div class="list-tool-group">
+        <div class="sub-label">Export</div>
+        <button class="action-btn" onclick="exportBricklink()">🛒 Export to BrickLink Wanted List</button>
+        <div id="blExportStatus" class="status-text"></div>
+      </div>
+
+      <div class="list-tool-group">
+        <div class="sub-label">Compare Lists</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <select id="compareListA" style="flex:1;min-width:100px;padding:8px 10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;">
+            <option value="">List A…</option>
+          </select>
+          <span style="color:var(--muted);font-size:13px;flex-shrink:0;font-weight:600;">vs</span>
+          <select id="compareListB" style="flex:1;min-width:100px;padding:8px 10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;">
+            <option value="">List B…</option>
+          </select>
+          <button class="action-btn" onclick="runListCompare()" style="flex-shrink:0;">Analyze</button>
+        </div>
+        <div id="compareStatus" class="status-text"></div>
+      </div>
+
+      <div class="list-tool-group">
+        <div class="sub-label">Subtract a Set</div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Preview how many needed pieces a set you've acquired would cover, then remove them from this list.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="subtractSetInput" placeholder="Set number, e.g. 75060"
+            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            style="flex:1;min-width:120px;padding:8px 10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;"
+            onkeydown="if(event.key==='Enter')runSetSubtract()">
+          <button class="action-btn" onclick="runSetSubtract()" style="flex-shrink:0;">Analyze</button>
+        </div>
+        <div id="subtractSetStatus" class="status-text"></div>
+      </div>
+    </div>
   </div>
 
   <div id="listsError" class="list-msg"></div>
   <div id="listPartsGrid" style="padding:0 14px 24px;"></div>
   <div id="listLoadMore" style="display:none;"></div>
-</div>
+  </div><!-- /listsModeListsView -->
 
-<!-- Screen: Shopping List -->
-<div class="screen" id="screen-shopping">
-  <div class="shopping-tabs">
-    <button onclick="switchShoppingView('list')" id="shoppingViewList" class="shopping-tab active">Shopping List</button>
-    <button onclick="switchShoppingView('comparison')" id="shoppingViewComparison" class="shopping-tab">Gap Analysis</button>
-  </div>
+  <!-- Shopping (moved from the former Cart tab) -->
+  <div id="listsModeShopView" style="display:none;">
+    <div class="shopping-tabs">
+      <button onclick="switchShoppingView('list')" id="shoppingViewList" class="shopping-tab active">Shopping List</button>
+      <button onclick="switchShoppingView('comparison')" id="shoppingViewComparison" class="shopping-tab">Gap Analysis</button>
+    </div>
 
-  <div id="shoppingListView" style="display:block;">
-    <div style="padding:14px;">
-      <div class="sub-label">Upload CSV: part_num, color, quantity</div>
-      <div class="file-input-row" style="margin-bottom:10px;">
-        <input type="file" id="shoppingCsvFileInput" accept=".csv">
-        <button class="action-btn" onclick="importShoppingCSV()">Import</button>
-        <button class="action-btn danger" onclick="clearAllShoppingItems()">Clear</button>
+    <div id="shoppingListView" style="display:block;">
+      <div style="padding:14px;">
+        <div class="sub-label">Upload CSV: part_num, color, quantity</div>
+        <div class="file-input-row" style="margin-bottom:10px;">
+          <input type="file" id="shoppingCsvFileInput" accept=".csv">
+          <button class="action-btn" onclick="importShoppingCSV()">Import</button>
+          <button class="action-btn danger" onclick="clearAllShoppingItems()">Clear</button>
+        </div>
+        <div id="shoppingStatus" class="status-text"></div>
       </div>
-      <div id="shoppingStatus" class="status-text"></div>
+      <div style="padding:0 14px 24px;">
+        <div class="sub-label">Parts to Order</div>
+        <div id="shoppingListGrid" style="display:grid;grid-template-columns:1fr;gap:10px;"></div>
+      </div>
     </div>
-    <div style="padding:0 14px 24px;">
-      <div class="sub-label">Parts to Order</div>
-      <div id="shoppingListGrid" style="display:grid;grid-template-columns:1fr;gap:10px;"></div>
-    </div>
-  </div>
 
-  <div id="shoppingComparisonView" style="display:none;padding:14px;">
-    <div class="sub-label">Gap Analysis: Have vs Need</div>
-    <div id="comparisonGrid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+    <div id="shoppingComparisonView" style="display:none;padding:14px;">
+      <div class="sub-label">Gap Analysis: Have vs Need</div>
+      <div id="comparisonGrid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+    </div>
   </div>
 </div>
 
@@ -1398,6 +1493,35 @@
     <button onclick="showSetMinifigsView()" id="tabMinifigs" class="set-tab">Minifigs</button>
   </div>
   <div id="setDetailsContent" style="padding:14px;"></div>
+</div>
+
+<!-- Screen: CMF box-code scanner -->
+<div class="screen" id="screen-cmf" style="padding:14px;">
+  <div style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);letter-spacing:0.3px;">Scan CMF box</div>
+  <div style="font-size:12px;color:var(--muted);margin:6px 0 12px;line-height:1.5;">Put the small <em style="font-style:normal;font-family:var(--font-mono);color:var(--text);">square 2D code</em> (right of the barcode — not the barcode) inside the box, fairly close so it fills the frame. Tap the view to grab a frame. Series 25+ boxes only; blind bags have no readable code.</div>
+  <div id="cmfVideoWrap" onclick="cmfTapScan()" style="position:relative;width:100%;aspect-ratio:4/3;background:var(--socket);border:1px solid var(--border-bright);border-radius:12px;overflow:hidden;cursor:pointer;">
+    <video id="cmfVideo" playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52%;aspect-ratio:1;border:2px solid rgba(255,255,255,0.7);border-radius:8px;pointer-events:none;"></div>
+    <div id="cmfPop" class="cmf-pop">
+      <div class="cmf-pop-card">
+        <img id="cmfPopImg" alt="">
+        <div id="cmfPopName" class="cmf-pop-name"></div>
+        <div id="cmfPopSeries" class="cmf-pop-series"></div>
+      </div>
+    </div>
+  </div>
+  <div id="cmfStatus" class="voice-status" style="min-height:18px;text-align:center;margin-top:10px;"></div>
+  <button class="btn" onclick="document.getElementById('cmfPhotoInput').click()" style="width:100%;margin-top:8px;">📷 Take a photo of the code</button>
+  <input type="file" id="cmfPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="cmfPhotoSelected(this)">
+  <div style="font-size:11px;color:var(--muted2);text-align:center;margin-top:6px;">Most reliable — uses the full camera with autofocus.</div>
+  <div id="cmfResult" style="width:100%;margin-top:10px;"></div>
+  <div style="display:flex;gap:8px;width:100%;align-items:center;margin-top:12px;">
+    <input id="cmfManualInput" type="text" class="voice-input" inputmode="numeric"
+      placeholder="…or type the 7-digit code" style="flex:1;"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      onkeydown="if(event.key==='Enter')cmfLookupManual()">
+    <button class="voice-go" onclick="cmfLookupManual()">Look up</button>
+  </div>
 </div>
 
 <!-- Screen 2: Loading -->
@@ -1754,6 +1878,7 @@
   <button class="btn" style="margin-top:16px;max-width:300px" onclick="goTo('screen-scan')">Scan Another</button>
 </div>
 
+<script src="/static/zxing.min.js"></script>
 <script>
   let colors = [];
   let selectedColorId = null;
@@ -1808,8 +1933,8 @@
 
     // If we're on the identify screen and switching modes, go back to scan (unless going to lists/sets)
     if (document.getElementById('screen-identify').classList.contains('active')) {
-      if (m === 'lists' || m === 'sets') {
-        // Going to lists or sets, hide identify screen
+      if (m === 'lists' || m === 'sets' || m === 'cmf') {
+        // Going to a browse/scan tab, hide identify screen
         document.getElementById('screen-identify').classList.remove('active');
       } else {
         // Switching parts/minifigs, go back to scan
@@ -1823,29 +1948,31 @@
     }
 
     // Switch between scan screen, lists browser, sets browser, and shopping list
+    if (m !== 'cmf') _cmfStopScan();   // leaving the CMF tab → release its camera
+
     if (m === 'lists') {
       document.getElementById('screen-scan').classList.remove('active');
       document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-shopping').classList.remove('active');
+      document.getElementById('screen-cmf').classList.remove('active');
       document.getElementById('screen-lists').classList.add('active');
       populateListsViewSelect();
     } else if (m === 'sets') {
       document.getElementById('screen-scan').classList.remove('active');
       document.getElementById('screen-lists').classList.remove('active');
-      document.getElementById('screen-shopping').classList.remove('active');
+      document.getElementById('screen-cmf').classList.remove('active');
       document.getElementById('screen-sets').classList.add('active');
       loadMySets();
-    } else if (m === 'shopping') {
+    } else if (m === 'cmf') {
       document.getElementById('screen-scan').classList.remove('active');
       document.getElementById('screen-lists').classList.remove('active');
       document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-shopping').classList.add('active');
-      loadShoppingList();
+      document.getElementById('screen-cmf').classList.add('active');
+      _cmfEnterTab();
     } else {
       // parts or minifigs
       document.getElementById('screen-lists').classList.remove('active');
       document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-shopping').classList.remove('active');
+      document.getElementById('screen-cmf').classList.remove('active');
       document.getElementById('screen-scan').classList.add('active');
       // Pick up lists created elsewhere since the page loaded (dropdown is
       // otherwise only populated once at startup).
@@ -2229,12 +2356,313 @@
     }
   }
 
+  // ── CMF (Collectible Minifigure) box-code scanning ──────────────────────
+  // Recent CMF boxes (Series 25+) carry a Data Matrix code on the bottom whose
+  // 7-digit value identifies the figure inside (server lookup → cmf_codes.json).
+  // We decode it with ZXing: a dedicated modal scanner (reliable, get-close) +
+  // a manual entry fallback, AND a best-effort parallel watcher on the normal
+  // live-scan stream so a box code is caught during ordinary minifig scanning.
+  let _cmfLastCode = null, _cmfResult = null, _cmfLastRaw = '';
+  let _cmfStream = null, _cmfDecodeTimer = null, _cmfDmReader = null, _cmfCanvas = null, _cmfHints = null;
+
+  // ── Capture: tag an unknown code → figure, saved to the local store ──────
+  let _cmfCaptureCode = null, _cmfFigTimer = null, _cmfFigRows = [];
+
+  function _cmfShowCapture(code) {
+    _cmfCaptureCode = code; _cmfFigRows = [];
+    _cmfHidePop();
+    const wrap = document.getElementById('cmfVideoWrap');
+    if (wrap) wrap.style.display = 'none';   // hide the (paused) camera while tagging
+    document.getElementById('cmfResult').innerHTML = `
+      <div style="width:100%;text-align:left;">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--text);">New code <span style="font-family:var(--font-mono);">${escapeHtml(code)}</span></div>
+        <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.45;">Not in the catalog yet — tag which figure is in this box to save it. Builds your table for next time.</div>
+        <input id="cmfFigSearch" type="text" class="voice-input" placeholder="Search figure — e.g. Cute Witch"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          oninput="_cmfFigSearchDebounced(this.value)" style="width:100%;">
+        <div id="cmfFigResults" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;"></div>
+      </div>`;
+    const inp = document.getElementById('cmfFigSearch');
+    if (inp) inp.focus();
+  }
+  function _cmfFigSearchDebounced(q) {
+    clearTimeout(_cmfFigTimer);
+    _cmfFigTimer = setTimeout(() => _cmfFigSearch(q), 250);
+  }
+  function _cmfFigSearch(q) {
+    q = (q || '').trim();
+    const box = document.getElementById('cmfFigResults');
+    if (!box) return;
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    fetch('/api/local/search?type=minifigs&limit=12&q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(d => {
+        _cmfFigRows = d.results || [];
+        if (!_cmfFigRows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted);">No matches.</div>'; return; }
+        box.innerHTML = _cmfFigRows.map((r, i) => `
+          <button onclick="cmfCapturePick(${i})"
+            style="display:flex;gap:10px;align-items:center;text-align:left;background:var(--surface3);border:1px solid var(--border-bright);border-radius:10px;padding:8px;cursor:pointer;color:var(--text);">
+            <img src="${escapeHtml(r.img_url || '')}" alt="" style="width:40px;height:40px;object-fit:contain;background:var(--surface);border-radius:6px;flex-shrink:0;">
+            <span style="flex:1;min-width:0;"><span style="font-size:13px;font-weight:600;">${escapeHtml(r.name || '')}</span><br><span style="font-family:var(--font-mono);font-size:11px;color:var(--muted2);">${escapeHtml(r.fig_num || '')}</span></span>
+          </button>`).join('');
+      })
+      .catch(() => { box.innerHTML = '<div style="font-size:12px;color:var(--red);">Search error.</div>'; });
+  }
+  function cmfCapturePick(i) {
+    const fig = _cmfFigRows[i];
+    if (!fig || !_cmfCaptureCode) return;
+    const status = document.getElementById('cmfStatus');
+    status.textContent = 'Saving…';
+    fetch('/api/cmf/capture', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: _cmfCaptureCode, fig_num: fig.fig_num, name: fig.name, series: '' })
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) { status.textContent = d.error || 'Save failed.'; return; }
+        status.textContent = 'Saved ✓ — ' + _cmfCaptureCode + ' → ' + (fig.name || '');
+        _cmfLastCode = null; _cmfCaptureCode = null;
+        _cmfRenderResult(d);   // show the now-resolved card (with Add to My Minifigs)
+        if (typeof showToast === 'function') showToast('Saved: ' + (fig.name || ''));
+      })
+      .catch(() => { status.textContent = 'Network error.'; });
+  }
+
+  // Entering the CMF tab: reset state and start the box scanner.
+  function _cmfEnterTab() {
+    document.getElementById('cmfResult').innerHTML = '';
+    document.getElementById('cmfManualInput').value = '';
+    document.getElementById('cmfStatus').textContent = '';
+    _cmfLastCode = null; _cmfResult = null; _cmfCaptureCode = null;
+    _cmfHidePop();
+    _cmfStartScan();
+  }
+  // iOS Safari's ZXing decodeFromVideoDevice grabs a low-res stream and rarely
+  // reads these tiny Data Matrix codes. So we drive it ourselves: open a high-res
+  // rear-camera stream and decode full-resolution snapshots with the core
+  // DataMatrixReader (TRY_HARDER) on a short interval.
+  async function _cmfStartScan() {
+    const status = document.getElementById('cmfStatus');
+    const wrap = document.getElementById('cmfVideoWrap');
+    const video = document.getElementById('cmfVideo');
+    if (!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+      if (wrap) wrap.style.display = 'none';
+      status.textContent = 'Camera needs HTTPS — type the 7-digit code below instead.';
+      return;
+    }
+    if (!(window.ZXing && ZXing.MultiFormatReader && ZXing.HTMLCanvasElementLuminanceSource)) {
+      if (wrap) wrap.style.display = 'none';
+      status.textContent = 'Scanner unavailable — type the 7-digit code below.';
+      return;
+    }
+    try {
+      _cmfStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' },
+                 width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+    } catch (e) {
+      if (wrap) wrap.style.display = 'none';
+      status.textContent = 'Couldn’t open the camera — type the code below.';
+      return;
+    }
+    if (wrap) wrap.style.display = '';
+    status.textContent = 'Center the small square 2D code (right of the barcode) — get close, hold steady.';
+    video.srcObject = _cmfStream;
+    video.muted = true; video.setAttribute('playsinline', '');
+    try { await video.play(); } catch (e) {}
+    // Multi-format: the box's 2D code may be a QR code OR a Data Matrix, so try both.
+    _cmfEnsureReader();
+    if (_cmfDecodeTimer) clearInterval(_cmfDecodeTimer);
+    _cmfDecodeTimer = setInterval(_cmfDecodeFrame, 400);
+  }
+  function _cmfBuildHints() {
+    const h = new Map();
+    h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX]);
+    h.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    return h;
+  }
+  function _cmfEnsureReader() {
+    if (!(window.ZXing && ZXing.MultiFormatReader && ZXing.HTMLCanvasElementLuminanceSource)) return false;
+    if (!_cmfDmReader) { _cmfDmReader = new ZXing.MultiFormatReader(); _cmfHints = _cmfBuildHints(); _cmfDmReader.setHints(_cmfHints); }
+    if (!_cmfCanvas) _cmfCanvas = document.createElement('canvas');
+    return true;
+  }
+  // Decode a region of a source (video frame or <img>), scaling huge stills down
+  // to a sane size for the binarizer.
+  function _cmfTryDecodeRegion(source, sx, sy, sw, sh) {
+    const cap = 1600;
+    const scale = Math.min(1, cap / Math.max(sw, sh));
+    const dw = Math.max(1, Math.round(sw * scale)), dh = Math.max(1, Math.round(sh * scale));
+    const c = _cmfCanvas; c.width = dw; c.height = dh;
+    c.getContext('2d', { willReadFrequently: true }).drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
+    try {
+      const lum = new ZXing.HTMLCanvasElementLuminanceSource(c);
+      const bin = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+      const result = _cmfDmReader.decode(bin, _cmfHints);
+      return (result && (result.getText ? result.getText() : result.text)) || '';
+    } catch (e) { return ''; }
+  }
+  function _cmfDecodeFrame() {
+    const video = document.getElementById('cmfVideo');
+    if (!video || video.readyState < 2 || !video.videoWidth || !_cmfDmReader) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    // Try the centered square first (the code the user is aiming into the box —
+    // a smaller region means the code fills more of the decoded image), then the
+    // whole frame as a fallback for off-centre codes.
+    const side = Math.floor(Math.min(vw, vh) * 0.6);
+    const cx = Math.floor((vw - side) / 2), cy = Math.floor((vh - side) / 2);
+    const text = _cmfTryDecodeRegion(video, cx, cy, side, side)
+              || _cmfTryDecodeRegion(video, 0, 0, vw, vh);
+    if (text) _cmfOnCode(text);
+  }
+  // Tap the viewfinder to force an immediate decode of the current frame.
+  function cmfTapScan() { if (_cmfStream && _cmfDecodeTimer) _cmfDecodeFrame(); }
+
+  // Most reliable path on iOS: take ONE high-res, autofocused photo with the
+  // native camera and decode that still (full image, then a zoomed centre crop).
+  function _cmfDecodeImage(img) {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) return '';
+    const side = Math.floor(Math.min(w, h) * 0.6);
+    const cx = Math.floor((w - side) / 2), cy = Math.floor((h - side) / 2);
+    return _cmfTryDecodeRegion(img, 0, 0, w, h)
+        || _cmfTryDecodeRegion(img, cx, cy, side, side);
+  }
+  function cmfPhotoSelected(input) {
+    const file = input.files && input.files[0];
+    input.value = '';   // allow re-picking the same file
+    if (!file) return;
+    const status = document.getElementById('cmfStatus');
+    if (!_cmfEnsureReader()) { status.textContent = 'Scanner unavailable — type the code instead.'; return; }
+    status.textContent = 'Reading photo…';
+    const img = new Image();
+    img.onload = () => {
+      const text = _cmfDecodeImage(img);
+      URL.revokeObjectURL(img.src);
+      if (text) {
+        _cmfLastRaw = text.trim();
+        cmfLookup(_cmfLastRaw.replace(/\D/g, ''));
+      } else {
+        status.textContent = 'Couldn’t read it — retake closer, with the square code filling the frame and in sharp focus.';
+      }
+    };
+    img.onerror = () => { status.textContent = 'Couldn’t load that photo.'; };
+    img.src = URL.createObjectURL(file);
+  }
+  function _cmfStopScan() {
+    if (_cmfDecodeTimer) { clearInterval(_cmfDecodeTimer); _cmfDecodeTimer = null; }
+    if (_cmfStream) { try { _cmfStream.getTracks().forEach(t => t.stop()); } catch (e) {} _cmfStream = null; }
+    const video = document.getElementById('cmfVideo');
+    if (video) video.srcObject = null;
+    _cmfDmReader = null;
+    _cmfHidePop();
+  }
+  // Pause/resume just the decode loop (keeps the camera live behind the pop-out).
+  function _cmfPauseDecode() {
+    if (_cmfDecodeTimer) { clearInterval(_cmfDecodeTimer); _cmfDecodeTimer = null; }
+  }
+  function _cmfResumeDecode() {
+    if (_cmfStream && !_cmfDecodeTimer) _cmfDecodeTimer = setInterval(_cmfDecodeFrame, 400);
+  }
+  function _cmfHidePop() {
+    const pop = document.getElementById('cmfPop');
+    if (pop) pop.classList.remove('show');
+  }
+  function _cmfOnCode(text) {
+    const raw = (text || '').trim();
+    const code = raw.replace(/\D/g, '');
+    if (!code || code === _cmfLastCode) return;
+    _cmfLastCode = code; _cmfLastRaw = raw;
+    cmfLookup(code);
+  }
+  function cmfLookupManual() {
+    const code = (document.getElementById('cmfManualInput').value || '').replace(/\D/g, '');
+    if (!code) { document.getElementById('cmfStatus').textContent = 'Enter the 7-digit code.'; return; }
+    _cmfLastCode = code;
+    cmfLookup(code);
+  }
+  function cmfLookup(code) {
+    const status = document.getElementById('cmfStatus');
+    const digits = (code || '').replace(/\D/g, '');
+    status.textContent = 'Looking up ' + digits + '…';
+    fetch('/api/cmf/lookup/' + encodeURIComponent(digits))
+      .then(r => r.json())
+      .then(data => {
+        if (data.found) {
+          _cmfPauseDecode();       // keep the camera live behind the pop-out
+          status.textContent = '';
+          _cmfRenderResult(data);
+        } else if (digits.length === 7) {
+          _cmfStopScan();          // pause camera so it doesn't re-fire while tagging
+          status.textContent = '';
+          _cmfShowCapture(digits); // unknown but valid → let the user tag it
+        } else {
+          // Surface the raw decoded payload so we can see exactly what the box
+          // encodes (it may not be a clean 7-digit number).
+          status.textContent = 'Scanned “' + (_cmfLastRaw || digits) + '” — not a recognised 7-digit code.';
+          _cmfLastCode = null;     // allow a re-scan
+        }
+      })
+      .catch(() => { status.textContent = 'Network error.'; _cmfLastCode = null; });
+  }
+  function _cmfRenderResult(data) {
+    _cmfResult = data;
+    // Pop the figure image out over the (still-live) camera view.
+    const wrap = document.getElementById('cmfVideoWrap');
+    if (wrap) wrap.style.display = '';
+    const pop = document.getElementById('cmfPop');
+    if (pop) {
+      const im = document.getElementById('cmfPopImg');
+      im.src = data.img_url || '';
+      im.style.display = data.img_url ? '' : 'none';
+      document.getElementById('cmfPopName').textContent = data.name || 'Unknown figure';
+      document.getElementById('cmfPopSeries').textContent =
+        [data.series, data.code].filter(Boolean).join(' · ');
+      pop.classList.remove('show'); void pop.offsetWidth; pop.classList.add('show');  // restart anim
+    }
+    // Actions below the viewfinder.
+    document.getElementById('cmfResult').innerHTML = `
+      <div style="display:flex;gap:8px;width:100%;">
+        <button class="btn" onclick="cmfScanAnother()" style="flex:1;background:var(--surface3);color:var(--text);">Scan another</button>
+        <button class="btn" id="cmfAddBtn" onclick="cmfAddMinifig()" style="flex:1;"${data.fig_num ? '' : ' disabled'}>Add to My Minifigs</button>
+      </div>`;
+  }
+  function cmfScanAnother() {
+    _cmfResult = null; _cmfLastCode = null;
+    document.getElementById('cmfResult').innerHTML = '';
+    document.getElementById('cmfManualInput').value = '';
+    _cmfHidePop();
+    const wrap = document.getElementById('cmfVideoWrap'); if (wrap) wrap.style.display = '';
+    document.getElementById('cmfStatus').textContent = 'Center the small square 2D code — get close, hold steady.';
+    if (_cmfStream) _cmfResumeDecode(); else _cmfStartScan();
+  }
+  function cmfAddMinifig() {
+    if (!_cmfResult || !_cmfResult.fig_num) return;
+    const d = _cmfResult, btn = document.getElementById('cmfAddBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+    fetch('/api/add_minifig', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set_num: d.fig_num, quantity: 1, name: d.name || d.fig_num, img_url: d.img_url || '', bl_id: '' })
+    })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) { document.getElementById('cmfStatus').textContent = 'Couldn’t add — try again.'; if (btn) { btn.disabled = false; btn.textContent = 'Add to My Minifigs'; } return; }
+        const qty = parseInt(data.quantity) || 1;
+        if (btn) btn.textContent = data._updated ? `In My Minifigs ×${qty}` : 'Added ✓';
+        if (typeof showToast === 'function') showToast(data._updated ? `Now ×${qty} in My Minifigs` : 'Added to My Minifigs');
+      })
+      .catch(() => { document.getElementById('cmfStatus').textContent = 'Network error.'; if (btn) { btn.disabled = false; btn.textContent = 'Add to My Minifigs'; } });
+  }
+
   // Start/stop the camera based on whether the scan screen is showing (in a
   // parts/minifig mode). Called after every navigation (goTo + switchMode).
   // Auto-starts ONLY when camera permission is already granted — otherwise it
   // shows the "Start Live Scan" button so the permission prompt only fires on an
   // explicit tap (no nagging prompt on every open/resume).
   function syncLiveScan() {
+    // Never grab the camera while the CMF scanner (or another overlay) owns it.
+    if (typeof _overlayOpen === 'function' && _overlayOpen()) { stopLiveScan(); return; }
     const onScan = document.getElementById('screen-scan').classList.contains('active')
       && (mode === 'parts' || mode === 'minifigs');
     if (!(onScan && _liveEnabled && liveSupported())) {
@@ -2308,8 +2736,10 @@
     if (document.hidden) {
       _hiddenAt = Date.now();
       stopLiveScan();
+      _cmfStopScan();
     } else {
       syncLiveScan();
+      if (document.getElementById('screen-cmf').classList.contains('active')) _cmfStartScan();
       if (Date.now() - _hiddenAt > 2000) { checkForUpdate(); refreshActiveScreenData(); }
     }
   });
@@ -2338,7 +2768,7 @@
     'screen-success': () => retakeOrBack(),                        // → scan
   };
   function _overlayOpen() {
-    if (document.querySelector('#imageModal.active, #voiceModal.active, #blExportModal.active')) return true;
+    if (document.querySelector('#imageModal.active, #voiceModal.active, #blExportModal.active, #compareModal.active, #setSubtractModal.active')) return true;
     return ['selectPartListModal', 'addPartsListModal'].some(id => {
       const el = document.getElementById(id);
       return el && el.style.display && el.style.display !== 'none';
@@ -2398,9 +2828,13 @@
     const el = document.querySelector('.screen.active');
     if (!el) return null;
     switch (el.id) {
-      case 'screen-lists': return () => loadListContents();
+      case 'screen-lists': {
+        const shop = document.getElementById('listsModeShopView');
+        return (shop && shop.style.display !== 'none')
+          ? () => loadShoppingList()
+          : () => loadListContents();
+      }
       case 'screen-sets': return () => loadMySets();
-      case 'screen-shopping': return () => loadShoppingList();
       case 'screen-set-details':
         return window.currentSetNum
           ? () => loadSetDetails(window.currentSetNum, (document.getElementById('setDetailTitle') || {}).textContent || '')
@@ -2705,6 +3139,8 @@
     } else {
       el.textContent = info.present ? 'Present' : 'Not built yet';
     }
+    const chk = document.getElementById('catalogChecked');
+    chk.textContent = info.last_checked_human ? 'Last checked ' + info.last_checked_human : '';
   }
 
   function _showCatalogResult(res) {
@@ -2858,6 +3294,16 @@
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : 'block';
     arrow.textContent = open ? '▶' : '▼';
+  }
+
+  function toggleListTools() {
+    const body = document.getElementById('listToolsBody');
+    const arrow = document.getElementById('listToolsArrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'flex';
+    arrow.textContent = open ? '▶' : '▼';
+    const btn = document.querySelector('.list-tools-toggle');
+    if (btn) btn.setAttribute('aria-expanded', String(!open));
   }
 
   loadCatalogStatus();
@@ -4257,6 +4703,8 @@
         sel.value = data.results[0].id;
         loadListContents();
       } else if (prev) loadListContents();
+      // Keep the compare dropdowns populated with the same part lists
+      _populateCompareSelects(data.results || []);
     });
   }
 
@@ -4480,6 +4928,257 @@
       });
     });
     lazyLoadImages(grid);
+  }
+
+  // ── List Compare ──
+  let _cmpData = null;   // { in_both, only_a, only_b }
+  let _cmpTab = 'all';   // 'all' | 'both' | 'only_a' | 'only_b'
+  let _cmpNameA = '', _cmpNameB = '';
+
+  function _populateCompareSelects(lists) {
+    ['compareListA', 'compareListB'].forEach(id => {
+      const sel = document.getElementById(id);
+      const prev = sel.value;
+      sel.innerHTML = `<option value="">${id === 'compareListA' ? 'List A…' : 'List B…'}</option>`;
+      lists.forEach(l => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = `${l.name} (${l.num_parts})`;
+        if (String(l.id) === prev) o.selected = true;
+        sel.appendChild(o);
+      });
+    });
+  }
+
+  async function runListCompare() {
+    const selA = document.getElementById('compareListA');
+    const selB = document.getElementById('compareListB');
+    const status = document.getElementById('compareStatus');
+    const listA = selA.value, listB = selB.value;
+    if (!listA || !listB) { status.innerHTML = '<span style="color:var(--red);">Select two lists.</span>'; return; }
+    if (listA === listB) { status.innerHTML = '<span style="color:var(--red);">Select two different lists.</span>'; return; }
+    _cmpNameA = selA.options[selA.selectedIndex].text;
+    _cmpNameB = selB.options[selB.selectedIndex].text;
+    status.textContent = 'Analyzing…';
+    try {
+      const r = await fetch(`/api/partlists/compare?list_a=${listA}&list_b=${listB}`);
+      const d = await r.json();
+      if (!r.ok) { status.innerHTML = `<span style="color:var(--red);">${escapeHtml(d.error || 'Failed')}</span>`; return; }
+      status.textContent = '';
+      _cmpData = d;
+      _cmpTab = 'all';
+      _renderCompareModal();
+      document.getElementById('compareModal').classList.add('active');
+    } catch (e) {
+      status.innerHTML = '<span style="color:var(--red);">Network error.</span>';
+    }
+  }
+
+  function closeListCompare() {
+    document.getElementById('compareModal').classList.remove('active');
+  }
+
+  function setCmpTab(tab) {
+    _cmpTab = tab;
+    document.querySelectorAll('.compare-tab').forEach(b => b.classList.remove('active'));
+    const ids = { all: 'cmpTabAll', both: 'cmpTabBoth', only_a: 'cmpTabA', only_b: 'cmpTabB' };
+    document.getElementById(ids[tab])?.classList.add('active');
+    _renderCompareResults();
+  }
+
+  function _renderCompareModal() {
+    if (!_cmpData) return;
+    const { in_both, only_a, only_b } = _cmpData;
+    const total = in_both.length + only_a.length + only_b.length;
+    const shortA = _cmpNameA.split(' (')[0];
+    const shortB = _cmpNameB.split(' (')[0];
+    document.getElementById('compareModalTitle').textContent = `${shortA} vs ${shortB}`;
+    document.getElementById('compareModalSummary').textContent =
+      `${total} unique parts · ${in_both.length} shared · ${only_a.length} only in ${shortA} · ${only_b.length} only in ${shortB}`;
+    // update tab labels with counts
+    document.getElementById('cmpTabAll').textContent = `All (${total})`;
+    document.getElementById('cmpTabBoth').textContent = `In Both (${in_both.length})`;
+    document.getElementById('cmpTabA').textContent = `Only A (${only_a.length})`;
+    document.getElementById('cmpTabB').textContent = `Only B (${only_b.length})`;
+    // reset to All tab
+    document.querySelectorAll('.compare-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('cmpTabAll').classList.add('active');
+    _cmpTab = 'all';
+    _renderCompareResults();
+  }
+
+  function _renderCompareResults() {
+    if (!_cmpData) return;
+    const { in_both, only_a, only_b } = _cmpData;
+    let parts;
+    if (_cmpTab === 'both')   parts = in_both;
+    else if (_cmpTab === 'only_a') parts = only_a;
+    else if (_cmpTab === 'only_b') parts = only_b;
+    else parts = [...in_both, ...only_a, ...only_b].sort((x, y) => (x.name || '').localeCompare(y.name || ''));
+
+    const nameA = _cmpNameA.split(' (')[0];
+    const nameB = _cmpNameB.split(' (')[0];
+    const grid = document.getElementById('compareResultsGrid');
+
+    if (!parts.length) {
+      grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px 0;">No parts in this group.</p>';
+      return;
+    }
+
+    grid.innerHTML = parts.map(p => {
+      const img = p.img_url || '';
+      const name = escapeHtml(p.name || p.part_num || '?');
+      const rgb = p.rgb || 'ccc';
+      const colorName = escapeHtml(p.color_name || '');
+      const partNum = escapeHtml(p.part_num || '');
+      let tags = '';
+      if (p.qty_a > 0 && p.qty_b > 0) {
+        tags = `<span class="cmp-tag cmp-tag-a">${escapeHtml(nameA)} ×${p.qty_a}</span><span class="cmp-tag cmp-tag-b">${escapeHtml(nameB)} ×${p.qty_b}</span>`;
+      } else if (p.qty_a > 0) {
+        tags = `<span class="cmp-tag cmp-tag-a">${escapeHtml(nameA)} ×${p.qty_a}</span>`;
+      } else {
+        tags = `<span class="cmp-tag cmp-tag-b">${escapeHtml(nameB)} ×${p.qty_b}</span>`;
+      }
+      return `<div class="part-item">
+        ${img ? `<img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'">` :
+                `<div style="width:56px;height:56px;border-radius:8px;background:var(--surface3);flex-shrink:0;"></div>`}
+        <div class="part-item-info">
+          <div class="part-item-name">${name}</div>
+          <div class="part-item-sub">
+            <span class="part-item-color-dot" style="background:#${rgb}"></span>
+            <span>${colorName}</span>
+            <span style="color:var(--muted);margin-left:4px;">•</span>
+            <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}" target="_blank" style="color:var(--yellow);text-decoration:none;margin-left:4px;font-size:13px;">${partNum}</a>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;">${tags}</div>
+      </div>`;
+    }).join('');
+    lazyLoadImages(grid);
+  }
+
+  // ── Subtract a set from the current list ──
+  let _subData = null;       // last set_overlap response
+  let _subListId = null;     // list the preview was built against
+  let _subListName = '';
+
+  async function runSetSubtract() {
+    const listSel = document.getElementById('listsViewSelect');
+    const listId = listSel.value;
+    const status = document.getElementById('subtractSetStatus');
+    const setNum = document.getElementById('subtractSetInput').value.trim();
+    if (!listId || listId === '__minifigs__' || listId === '__sets__') {
+      status.innerHTML = '<span style="color:var(--red);">Select a parts list first.</span>'; return;
+    }
+    if (!setNum) { status.innerHTML = '<span style="color:var(--red);">Enter a set number.</span>'; return; }
+    _subListId = listId;
+    _subListName = (listSel.options[listSel.selectedIndex].text || '').split(' (')[0];
+    status.textContent = 'Analyzing…';
+    try {
+      const r = await fetch(`/api/partlists/${listId}/set_overlap?set_num=${encodeURIComponent(setNum)}`);
+      const d = await r.json();
+      if (!r.ok) { status.innerHTML = `<span style="color:var(--red);">${escapeHtml(d.error || 'Failed')}</span>`; return; }
+      status.textContent = '';
+      _subData = d;
+      _renderSetSubtract();
+      document.getElementById('setSubtractModal').classList.add('active');
+    } catch (e) {
+      status.innerHTML = '<span style="color:var(--red);">Network error.</span>';
+    }
+  }
+
+  function closeSetSubtract() {
+    document.getElementById('setSubtractModal').classList.remove('active');
+  }
+
+  function _renderSetSubtract() {
+    if (!_subData) return;
+    const { set_name, set_num, items, totals } = _subData;
+    document.getElementById('setSubtractTitle').textContent = `${set_name} (${set_num})`;
+    const grid = document.getElementById('setSubtractGrid');
+    const footer = document.getElementById('setSubtractFooter');
+
+    if (!items.length) {
+      document.getElementById('setSubtractSummary').textContent =
+        `None of this set's ${totals.set_pieces} pieces match parts in ${_subListName}.`;
+      grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px 0;">Nothing to remove — no overlap with this list.</p>';
+      footer.style.display = 'none';
+      return;
+    }
+
+    document.getElementById('setSubtractSummary').textContent =
+      `Would remove ${totals.pieces} piece${totals.pieces === 1 ? '' : 's'} across ${totals.lines} line${totals.lines === 1 ? '' : 's'} from ${_subListName}` +
+      (totals.cleared ? ` · ${totals.cleared} fully cleared` : '');
+
+    grid.innerHTML = items.map(p => {
+      const img = p.img_url || '';
+      const name = escapeHtml(p.name || p.part_num || '?');
+      const rgb = p.rgb || 'ccc';
+      const colorName = escapeHtml(p.color_name || '');
+      const partNum = escapeHtml(p.part_num || '');
+      const cleared = p.remaining_qty === 0;
+      return `<div class="part-item">
+        ${img ? `<img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'">` :
+                `<div style="width:56px;height:56px;border-radius:8px;background:var(--surface3);flex-shrink:0;"></div>`}
+        <div class="part-item-info">
+          <div class="part-item-name">${name}</div>
+          <div class="part-item-sub">
+            <span class="part-item-color-dot" style="background:#${rgb}"></span>
+            <span>${colorName}</span>
+            <span style="color:var(--muted);margin-left:4px;">•</span>
+            <span style="font-family:var(--font-mono);margin-left:4px;font-size:13px;">${partNum}</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;font-family:var(--font-mono);font-size:13px;">
+          <span style="color:var(--red);font-weight:700;">−${p.remove_qty}</span>
+          <span style="color:var(--muted);">${p.list_qty} → <span style="color:${cleared ? 'var(--muted2)' : 'var(--text)'};">${p.remaining_qty}</span></span>
+        </div>
+      </div>`;
+    }).join('');
+
+    const btn = document.getElementById('setSubtractConfirmBtn');
+    btn.disabled = false;
+    btn.textContent = `Remove ${totals.pieces} piece${totals.pieces === 1 ? '' : 's'}`;
+    footer.style.display = 'flex';
+    lazyLoadImages(grid);
+  }
+
+  async function confirmSetSubtract() {
+    if (!_subData || !_subListId) return;
+    const btn = document.getElementById('setSubtractConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Removing…';
+    const payload = {
+      items: _subData.items.map(p => ({
+        part_num: p.part_num,
+        color_id: p.color_id,
+        new_qty: p.remaining_qty,
+        remove_qty: p.remove_qty,
+      })),
+    };
+    try {
+      const r = await fetch(`/api/partlists/${_subListId}/subtract_set`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      const status = document.getElementById('subtractSetStatus');
+      if (d.failed && d.failed.length) {
+        status.innerHTML = `<span style="color:var(--red);">Removed ${d.removed_pieces} pieces, but ${d.failed.length} line${d.failed.length === 1 ? '' : 's'} failed.</span>`;
+      } else {
+        status.innerHTML = `<span style="color:var(--green);">Removed ${d.removed_pieces} piece${d.removed_pieces === 1 ? '' : 's'} from ${escapeHtml(_subListName)}.</span>`;
+        document.getElementById('subtractSetInput').value = '';
+      }
+      closeSetSubtract();
+      if (String(document.getElementById('listsViewSelect').value) === String(_subListId)) {
+        loadListContents();
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Remove';
+      document.getElementById('subtractSetStatus').innerHTML = '<span style="color:var(--red);">Network error — nothing changed.</span>';
+    }
   }
 
   // ── Export a parts list as a BrickLink Wanted List (XML upload format) ──
@@ -4813,6 +5512,17 @@
       'Yellow': 'f2cd2e', 'Green': '007221', 'Brown': '703118', 'Gray': 'a4a4a4'
     };
     return colors[colorName] || 'ccc';
+  }
+
+  // Top-level toggle on the Part Lists screen: "My Lists" vs "Shopping"
+  // (the latter holds the functionality moved from the former Cart tab).
+  function switchListsMode(view) {
+    const isShop = view === 'shopping';
+    document.getElementById('listsModeLists').classList.toggle('active', !isShop);
+    document.getElementById('listsModeShop').classList.toggle('active', isShop);
+    document.getElementById('listsModeListsView').style.display = isShop ? 'none' : 'block';
+    document.getElementById('listsModeShopView').style.display = isShop ? 'block' : 'none';
+    if (isShop) loadShoppingList();
   }
 
   function switchShoppingView(view) {
@@ -6158,6 +6868,43 @@
       <button class="voice-go" id="voiceGoBtn" onclick="submitVoiceText()">Find part</button>
     </div>
     <div id="voiceError" class="voice-error" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- List Compare Modal -->
+<div id="compareModal" class="voice-modal" onclick="if(event.target===this)closeListCompare()" style="align-items:flex-start;padding:0;">
+  <div style="background:var(--surface);width:100%;max-width:600px;height:100%;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;">
+      <div style="flex:1;min-width:0;">
+        <div id="compareModalTitle" style="font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text);">List Comparison</div>
+        <div id="compareModalSummary" style="font-size:12px;color:var(--muted);margin-top:2px;"></div>
+      </div>
+      <button onclick="closeListCompare()" style="background:var(--surface3);border:1px solid var(--border-bright);border-radius:50%;width:36px;height:36px;color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
+    </div>
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface);">
+      <button id="cmpTabAll" class="compare-tab active" onclick="setCmpTab('all')">All</button>
+      <button id="cmpTabBoth" class="compare-tab" onclick="setCmpTab('both')">In Both</button>
+      <button id="cmpTabA" class="compare-tab" onclick="setCmpTab('only_a')">Only A</button>
+      <button id="cmpTabB" class="compare-tab" onclick="setCmpTab('only_b')">Only B</button>
+    </div>
+    <div id="compareResultsGrid" style="padding:0 14px 32px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;"></div>
+  </div>
+</div>
+
+<div id="setSubtractModal" class="voice-modal" onclick="if(event.target===this)closeSetSubtract()" style="align-items:flex-start;padding:0;">
+  <div style="background:var(--surface);width:100%;max-width:600px;height:100%;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;">
+      <div style="flex:1;min-width:0;">
+        <div id="setSubtractTitle" style="font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text);">Subtract Set</div>
+        <div id="setSubtractSummary" style="font-size:12px;color:var(--muted);margin-top:2px;"></div>
+      </div>
+      <button onclick="closeSetSubtract()" style="background:var(--surface3);border:1px solid var(--border-bright);border-radius:50%;width:36px;height:36px;color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
+    </div>
+    <div id="setSubtractGrid" style="padding:0 14px 32px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;"></div>
+    <div id="setSubtractFooter" style="padding:12px 16px;border-top:1px solid var(--border);background:var(--surface);display:none;gap:10px;">
+      <button onclick="closeSetSubtract()" class="action-btn" style="flex:1;background:var(--surface3);">Cancel</button>
+      <button id="setSubtractConfirmBtn" onclick="confirmSetSubtract()" class="action-btn" style="flex:2;">Confirm</button>
+    </div>
   </div>
 </div>
 

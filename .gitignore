@@ -14,6 +14,7 @@ templates/index.html.bak
 # Daily catalog-refresh runtime artifacts (local dev only)
 .catalog_manifest.json
 .catalog_changes.json
+.catalog_last_checked
 catalog_refresh.log
 catalog_refresh.launchd.log
 
@@ -25,6 +26,8 @@ app.log
 .set_meta.json.tmp
 .minifig_collection.json
 .minifig_collection.json.tmp
+.cmf_captured.json
+.cmf_captured.json.tmp
 
 # Daily minifig price-refresh logs (local dev only)
 minifig_prices.log

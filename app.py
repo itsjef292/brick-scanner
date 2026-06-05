@@ -39,6 +39,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 LOCAL_DB_PATH = os.path.join(_HERE, "brick_parts.db")
 CATALOG_MANIFEST_PATH = os.path.join(_HERE, ".catalog_manifest.json")
 CATALOG_CHANGES_PATH = os.path.join(_HERE, ".catalog_changes.json")
+CATALOG_LAST_CHECKED_PATH = os.path.join(_HERE, ".catalog_last_checked")
 
 # Local JSON stores (keyed by set_num / fig_num). LOCAL-ONLY: Render's
 # filesystem is ephemeral, so these stay empty there (the public site shows
@@ -670,6 +671,15 @@ def catalog_status():
         info["data_date"] = man.get("inventory_parts", {}).get("last_modified")
     except (OSError, ValueError):
         pass
+    # Last time the refresh script ran (written at the top of every run).
+    try:
+        with open(CATALOG_LAST_CHECKED_PATH) as f:
+            iso = f.read().strip()
+        dt_checked = datetime.datetime.fromisoformat(iso)
+        info["last_checked_iso"] = iso
+        info["last_checked_human"] = dt_checked.strftime("%b %d, %Y at %I:%M %p").replace(" 0", " ")
+    except (OSError, ValueError):
+        pass
     # What the most recent update added/removed (parts/minifigs/sets), if recorded.
     try:
         with open(CATALOG_CHANGES_PATH) as f:
@@ -1066,6 +1076,270 @@ def get_partlist_parts_all(list_id):
     return jsonify({"results": out, "count": len(out)})
 
 
+@app.route("/api/partlists/compare")
+def compare_partlists():
+    list_a = request.args.get("list_a", type=int)
+    list_b = request.args.get("list_b", type=int)
+    if not list_a or not list_b:
+        return jsonify({"error": "list_a and list_b required"}), 400
+    if list_a == list_b:
+        return jsonify({"error": "Select two different lists"}), 400
+
+    parts_a = _fetch_partlist_parts_map(list_a)
+    parts_b = _fetch_partlist_parts_map(list_b)
+
+    # Overlay color-specific images from the local catalog
+    conn = local_db()
+    if conn is not None:
+        try:
+            all_parts = list(parts_a.values()) + list(parts_b.values())
+            imgs = _local_part_color_imgs(conn, [(p["part_num"], p["color_id"]) for p in all_parts])
+            for d in (parts_a, parts_b):
+                for p in d.values():
+                    if p["color_id"] is not None:
+                        local_img = imgs.get((p["part_num"], int(p["color_id"])))
+                        if local_img:
+                            p["img_url"] = local_img
+        finally:
+            conn.close()
+
+    keys_a = set(parts_a)
+    keys_b = set(parts_b)
+    in_both, only_a, only_b = [], [], []
+
+    for key in keys_a & keys_b:
+        p = dict(parts_a[key])
+        p["qty_a"] = parts_a[key]["quantity"]
+        p["qty_b"] = parts_b[key]["quantity"]
+        del p["quantity"]
+        in_both.append(p)
+
+    for key in keys_a - keys_b:
+        p = dict(parts_a[key])
+        p["qty_a"] = p.pop("quantity")
+        p["qty_b"] = 0
+        only_a.append(p)
+
+    for key in keys_b - keys_a:
+        p = dict(parts_b[key])
+        p["qty_a"] = 0
+        p["qty_b"] = p.pop("quantity")
+        only_b.append(p)
+
+    for lst in (in_both, only_a, only_b):
+        lst.sort(key=lambda p: (p.get("name") or "").lower())
+
+    return jsonify({"in_both": in_both, "only_a": only_a, "only_b": only_b})
+
+
+def _fetch_partlist_parts_map(list_id):
+    """Fetch an entire parts list as {(part_num, color_id): {…, quantity}}.
+
+    Throttled paging via rebrickable_get. Shared by the list-compare and
+    subtract-a-set features.
+    """
+    parts = {}
+    page = 1
+    while page <= 200:  # safety cap (~20k parts at page_size 100)
+        resp = rebrickable_get(
+            f"/users/{USER_TOKEN}/partlists/{list_id}/parts/",
+            params={"key": API_KEY, "page_size": 100, "page": page},
+        )
+        if resp is None or resp.status_code != 200:
+            break
+        data = resp.json()
+        for it in data.get("results", []):
+            part = it.get("part") or {}
+            color = it.get("color") or {}
+            key = (part.get("part_num"), color.get("id"))
+            parts[key] = {
+                "part_num": part.get("part_num"),
+                "name": part.get("name"),
+                "img_url": part.get("part_img_url"),
+                "color_id": color.get("id"),
+                "color_name": color.get("name"),
+                "rgb": color.get("rgb"),
+                "quantity": it.get("quantity") or 1,
+            }
+        if not data.get("next"):
+            break
+        page += 1
+    return parts
+
+
+def _normalize_set_num(set_num):
+    """Rebrickable set numbers carry a variant suffix (e.g. '75060-1'). Append
+    '-1' to a bare number so '75060' resolves like the rest of the app does."""
+    set_num = (set_num or "").strip()
+    if set_num and "-" not in set_num:
+        set_num += "-1"
+    return set_num
+
+
+@app.route("/api/partlists/<int:list_id>/set_overlap")
+def partlist_set_overlap(list_id):
+    """Preview how many pieces a given SET would remove from a parts list.
+
+    For every (part_num, color_id) the set contributes that the list also needs,
+    the removable quantity is min(set_qty, list_qty). Returns the per-line
+    breakdown plus totals; nothing is mutated (the apply step is a separate POST).
+    """
+    set_num = _normalize_set_num(request.args.get("set_num", ""))
+    if not set_num:
+        return jsonify({"error": "set_num required"}), 400
+
+    # Set name/image for display (best-effort; failure isn't fatal).
+    set_name, set_img = set_num, None
+    info_resp = rebrickable_get(f"/lego/sets/{set_num}/", params={"key": API_KEY})
+    if info_resp is not None and info_resp.status_code == 200:
+        info = info_resp.json()
+        set_name = info.get("name") or set_num
+        set_img = info.get("set_img_url")
+    elif info_resp is not None and info_resp.status_code == 404:
+        return jsonify({"error": f"Set {set_num} not found"}), 404
+
+    # Aggregate the set's parts by (part_num, color_id), including spares — they
+    # are physical pieces in the box too.
+    set_parts = {}
+    set_total = 0
+    page = 1
+    while page <= 200:
+        resp = rebrickable_get(
+            f"/lego/sets/{set_num}/parts/",
+            params={"key": API_KEY, "page_size": 100, "page": page},
+        )
+        if resp is None or resp.status_code != 200:
+            if page == 1:
+                return jsonify({"error": "Couldn't fetch set parts"}), 502
+            break
+        data = resp.json()
+        for it in data.get("results", []):
+            part = it.get("part") or {}
+            color = it.get("color") or {}
+            key = (part.get("part_num"), color.get("id"))
+            qty = it.get("quantity") or 0
+            set_total += qty
+            if key in set_parts:
+                set_parts[key]["quantity"] += qty
+            else:
+                set_parts[key] = {
+                    "part_num": part.get("part_num"),
+                    "name": part.get("name"),
+                    "img_url": part.get("part_img_url"),
+                    "color_id": color.get("id"),
+                    "color_name": color.get("name"),
+                    "rgb": color.get("rgb"),
+                    "quantity": qty,
+                }
+        if not data.get("next"):
+            break
+        page += 1
+
+    list_parts = _fetch_partlist_parts_map(list_id)
+
+    items = []
+    total_remove = 0
+    for key, sp in set_parts.items():
+        lp = list_parts.get(key)
+        if not lp:
+            continue
+        list_qty = lp["quantity"]
+        remove_qty = min(sp["quantity"], list_qty)
+        if remove_qty <= 0:
+            continue
+        total_remove += remove_qty
+        items.append({
+            "part_num": lp["part_num"],
+            "name": lp["name"] or sp["name"],
+            "img_url": lp["img_url"] or sp["img_url"],
+            "color_id": lp["color_id"],
+            "color_name": lp["color_name"] or sp["color_name"],
+            "rgb": lp["rgb"] or sp["rgb"],
+            "list_qty": list_qty,
+            "set_qty": sp["quantity"],
+            "remove_qty": remove_qty,
+            "remaining_qty": list_qty - remove_qty,
+        })
+
+    # Overlay color-specific images from the local catalog (one batched query).
+    conn = local_db()
+    if conn is not None:
+        try:
+            imgs = _local_part_color_imgs(conn, [(p["part_num"], p["color_id"]) for p in items])
+            for p in items:
+                if p["color_id"] is not None:
+                    local_img = imgs.get((p["part_num"], int(p["color_id"])))
+                    if local_img:
+                        p["img_url"] = local_img
+        finally:
+            conn.close()
+
+    items.sort(key=lambda p: (p.get("name") or "").lower())
+    cleared = sum(1 for p in items if p["remaining_qty"] == 0)
+
+    return jsonify({
+        "set_num": set_num,
+        "set_name": set_name,
+        "set_img": set_img,
+        "items": items,
+        "totals": {
+            "lines": len(items),
+            "pieces": total_remove,
+            "cleared": cleared,
+            "set_pieces": set_total,
+        },
+    })
+
+
+@app.route("/api/partlists/<int:list_id>/subtract_set", methods=["POST"])
+def partlist_subtract_set(list_id):
+    """Apply a set-overlap preview: decrement each line by remove_qty (PUT the
+    new quantity, or DELETE when it reaches 0). Trusts the client-supplied
+    new_qty from the preview the user just confirmed."""
+    data = request.json or {}
+    items = data.get("items") or []
+    if not items:
+        return jsonify({"error": "No items to subtract"}), 400
+
+    updated, deleted, removed_pieces = 0, 0, 0
+    failed = []
+    for it in items:
+        part_num = it.get("part_num")
+        color_id = it.get("color_id")
+        new_qty = int(it.get("new_qty", 0))
+        remove_qty = int(it.get("remove_qty", 0))
+        if part_num is None or color_id is None:
+            continue
+        item_url = f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/"
+        throttle_rebrickable_request()
+        try:
+            if new_qty <= 0:
+                resp = requests.delete(item_url, params={"key": API_KEY}, timeout=10)
+                ok = resp.status_code in (200, 204)
+                if ok:
+                    deleted += 1
+            else:
+                resp = requests.put(item_url, params={"key": API_KEY},
+                                    data={"quantity": new_qty}, timeout=10)
+                ok = resp.status_code == 200
+                if ok:
+                    updated += 1
+            if ok:
+                removed_pieces += remove_qty
+            else:
+                failed.append({"part_num": part_num, "color_id": color_id,
+                               "status": resp.status_code})
+        except Exception as e:
+            failed.append({"part_num": part_num, "color_id": color_id, "error": str(e)})
+
+    return jsonify({
+        "updated": updated,
+        "deleted": deleted,
+        "removed_pieces": removed_pieces,
+        "failed": failed,
+    }), (200 if not failed else 207)
+
+
 def _rb_part_to_bl(conn, part_num):
     """Rebrickable part_num → BrickLink item id (reverse of bl_aliases). Falls
     back to the part_num itself (identical for most standard parts)."""
@@ -1370,6 +1644,124 @@ def get_minifig_sets(set_num):
         params={"key": API_KEY, "page_size": 30},
     )
     return jsonify(resp.json()), resp.status_code
+
+
+# ── LEGO Collectible Minifigures (CMF) box-code identification ──────────
+# Recent CMF boxes (Series 25+, 2024 on) carry a Data Matrix code on the box
+# bottom (right of the barcode) whose 7-digit value identifies the figure
+# inside. There is no algorithm — it's a per-series, per-region lookup table
+# (community-sourced; see cmf_codes.json). The frontend reads the code via
+# ZXing (or the user types it) and calls these endpoints.
+CMF_CODES_PATH = os.path.join(_HERE, "cmf_codes.json")
+# User-captured code→figure mappings, built in-app by scanning + tagging boxes.
+# LOCAL-ONLY (git-ignored, like the other user-data stores; empty on Render).
+CMF_CAPTURED_PATH = os.path.join(_HERE, ".cmf_captured.json")
+_cmf_cache = {"mtime": None, "data": None}
+
+
+def _load_cmf_codes():
+    """Load + cache cmf_codes.json, reloading when the file changes on disk."""
+    empty = {"series": {}, "codes": {}}
+    try:
+        mtime = os.path.getmtime(CMF_CODES_PATH)
+    except OSError:
+        return empty
+    if _cmf_cache["mtime"] != mtime:
+        try:
+            with open(CMF_CODES_PATH, encoding="utf-8") as f:
+                _cmf_cache["data"] = json.load(f)
+            _cmf_cache["mtime"] = mtime
+        except (OSError, ValueError):
+            return empty
+    return _cmf_cache["data"] or empty
+
+
+def _enrich_cmf_figure(entry):
+    """Resolve a CMF table entry {series, name} → a display figure with a
+    Rebrickable fig_num + image via the offline catalog. Degrades gracefully
+    (name/series only) when the catalog is absent, e.g. on Render."""
+    out = {
+        "name": entry.get("name", ""),
+        "series": entry.get("series", ""),
+        "fig_num": entry.get("fig_num"),
+        "img_url": entry.get("img_url"),
+    }
+    if not (out["fig_num"] and out["img_url"]):
+        fig = _local_resolve_minifig(out["name"])
+        if fig:
+            out["fig_num"] = out["fig_num"] or fig.get("fig_num")
+            out["img_url"] = out["img_url"] or fig.get("img_url")
+    return out
+
+
+@app.route("/api/cmf/series")
+def cmf_series():
+    """List the CMF series we have code data for, each with its figures —
+    powers the manual 'pick your series' fallback when a scan won't read."""
+    data = _load_cmf_codes()
+    figs_by_series = {}
+    for entry in (data.get("codes") or {}).values():
+        figs_by_series.setdefault(entry.get("series", ""), set()).add(entry.get("name", ""))
+    out = []
+    for s in sorted(figs_by_series):
+        meta = (data.get("series") or {}).get(s, {})
+        out.append({
+            "series": s,
+            "set_num": meta.get("set_num"),
+            "figures": sorted(n for n in figs_by_series[s] if n),
+        })
+    return jsonify({"series": out}), 200
+
+
+@app.route("/api/cmf/lookup/<code>")
+def cmf_lookup(code):
+    """Resolve a scanned 7-digit CMF box code → the figure sealed inside.
+    Checks the curated table first, then the user's captured store."""
+    norm = re.sub(r"\D", "", code or "")
+    entry = (_load_cmf_codes().get("codes") or {}).get(norm)
+    source = "catalog"
+    if not entry:
+        captured = _load_meta(CMF_CAPTURED_PATH)
+        if norm in captured:
+            entry, source = captured[norm], "captured"
+    if not entry:
+        hint = None if len(norm) == 7 else \
+            "Expected a 7-digit code — it sits to the right of the barcode on the box bottom."
+        return jsonify({"found": False, "code": norm, "hint": hint}), 200
+    fig = _enrich_cmf_figure(entry)
+    fig.update({"found": True, "code": norm, "source": source})
+    return jsonify(fig), 200
+
+
+@app.route("/api/cmf/capture", methods=["POST"])
+def cmf_capture():
+    """Record a user-verified code → figure mapping in the local captured store,
+    so a box you scan + tag is recognised from then on. Builds a series table
+    in-app from real boxes. LOCAL-ONLY (empty on Render)."""
+    body = request.get_json(silent=True) or {}
+    code = re.sub(r"\D", "", str(body.get("code", "")))
+    name = (body.get("name") or "").strip()
+    fig_num = (body.get("fig_num") or "").strip()
+    series = (body.get("series") or "").strip()
+    if not code:
+        return jsonify({"error": "Missing code"}), 400
+    if not (name or fig_num):
+        return jsonify({"error": "Pick a figure first"}), 400
+    captured = _load_meta(CMF_CAPTURED_PATH)
+    captured[code] = {"fig_num": fig_num, "name": name, "series": series}
+    _save_meta(CMF_CAPTURED_PATH, captured)
+    fig = _enrich_cmf_figure(captured[code])
+    fig.update({"found": True, "code": code, "source": "captured"})
+    return jsonify(fig), 200
+
+
+@app.route("/api/cmf/captured")
+def cmf_captured():
+    """List the user's captured code→figure mappings (for review/export →
+    promotion into cmf_codes.json once a series is complete)."""
+    captured = _load_meta(CMF_CAPTURED_PATH)
+    out = [dict(code=c, **v) for c, v in sorted(captured.items())]
+    return jsonify({"captured": out, "count": len(out)}), 200
 
 
 @app.route("/api/minifig/<minifig_id>")
