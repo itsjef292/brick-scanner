@@ -3,6 +3,13 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Subtract-a-Set promoted to its own tab (June 2026):**
+- The **Subtract a Set** tool is now a top-level bubble in the Lists tab bar
+  (My Lists · Shopping · **Subtract Set**) instead of being buried in the
+  *Manage list* accordion. New `#listsModeSubtractView`; `switchListsMode()`
+  generalized from a 2-way toggle to a 3-tab map. *Manage list* now holds
+  Import/Export/Compare only.
+
 **Subtract-a-Set: dedicated list picker (June 2026):**
 - The **Subtract a Set** tool now has its own **"From list…"** dropdown
   (`#subtractListSelect`, populated alongside the Compare selects in

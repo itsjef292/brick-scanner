@@ -1318,6 +1318,7 @@
   <div class="shopping-tabs">
     <button id="listsModeLists" class="shopping-tab active" onclick="switchListsMode('lists')">My Lists</button>
     <button id="listsModeShop" class="shopping-tab" onclick="switchListsMode('shopping')">Shopping</button>
+    <button id="listsModeSubtract" class="shopping-tab" onclick="switchListsMode('subtract')">Subtract Set</button>
   </div>
 
   <div id="listsModeListsView">
@@ -1370,22 +1371,6 @@
         </div>
         <div id="compareStatus" class="status-text"></div>
       </div>
-
-      <div class="list-tool-group">
-        <div class="sub-label">Subtract a Set</div>
-        <div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Preview how many needed pieces a set you've acquired would cover, then remove them from a list.</div>
-        <select id="subtractListSelect" style="width:100%;padding:8px 10px;margin-bottom:8px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;">
-          <option value="">From list…</option>
-        </select>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input type="text" id="subtractSetInput" placeholder="Set number, e.g. 75060"
-            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-            style="flex:1;min-width:120px;padding:8px 10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;"
-            onkeydown="if(event.key==='Enter')runSetSubtract()">
-          <button class="action-btn" onclick="runSetSubtract()" style="flex-shrink:0;">Analyze</button>
-        </div>
-        <div id="subtractSetStatus" class="status-text"></div>
-      </div>
     </div>
   </div>
 
@@ -1393,6 +1378,25 @@
   <div id="listPartsGrid" style="padding:0 14px 24px;"></div>
   <div id="listLoadMore" style="display:none;"></div>
   </div><!-- /listsModeListsView -->
+
+  <!-- Subtract a Set: remove a set's pieces from a parts list -->
+  <div id="listsModeSubtractView" style="display:none;">
+    <div class="list-tool-group" style="margin:14px;">
+      <div class="sub-label">Subtract a Set</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Preview how many needed pieces a set you've acquired would cover, then remove them from a list.</div>
+      <select id="subtractListSelect" style="width:100%;padding:8px 10px;margin-bottom:8px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;">
+        <option value="">From list…</option>
+      </select>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="subtractSetInput" placeholder="Set number, e.g. 75060"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          style="flex:1;min-width:120px;padding:8px 10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;"
+          onkeydown="if(event.key==='Enter')runSetSubtract()">
+        <button class="action-btn" onclick="runSetSubtract()" style="flex-shrink:0;">Analyze</button>
+      </div>
+      <div id="subtractSetStatus" class="status-text"></div>
+    </div>
+  </div><!-- /listsModeSubtractView -->
 
   <!-- Shopping (moved from the former Cart tab) -->
   <div id="listsModeShopView" style="display:none;">
@@ -5521,12 +5525,16 @@
   // Top-level toggle on the Part Lists screen: "My Lists" vs "Shopping"
   // (the latter holds the functionality moved from the former Cart tab).
   function switchListsMode(view) {
-    const isShop = view === 'shopping';
-    document.getElementById('listsModeLists').classList.toggle('active', !isShop);
-    document.getElementById('listsModeShop').classList.toggle('active', isShop);
-    document.getElementById('listsModeListsView').style.display = isShop ? 'none' : 'block';
-    document.getElementById('listsModeShopView').style.display = isShop ? 'block' : 'none';
-    if (isShop) loadShoppingList();
+    const tabs = {
+      lists:    { btn: 'listsModeLists',    view: 'listsModeListsView' },
+      shopping: { btn: 'listsModeShop',     view: 'listsModeShopView' },
+      subtract: { btn: 'listsModeSubtract', view: 'listsModeSubtractView' },
+    };
+    Object.entries(tabs).forEach(([k, { btn, view: v }]) => {
+      document.getElementById(btn).classList.toggle('active', k === view);
+      document.getElementById(v).style.display = (k === view) ? 'block' : 'none';
+    });
+    if (view === 'shopping') loadShoppingList();
   }
 
   function switchShoppingView(view) {
