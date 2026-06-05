@@ -3,6 +3,15 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Subtract-a-Set: dedicated list picker (June 2026):**
+- The **Subtract a Set** tool now has its own **"From list…"** dropdown
+  (`#subtractListSelect`, populated alongside the Compare selects in
+  `_populateCompareSelects`) instead of silently operating on the top
+  "Select a list…" selector. `runSetSubtract()` reads this picker, making the
+  tool self-contained and clearer about which list it subtracts from.
+- Also: updated the private Tailscale URL in `SETUP.md` after migrating to the
+  Mac mini (`jefs-macbook-pro` → `jefs-mac-mini.tailbdd458.ts.net`).
+
 **Subtract a set from a parts list (June 2026):**
 - New **Subtract a Set** tool in the Lists → *Manage list* section. Enter a set
   number against the selected parts list to preview how many needed pieces that

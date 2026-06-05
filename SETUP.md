@@ -99,7 +99,7 @@ over plain HTTP), so use the **HTTPS** URL below on the phone to get those. The
 
 - **Reach it from the phone:** install the Tailscale app, sign into the same
   account, then open the **HTTPS** URL (live camera + mic) — currently
-  **`https://jefs-macbook-pro.tailbdd458.ts.net`** — or `http://…:5001` (raw, no
+  **`https://jefs-mac-mini.tailbdd458.ts.net`** — or `http://…:5001` (raw, no
   camera/mic). `start.sh` auto-detects and prints the raw URL.
 - **HTTPS via Tailscale Serve (recommended — enables live camera + mic):**
   `tailscale serve --bg 5001` proxies the tailnet host's :443 → local :5001 with a

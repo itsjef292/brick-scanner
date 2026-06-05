@@ -1373,7 +1373,10 @@
 
       <div class="list-tool-group">
         <div class="sub-label">Subtract a Set</div>
-        <div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Preview how many needed pieces a set you've acquired would cover, then remove them from this list.</div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Preview how many needed pieces a set you've acquired would cover, then remove them from a list.</div>
+        <select id="subtractListSelect" style="width:100%;padding:8px 10px;margin-bottom:8px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;">
+          <option value="">From list…</option>
+        </select>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input type="text" id="subtractSetInput" placeholder="Set number, e.g. 75060"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -4936,10 +4939,11 @@
   let _cmpNameA = '', _cmpNameB = '';
 
   function _populateCompareSelects(lists) {
-    ['compareListA', 'compareListB'].forEach(id => {
+    const _ph = { compareListA: 'List A…', compareListB: 'List B…', subtractListSelect: 'From list…' };
+    ['compareListA', 'compareListB', 'subtractListSelect'].forEach(id => {
       const sel = document.getElementById(id);
       const prev = sel.value;
-      sel.innerHTML = `<option value="">${id === 'compareListA' ? 'List A…' : 'List B…'}</option>`;
+      sel.innerHTML = `<option value="">${_ph[id]}</option>`;
       lists.forEach(l => {
         const o = document.createElement('option');
         o.value = l.id;
@@ -5063,12 +5067,12 @@
   let _subListName = '';
 
   async function runSetSubtract() {
-    const listSel = document.getElementById('listsViewSelect');
+    const listSel = document.getElementById('subtractListSelect');
     const listId = listSel.value;
     const status = document.getElementById('subtractSetStatus');
     const setNum = document.getElementById('subtractSetInput').value.trim();
     if (!listId || listId === '__minifigs__' || listId === '__sets__') {
-      status.innerHTML = '<span style="color:var(--red);">Select a parts list first.</span>'; return;
+      status.innerHTML = '<span style="color:var(--red);">Select a list first.</span>'; return;
     }
     if (!setNum) { status.innerHTML = '<span style="color:var(--red);">Enter a set number.</span>'; return; }
     _subListId = listId;
