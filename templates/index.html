@@ -1896,6 +1896,7 @@
   let currentPartColors = [];
   let currentInventoryQuantity = 0;
   let inventoryCheckToken = 0;
+  let _scanSeq = 0;
   let capturedObjectUrl = null;
   let mode = 'parts'; // 'parts' | 'minifigs'
 
@@ -3781,6 +3782,7 @@
   }
 
   async function showIdentifyScreen(data) {
+    const scanSeq = ++_scanSeq;
     // Reset quantity FIRST, before anything else
     const qtyInput = document.getElementById('quantityInput');
     qtyInput.type = 'text';
@@ -3811,6 +3813,8 @@
       document.getElementById('blValue').textContent = '—';
       document.getElementById('rbValue').textContent = '—';
       document.getElementById('altSection').style.display = 'none';
+      document.getElementById('setsSection').style.display = 'none';
+      document.getElementById('partsSection').style.display = 'none';
       document.getElementById('colorSheet').classList.remove('open');
       document.getElementById('minifigOwnBar').style.display = 'none';
       document.getElementById('minifigOwnedBanner').style.display = 'none';
@@ -3836,17 +3840,18 @@
 
       fetch(`/api/minifig_sets/${items[0].id}`)
         .then(r => r.json())
-        .then(data => renderMinifigSets(data))
-        .catch(() => { document.getElementById('setsSection').style.display = 'none'; });
+        .then(data => { if (scanSeq === _scanSeq) renderMinifigSets(data); })
+        .catch(() => { if (scanSeq === _scanSeq) document.getElementById('setsSection').style.display = 'none'; });
 
       // Fetch parts for this minifigure
       fetch(`/api/minifig_parts/${items[0].id}`)
         .then(r => r.json())
         .then(data => {
+          if (scanSeq !== _scanSeq) return;
           _minifigPartsData = data;
           renderMinifigParts(data);
         })
-        .catch(() => { document.getElementById('partsSection').style.display = 'none'; });
+        .catch(() => { if (scanSeq === _scanSeq) document.getElementById('partsSection').style.display = 'none'; });
 
       const alts = items.slice(1, 5).filter(i => i.type === 'minifig');
       if (alts.length) {

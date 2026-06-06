@@ -45,6 +45,9 @@ if [ -n "$TS_NAME" ]; then
   else
     echo "  Tailscale: http://${TS_NAME}:5001"
   fi
+  echo ""
+  echo "  Other apps on this tailnet:"
+  echo "  Package Tracker: https://${TS_NAME}:8443"
 else
   echo "  Tailscale: (not detected — is Tailscale running & signed in?)"
 fi
