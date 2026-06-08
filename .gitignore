@@ -32,3 +32,11 @@ app.log
 # Daily minifig price-refresh logs (local dev only)
 minifig_prices.log
 minifig_prices.launchd.log
+
+# Native iOS shell (Capacitor) — build/dependency artifacts. The committed
+# source is native/package.json + native/capacitor.config.json + native/www/.
+# The ios/ project + node_modules are generated on the build Mac (see BUILD_IOS.md).
+native/node_modules/
+native/ios/
+native/.DS_Store
+native/package-lock.json

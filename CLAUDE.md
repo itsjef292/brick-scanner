@@ -160,11 +160,12 @@ Flask server with 10+ endpoints:
 - `GET/POST /api/minifiglists` — legacy synthetic single-list shim (Rebrickable has no minifig lists); largely vestigial now that the collection is local.
 
 **Owned Sets ("My Sets" — the user's Rebrickable set collection at `/users/{token}/sets/`):**
-- `GET /api/owned_sets` — list every owned set (set_num, name, year, num_parts, img, quantity, condition, price_paid)
+- `GET /api/owned_sets` — list every owned set (set_num, name, year, num_parts, img, quantity, condition, price_paid, price_used, price_new, price_updated)
 - `GET /api/owned_sets/<set_num>` — `{owned, quantity, condition, price_paid}` for one set
 - `POST /api/add_set` — add a set (merges quantity if already owned)
 - `POST /api/remove_set_one` — decrement an owned set by 1 (deletes the entry + its metadata at 0)
-- `POST /api/owned_sets/<set_num>/meta` — save purchase **condition** (`used`/`new`) + **price_paid**. Stored in local `.set_meta.json` (Rebrickable's set collection only holds quantity). LOCAL-ONLY — empty on Render.
+- `POST /api/owned_sets/<set_num>/meta` — save purchase **condition** (`used`/`new`) + **price_paid**, merged into the existing `.set_meta.json` record (Rebrickable's set collection only holds quantity) — a cached BrickLink market price survives the edit rather than being overwritten. The record is dropped only once it carries nothing at all. LOCAL-ONLY — empty on Render.
+- **BrickLink price tracking:** `refresh_set_prices()` stores each owned set's last-6-mo SOLD avg (`price_used`/`price_new`/`price_updated`) in `.set_meta.json` — every set has a usable BrickLink id (`set_num`, `-1`-suffixed if bare, same as `get_set_price`), so none are skipped. `POST /api/set_prices/refresh` triggers it (threaded, polled via `/api/set_prices/status`); `/api/owned_sets` returns the prices; rows show a `BL ~$X` chip (`_setMarketPrice`) and the My Sets count line shows both **spent** (`price_paid` × qty, `_setsSpentValue`) and **BrickLink market** (`_setsMarketValue`) collection totals via `_setsValueSuffix`. **Daily 05:30 local** (offset from minifigs' 05:00) via `com.brickscanner.set-prices` launchd agent (`refresh_set_prices.py`); LOCAL-ONLY.
 
 **Owned Minifigs ("My Minifigs") — a fully LOCAL collection:**
 Rebrickable's `/users/{token}/minifigs/` is **read-only** (GET-only, no per-item route; it just aggregates minifigs from owned sets — POST returns 405), so there's no server-side owned-minifig list. The entire collection lives in local `.minifig_collection.json` keyed by fig_num (`{quantity, condition, price_paid, name, img_url}`). LOCAL-ONLY — empty on Render.
@@ -427,9 +428,11 @@ python3 app.py
 - **.env** — API credentials (git-ignored)
 - **brick_parts.db / Brick Parts/** — Offline catalog DB + source CSVs (git-ignored, local dev only)
 - **SETUP.md** — new-machine setup, private (Tailscale) access, Render deploy/keys/cost detail
+- **native/ + BUILD_IOS.md** — Capacitor iOS shell. Loads the live web app over Tailscale (`server.url`) and adds an on-device ML Kit **Data Matrix scanner** for the CMF tab (native decode, far stronger than web/libdmtx). Feature-detected via `_cmfNative()` in index.html — the browser keeps its web camera flow untouched. Built on a Mac with Xcode (not the server); `ios/`+`node_modules/` are git-ignored.
 - **CHANGELOG.md** — full history of notable changes (moved out of this file)
 - **start.sh** — Foreground run; auto-detects and prints the private Tailscale URL
 - **install_agents.sh** — installs/refreshes both launchd agents for the current machine (substitutes `__PROJECT_DIR__` in the plist templates → `~/Library/LaunchAgents`, loads them); makes the agents path/user-independent
 - **com.brickscanner.app.plist** — launchd autostart agent template for the Flask server (local-only; runs at login, restarts on crash → `app.log`)
 - **com.brickscanner.catalog-refresh.plist / refresh_catalog.sh** — launchd daily catalog-refresh job template + self-locating wrapper, 07:30 ET (local-only)
 - **com.brickscanner.minifig-prices.plist / refresh_minifig_prices.sh / refresh_minifig_prices.py** — launchd daily BrickLink price refresh for the minifig collection, 05:00 local (local-only)
+- **com.brickscanner.set-prices.plist / refresh_set_prices.sh / refresh_set_prices.py** — launchd daily BrickLink price refresh for the set collection, 05:30 local (local-only)

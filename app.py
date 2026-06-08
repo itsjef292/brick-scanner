@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import re
+import io
 import sys
 import json
 import hashlib
@@ -13,6 +14,28 @@ from dotenv import load_dotenv
 from requests_oauthlib import OAuth1
 
 load_dotenv()
+
+# ── Data Matrix decoding for CMF box codes (server-side, via libdmtx) ──────────
+# libdmtx is a dedicated Data Matrix decoder — far stronger on these tiny, glossy
+# box codes than the browser's ZXing-js (which is also starved of resolution by
+# iOS Safari). The client POSTs the captured photo to /api/cmf/decode and we read
+# it here. OPTIONAL: if the native lib / Pillow aren't present (e.g. Render
+# without the apt package), import fails gracefully → the endpoint reports
+# unavailable and the client falls back to its in-browser ZXing decode.
+# macOS/Homebrew installs the dylib outside ctypes' default search path, and
+# /usr/bin/python3 is SIP-protected (external DYLD_* env is stripped), so we set
+# the fallback path in-process *before* importing pylibdmtx.
+for _libdir in ("/opt/homebrew/lib", "/usr/local/lib"):
+    if os.path.isdir(_libdir):
+        os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = (
+            _libdir + os.pathsep + os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "")
+        )
+try:
+    from pylibdmtx.pylibdmtx import decode as _dmtx_decode
+    from PIL import Image, ImageOps
+    _DMTX_OK = True
+except Exception:
+    _DMTX_OK = False
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -259,10 +282,14 @@ def _local_resolve_minifig(name):
         conn.close()
 
 
-def _bricklink_minifig_name(bl_id):
-    """Look up a BrickLink minifig id (e.g. sw0131) → its catalog name via the
-    BrickLink API. Rebrickable exposes no BrickLink minifig ids, so the name is
-    the only bridge to a Rebrickable fig. Returns the name or None on any failure.
+def _bricklink_minifig_lookup(bl_id):
+    """Look up a BrickLink minifig id (e.g. sw0131) → {name, img_url} via the
+    BrickLink API. Rebrickable exposes no BrickLink minifig ids, so this is the
+    only bridge to a Rebrickable fig — and, when there's no Rebrickable match at
+    all (a brand-new figure BrickLink's crowd-sourced catalog has but Rebrickable
+    doesn't yet), the source of truth for adding the figure straight from
+    BrickLink data. Returns {"name", "img_url"} or None on any failure;
+    `img_url` may be None (BrickLink's protocol-relative URL is normalized to https).
     """
     if not (BL_CONSUMER_KEY and BL_TOKEN):
         return None
@@ -270,10 +297,73 @@ def _bricklink_minifig_name(bl_id):
         auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
         resp = requests.get(f"{BL_BASE}/items/MINIFIG/{bl_id}", auth=auth, timeout=8)
         if resp.status_code == 200:
-            return ((resp.json() or {}).get("data") or {}).get("name") or None
+            d = ((resp.json() or {}).get("data") or {})
+            name = d.get("name")
+            if not name:
+                return None
+            img = d.get("image_url")
+            if img and img.startswith("//"):
+                img = "https:" + img
+            return {"name": name, "img_url": img or None}
     except Exception:
         pass
     return None
+
+
+def _bricklink_minifig_sets(bl_id):
+    """Sets containing a minifig, looked up directly from BrickLink by its
+    catalog id via the "supersets" endpoint. BrickLink's catalog is
+    crowd-maintained and tends to link new figs to their sets faster than
+    Rebrickable's inventory data (which can be missing/wrong for recent
+    releases — the actual complaint that prompted this).
+
+    Returns a list shaped like Rebrickable's /minifigs/<f>/sets/ results
+    (set_num, name, year, set_img_url), or None on any failure. BrickLink's
+    response carries no year/image, so both are filled in from the local
+    catalog (by matching set_num) when available; sets missing locally —
+    i.e. likely the newest ones — sort to the top.
+    """
+    data = bricklink_request("GET", f"/items/MINIFIG/{bl_id}/supersets")
+    groups = (data or {}).get("data")
+    if groups is None:
+        return None
+
+    set_nums, names, seen = [], {}, set()
+    for group in groups:
+        for entry in (group.get("entries") or []):
+            item = entry.get("item") or {}
+            set_num = item.get("no")
+            if item.get("type") != "SET" or not set_num or set_num in seen:
+                continue
+            seen.add(set_num)
+            set_nums.append(set_num)
+            names[set_num] = item.get("name", "")
+
+    local_meta = {}
+    conn = local_db()
+    if conn is not None and set_nums:
+        try:
+            placeholders = ",".join("?" for _ in set_nums)
+            rows = conn.execute(
+                f"SELECT set_num, name, year, img_url FROM sets WHERE set_num IN ({placeholders})",
+                set_nums,
+            ).fetchall()
+            local_meta = {r["set_num"]: dict(r) for r in rows}
+        finally:
+            conn.close()
+
+    out = []
+    for set_num in set_nums:
+        meta = local_meta.get(set_num)
+        out.append({
+            "set_num": set_num,
+            "name": meta["name"] if meta else names[set_num],
+            "year": meta["year"] if meta else None,
+            "set_img_url": meta["img_url"] if meta else
+                f"https://img.bricklink.com/ItemImage/SN/0/{set_num}.png",
+        })
+    out.sort(key=lambda s: (s["year"] or 9999, s["set_num"]), reverse=True)
+    return out[:30]
 
 
 def _local_minifig_search_by_name(name, limit=20):
@@ -1635,6 +1725,16 @@ def create_partlist():
 
 @app.route("/api/minifig_sets/<set_num>")
 def get_minifig_sets(set_num):
+    # If we know the BrickLink catalog id, prefer its set linkage — it's
+    # crowd-maintained and stays current for new releases, where Rebrickable's
+    # inventory data can be missing or wrong (the figure itself still resolves
+    # fine; it's the "appears in" list that's stale).
+    bl_id = (request.args.get("bl_id") or "").strip()
+    if bl_id:
+        bl_sets = _bricklink_minifig_sets(bl_id)
+        if bl_sets is not None:
+            return jsonify({"count": len(bl_sets), "results": bl_sets, "source": "bricklink"}), 200
+
     # Prefer the offline catalog (no API quota); fall back to the live API.
     local = _local_minifig_sets(set_num)
     if local:
@@ -1731,6 +1831,108 @@ def cmf_lookup(code):
     fig = _enrich_cmf_figure(entry)
     fig.update({"found": True, "code": norm, "source": source})
     return jsonify(fig), 200
+
+
+def _cmf_fit(im, cap):
+    """Downscale an image so its longest side is <= cap (libdmtx scans the whole
+    frame for finder patterns — a multi-megapixel still is needlessly slow)."""
+    w, h = im.size
+    big = max(w, h)
+    if big <= cap:
+        return im
+    s = cap / float(big)
+    return im.resize((max(1, int(w * s)), max(1, int(h * s))))
+
+
+def _cmf_prep_region(reg):
+    """Normalize a grayscale region for libdmtx: upscale small crops so each code
+    module spans several pixels, cap big ones for speed, then stretch contrast
+    (helps washed-out / glare-affected codes)."""
+    w, h = reg.size
+    big = max(w, h)
+    if big < 700:
+        s = 900.0 / big
+        reg = reg.resize((max(1, int(w * s)), max(1, int(h * s))))
+    elif big > 1700:
+        s = 1700.0 / big
+        reg = reg.resize((max(1, int(w * s)), max(1, int(h * s))))
+    return ImageOps.autocontrast(reg, cutoff=1)
+
+
+def _cmf_extract_code(raw):
+    """A CMF box's Data Matrix payload carries several space-separated fields,
+    e.g. '6605269 211R6 15945242 007416' — the figure's stable 7-digit material
+    code is the FIRST field; the later ones include a per-box serial that differs
+    on every box. Return the first run of exactly 7 digits, else the first 7 of a
+    longer leading run, else '' — never concatenate fields."""
+    runs = re.findall(r"\d+", raw or "")
+    for r in runs:
+        if len(r) == 7:
+            return r
+    for r in runs:
+        if len(r) >= 7:
+            return r[:7]
+    return ""
+
+
+def _cmf_decode_bytes(img_bytes, log=False):
+    """Decode a CMF box's Data Matrix from a photo with libdmtx. Sweeps the full
+    frame then progressively tighter centre crops — a tighter crop makes the small
+    code fill more of the image, which is what the decoder needs — each contrast-
+    normalized, with Reed-Solomon error correction for glare/damage. Returns the
+    decoded digit string, or None. Best-effort + time-bounded; logs the outcome
+    (and image size) when log=True so device scans can be diagnosed from app.log."""
+    if not _DMTX_OK:
+        return None
+    try:
+        im = Image.open(io.BytesIO(img_bytes))
+        im = ImageOps.exif_transpose(im).convert("L")   # rotation + grayscale
+    except Exception:
+        if log:
+            print("[cmf] decode: could not open image", flush=True)
+        return None
+    W, H = im.size
+    m = min(W, H)
+    regions = [im]   # full frame first
+    for frac in (0.6, 0.42, 0.3, 0.22):
+        side = int(m * frac)
+        if side >= 60:
+            l, t = (W - side) // 2, (H - side) // 2
+            regions.append(im.crop((l, t, l + side, t + side)))
+    for reg in regions:
+        try:
+            results = _dmtx_decode(_cmf_prep_region(reg), timeout=900, max_count=1, corrections=3)
+        except Exception:
+            results = []
+        for r in results:
+            raw = (r.data or b"").decode("utf-8", "ignore")
+            code = _cmf_extract_code(raw)
+            if code:
+                if log:
+                    print("[cmf] decode OK raw=%r -> %s (img %dx%d)" % (raw, code, W, H), flush=True)
+                return code
+    if log:
+        print("[cmf] decode: no read (img %dx%d)" % (W, H), flush=True)
+    return None
+
+
+@app.route("/api/cmf/decode", methods=["POST"])
+def cmf_decode():
+    """Decode a CMF box photo's Data Matrix server-side with libdmtx (stronger
+    than the in-browser ZXing path). Returns {found, code}; the client then runs
+    its normal /api/cmf/lookup on the code. 503 when the decoder isn't installed
+    (e.g. Render) so the client can fall back to its own ZXing decode. The client
+    tags a deliberate still as mode=photo so those (not the noisy live frames) are
+    logged for diagnosis."""
+    if not _DMTX_OK:
+        return jsonify({"available": False, "error": "Decoder not installed"}), 503
+    if "image" not in request.files:
+        return jsonify({"error": "No image provided"}), 400
+    is_photo = (request.form.get("mode") == "photo")
+    code = _cmf_decode_bytes(request.files["image"].read(), log=is_photo)
+    if code:
+        return jsonify({"found": True, "code": code}), 200
+    return jsonify({"found": False}), 200
 
 
 @app.route("/api/cmf/capture", methods=["POST"])
@@ -2094,18 +2296,25 @@ def owned_set_status(set_num):
 def set_owned_meta(set_num):
     """Save purchase metadata (condition + price paid) for an owned set.
     Body: {condition: "used"|"new"|null, price_paid: number|null}. Pass both
-    null/empty to clear the entry."""
-    entry = _clean_meta(request.json or {})
+    null/empty to clear them — but the record is only dropped once it's
+    carrying nothing at all, so a cached BrickLink market price
+    (price_used/price_new, from refresh_set_prices) survives a condition/
+    price-paid edit instead of being wiped by a full overwrite."""
+    clean = _clean_meta(request.json or {}) or {"condition": None, "price_paid": None}
     with _meta_lock:
         meta = _load_meta(SET_META_PATH)
-        if entry is None:
+        entry = meta.get(set_num) or {}
+        entry["condition"] = clean.get("condition")
+        entry["price_paid"] = clean.get("price_paid")
+        if not any(entry.get(k) is not None for k in
+                   ("condition", "price_paid", "price_used", "price_new")):
             meta.pop(set_num, None)
         else:
             meta[set_num] = entry
         _save_meta(SET_META_PATH, meta)
     return jsonify({
-        "condition": (entry or {}).get("condition"),
-        "price_paid": (entry or {}).get("price_paid"),
+        "condition": entry.get("condition"),
+        "price_paid": entry.get("price_paid"),
     })
 
 
@@ -2200,11 +2409,115 @@ def owned_sets_list():
                 "quantity": it.get("quantity", 1),
                 "condition": m.get("condition"),
                 "price_paid": m.get("price_paid"),
+                "price_used": m.get("price_used"),
+                "price_new": m.get("price_new"),
+                "price_updated": m.get("price_updated"),
             })
         if not data.get("next"):
             break
         page += 1
     return jsonify({"results": out, "count": len(out)})
+
+
+def _owned_set_nums():
+    """Page through the user's Rebrickable set collection and return just the
+    set_nums — the minimal "what do we own" list refresh_set_prices() needs
+    (no per-set image/name fan-out)."""
+    out = []
+    page = 1
+    while page <= 100:
+        resp = rebrickable_get(
+            f"/users/{USER_TOKEN}/sets/",
+            params={"key": API_KEY, "page_size": 100, "page": page},
+        )
+        if resp is None or resp.status_code != 200:
+            break
+        data = resp.json()
+        for it in data.get("results", []):
+            num = (it.get("set") or {}).get("set_num")
+            if num:
+                out.append(num)
+        if not data.get("next"):
+            break
+        page += 1
+    return out
+
+
+def refresh_set_prices():
+    """Fetch BrickLink last-6-month SOLD averages (Used + New) for every owned
+    set and store them back into the local set-meta store
+    (`price_used`/`price_new`/`price_updated`, alongside the existing
+    condition/price_paid). Mirrors refresh_minifig_prices(). Unlike minifigs,
+    every set has a usable BrickLink id (its set_num, +"-1" if bare — see
+    get_set_price), so none are skipped. Returns a summary.
+    LOCAL-ONLY — `.set_meta.json` is empty/ephemeral on Render."""
+    set_nums = _owned_set_nums()
+    results, priced, failed = {}, 0, 0
+
+    def _avg(guide, cond):
+        try:
+            v = (guide.get(cond) or {}).get("avg_price")
+            f = float(v)
+            return round(f, 2) if f > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    for set_num in set_nums:
+        bl_no = set_num if "-" in set_num else f"{set_num}-1"
+        guide = _bl_sold_price("SET", bl_no)
+        pu, pn = _avg(guide, "U"), _avg(guide, "N")
+        if pu is None and pn is None:
+            failed += 1
+        else:
+            priced += 1
+            results[set_num] = (pu, pn)
+        time.sleep(0.4)  # be polite to the BrickLink API
+
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    # Merge into a FRESH read so a concurrent meta edit isn't clobbered.
+    with _meta_lock:
+        cur = _load_meta(SET_META_PATH)
+        for set_num, (pu, pn) in results.items():
+            entry = cur.get(set_num) or {}
+            entry["price_used"] = pu
+            entry["price_new"] = pn
+            entry["price_updated"] = now
+            cur[set_num] = entry
+        _save_meta(SET_META_PATH, cur)
+
+    summary = {"total": len(set_nums), "priced": priced, "failed": failed, "updated": now}
+    print(f"[set prices] {summary}", file=sys.stderr)
+    return summary
+
+
+_set_price_running = {"on": False}
+
+
+@app.route("/api/set_prices/refresh", methods=["POST"])
+def set_prices_refresh():
+    """Manually trigger a BrickLink price refresh for the owned-sets collection
+    (the daily launchd job calls refresh_set_prices() directly). Runs in a
+    background thread so the request returns immediately."""
+    if _set_price_running["on"]:
+        return jsonify({"status": "already running"}), 202
+    _set_price_running["on"] = True  # set before returning so /status reflects it
+
+    def _run():
+        try:
+            refresh_set_prices()
+        except Exception as e:
+            print(f"[set prices] error: {e}", file=sys.stderr)
+        finally:
+            _set_price_running["on"] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "started"}), 202
+
+
+@app.route("/api/set_prices/status")
+def set_prices_status():
+    """Whether a set price refresh is currently running (for the UI poll)."""
+    return jsonify({"running": _set_price_running["on"]})
 
 
 def _bl_sold_price(item_type, item_no):
@@ -2400,10 +2713,10 @@ def local_search():
             # no BrickLink minifig ids, so translate the id → name via BrickLink and
             # surface the best-matching Rebrickable figs as candidates to choose from.
             if not results and re.match(r'^[a-z]{1,4}\d{2,5}[a-z]?$', query.lower()):
-                bl_name = _bricklink_minifig_name(query)
-                if bl_name:
-                    bl_match = {"id": query, "name": bl_name}
-                    rows2 = _local_minifig_search_by_name(bl_name, limit)
+                bl_info = _bricklink_minifig_lookup(query)
+                if bl_info:
+                    bl_match = {"id": query, "name": bl_info["name"], "img_url": bl_info.get("img_url")}
+                    rows2 = _local_minifig_search_by_name(bl_info["name"], limit)
                     results = [{
                         "type": "minifig",
                         "fig_num": r["fig_num"],

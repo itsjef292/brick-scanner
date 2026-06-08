@@ -30,8 +30,17 @@ xcode-select --install                              # provides /usr/bin/python3 
 git clone https://github.com/itsjef292/brick-scanner.git "Brick Scanner" && cd "Brick Scanner"
 pip3 install -r requirements.txt
 # (requirements.txt pins are for Render/Docker; locally the unpinned set also works:
-#  pip3 install flask requests python-dotenv requests-oauthlib)
+#  pip3 install flask requests python-dotenv requests-oauthlib pylibdmtx Pillow)
 ```
+
+> **CMF box-code scanner needs the native libdmtx lib.** `pylibdmtx` (in
+> requirements) is just a wrapper; install the C library too so server-side
+> Data Matrix decode (`/api/cmf/decode`) works: `brew install libdmtx`. On
+> Apple-Silicon macOS the dylib lands in `/opt/homebrew/lib`, which is outside
+> ctypes' default search path and stripped from the SIP-protected `/usr/bin/python3`
+> environment — `app.py` handles this by setting `DYLD_FALLBACK_LIBRARY_PATH`
+> in-process before importing. If the lib is missing the feature self-disables and
+> the client falls back to in-browser ZXing (so it's optional, just much weaker).
 
 **3. 🔴 API credentials — the one thing nothing in git can give you.** The real
 values live only in the old machine's `.env` (git-ignored, by design) and in the
@@ -67,15 +76,16 @@ machine's real path, so username/location don't matter:
 ./install_agents.sh    # substitutes paths, copies to ~/Library/LaunchAgents, loads the agents
 ```
 This starts the always-on Flask server (`com.brickscanner.app`) and schedules the
-07:30-local catalog refresh (`com.brickscanner.catalog-refresh`) and the 05:00-local
-BrickLink minifig price refresh (`com.brickscanner.minifig-prices`). Re-running it is
-safe. (To run in the foreground instead, `launchctl stop com.brickscanner.app`
+07:30-local catalog refresh (`com.brickscanner.catalog-refresh`), the 05:00-local
+BrickLink minifig price refresh (`com.brickscanner.minifig-prices`), and the
+05:30-local BrickLink set price refresh (`com.brickscanner.set-prices`). Re-running it
+is safe. (To run in the foreground instead, `launchctl stop com.brickscanner.app`
 first, then `./start.sh` — both bind :5001.)
 
 **7. Verify**
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5001/   # expect 200
-launchctl list | grep brickscanner                                # both agents present
+launchctl list | grep brickscanner                                # all four agents present
 ```
 
 **Required environment variables in `.env`:**

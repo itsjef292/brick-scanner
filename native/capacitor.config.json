@@ -1,0 +1,13 @@
+{
+  "appId": "com.itsjef.brickscanner",
+  "appName": "Brick Scanner",
+  "webDir": "www",
+  "server": {
+    "url": "https://jefs-mac-mini.tailbdd458.ts.net",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

@@ -893,6 +893,87 @@
       60% { transform: scale(1.08); }
       100% { transform: scale(1); opacity: 1; }
     }
+
+    /* ── CMF immersive scanner (WhatFig-style full-screen camera) ── */
+    #screen-cmf { padding: 0; }
+    .cmf-stage {
+      position: relative; width: 100%;
+      height: calc(100dvh - 112px); min-height: 360px;
+      background: #000; overflow: hidden;
+    }
+    .cmf-stage video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* faint centered scan reticle the user aims the 2D code into */
+    .cmf-reticle {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 56%; max-width: 280px; aspect-ratio: 1;
+      border: 2px solid rgba(255,255,255,0.7); border-radius: 14px; pointer-events: none;
+    }
+    /* top-right floating controls (flashlight + photo capture) */
+    .cmf-controls { position: absolute; top: 14px; right: 14px; display: flex; gap: 12px; z-index: 6; }
+    .cmf-ctrl-btn {
+      width: 46px; height: 46px; border-radius: 50%; padding: 0;
+      background: rgba(8,11,15,0.5); border: 2px solid var(--yellow); color: var(--yellow);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    }
+    .cmf-ctrl-btn:active { background: rgba(8,11,15,0.82); }
+    .cmf-ctrl-btn svg { width: 22px; height: 22px; }
+    .cmf-ctrl-btn.on { background: var(--yellow); color: #06121F; }
+    .cmf-ctrl-btn[hidden] { display: none; }
+    /* on-stage status message (kept visible over the camera — the drawer below is
+       off-screen on the full-height stage, so feedback must live here) */
+    .cmf-scan-msg {
+      position: absolute; top: 70px; left: 14px; right: 14px; z-index: 6;
+      background: rgba(8,11,15,0.72); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      border: 1px solid var(--border-bright); border-radius: 10px;
+      padding: 9px 13px; text-align: center; color: #fff; font-size: 12.5px; line-height: 1.4;
+    }
+    .cmf-scan-msg:empty { display: none; }
+    /* idle bottom hint pill */
+    .cmf-hint-pill {
+      position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 5;
+      background: rgba(8,11,15,0.6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      border: 1px solid var(--border-bright); border-radius: 12px;
+      padding: 10px 14px; text-align: center; color: rgba(255,255,255,0.9);
+      font-size: 12px; line-height: 1.4;
+    }
+    /* bottom result bar (figure resolved) — thumb + name + qty stepper */
+    .cmf-bottombar {
+      position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 7;
+      display: none; align-items: center; gap: 11px;
+      background: rgba(8,11,15,0.8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      border: 1px solid var(--border-bright); border-radius: 14px; padding: 10px 12px;
+    }
+    .cmf-bottombar.show { display: flex; }
+    .cmf-bottombar > img { width: 50px; height: 50px; object-fit: contain; background: #fff; border-radius: 10px; flex-shrink: 0; }
+    .cmf-bb-info { flex: 1; min-width: 0; }
+    .cmf-bb-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: #fff; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cmf-bb-sub { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+    .cmf-step { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+    .cmf-step button {
+      width: 38px; height: 38px; border-radius: 10px; border: none; cursor: pointer; padding: 0;
+      background: var(--yellow); color: #06121F; font-size: 22px; font-weight: 700; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cmf-step button.minus { background: var(--surface3); color: #fff; }
+    .cmf-step button:disabled { opacity: 0.4; pointer-events: none; }
+    .cmf-step .cmf-qty { font-family: var(--font-mono); font-weight: 700; font-size: 18px; color: #fff; min-width: 20px; text-align: center; }
+    .cmf-bb-close {
+      position: absolute; top: -9px; right: -7px; width: 24px; height: 24px; border-radius: 50%;
+      background: var(--surface3); border: 1px solid var(--border-bright); color: #fff;
+      font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    /* manual-entry / capture drawer below the stage */
+    .cmf-drawer { padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+    /* native (iOS app) scan launcher — centered over the (camera-less) stage */
+    .cmf-native-panel {
+      position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px; padding: 28px; text-align: center;
+    }
+    .cmf-native-brick { width: 64px; height: 64px; color: var(--yellow); opacity: 0.9; }
+    .cmf-native-brick svg { width: 100%; height: 100%; }
+    .cmf-native-hint { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 280px; }
+    .cmf-native-panel .btn { width: auto; padding: 13px 28px; margin: 0; }
     .voice-mic {
       width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
       background: var(--yellow); color: #06121F; font-size: 34px;
@@ -1289,6 +1370,18 @@
       <button id="minifigPricesBtn" onclick="event.stopPropagation(); refreshMinifigPrices();" title="Refresh BrickLink prices"
         style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
     </div>
+    <input id="myMinifigsSearchInput" type="text" class="list-search-input" style="margin:0 0 10px;"
+      placeholder="Search your minifigs — name or BrickLink id"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      onclick="event.stopPropagation()" oninput="renderMyMinifigsGrid()">
+    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+      <select id="myMinifigsSort" onclick="event.stopPropagation()" onchange="_onMinifigsSortChange(this.value)"
+        style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+        <option value="name">Name A–Z</option>
+        <option value="price_desc">Price: High → Low</option>
+        <option value="price_asc">Price: Low → High</option>
+      </select>
+    </div>
     <div id="myMinifigsGrid"></div>
   </div>
 
@@ -1333,7 +1426,19 @@
       placeholder="Search this list — part #, name, or color"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       oninput="filterListParts()">
-    <div id="listSearchCount" class="list-search-count"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div id="listSearchCount" class="list-search-count"></div>
+      <select id="listSetsSort" onchange="_onSetsSortChange(this.value)" style="display:none;flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+        <option value="name">Name A–Z</option>
+        <option value="price_desc">Price: High → Low</option>
+        <option value="price_asc">Price: Low → High</option>
+      </select>
+      <select id="listMinifigsSort" onchange="_onMinifigsSortChange(this.value)" style="display:none;flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+        <option value="name">Name A–Z</option>
+        <option value="price_desc">Price: High → Low</option>
+        <option value="price_asc">Price: Low → High</option>
+      </select>
+    </div>
   </div>
 
   <div id="listTools" class="list-tools">
@@ -1446,6 +1551,16 @@
       <svg id="mySetsChevron" viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--muted);transition:transform .15s;flex-shrink:0;"><path d="M7 10l5 5 5-5z"/></svg>
       <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Sets</div>
       <div id="mySetsCount" style="margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--muted2);"></div>
+      <button id="setPricesBtn" onclick="event.stopPropagation(); refreshSetPrices();" title="Refresh BrickLink prices"
+        style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+      <select id="mySetsSort" onclick="event.stopPropagation()" onchange="_onSetsSortChange(this.value)"
+        style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+        <option value="name">Name A–Z</option>
+        <option value="price_desc">Price: High → Low</option>
+        <option value="price_asc">Price: Low → High</option>
+      </select>
     </div>
     <div id="mySetsGrid"></div>
   </div>
@@ -1502,13 +1617,37 @@
   <div id="setDetailsContent" style="padding:14px;"></div>
 </div>
 
-<!-- Screen: CMF box-code scanner -->
-<div class="screen" id="screen-cmf" style="padding:14px;">
-  <div style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);letter-spacing:0.3px;">Scan CMF box</div>
-  <div style="font-size:12px;color:var(--muted);margin:6px 0 12px;line-height:1.5;">Put the small <em style="font-style:normal;font-family:var(--font-mono);color:var(--text);">square 2D code</em> (right of the barcode — not the barcode) inside the box, fairly close so it fills the frame. Tap the view to grab a frame. Series 25+ boxes only; blind bags have no readable code.</div>
-  <div id="cmfVideoWrap" onclick="cmfTapScan()" style="position:relative;width:100%;aspect-ratio:4/3;background:var(--socket);border:1px solid var(--border-bright);border-radius:12px;overflow:hidden;cursor:pointer;">
-    <video id="cmfVideo" playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52%;aspect-ratio:1;border:2px solid rgba(255,255,255,0.7);border-radius:8px;pointer-events:none;"></div>
+<!-- Screen: CMF box-code scanner (immersive full-screen camera) -->
+<div class="screen" id="screen-cmf">
+  <div id="cmfVideoWrap" class="cmf-stage" onclick="cmfTapScan()">
+    <video id="cmfVideo" playsinline muted></video>
+    <div class="cmf-reticle"></div>
+
+    <!-- Floating controls: flashlight + photo capture -->
+    <div class="cmf-controls">
+      <button id="cmfTorchBtn" class="cmf-ctrl-btn" hidden onclick="event.stopPropagation(); _cmfToggleTorch();" aria-label="Toggle flashlight" title="Flashlight">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6l-.6 5.4a2 2 0 0 1-.5 1.1l-.9 1a2 2 0 0 0-.5 1.3V21a1 1 0 0 1-2 0v-9.2a2 2 0 0 0-.5-1.3l-.9-1a2 2 0 0 1-.5-1.1L9 2Z"/><path d="M8 6h8"/></svg>
+      </button>
+      <button class="cmf-ctrl-btn" onclick="event.stopPropagation(); document.getElementById('cmfPhotoInput').click();" aria-label="Take a photo of the code" title="Take photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+    </div>
+    <input type="file" id="cmfPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="cmfPhotoSelected(this)">
+
+    <!-- On-stage status (visible feedback over the camera) -->
+    <div id="cmfScanMsg" class="cmf-scan-msg"></div>
+
+    <!-- Native (iOS app) scan launcher — shown only inside the Capacitor shell,
+         where an on-device ML Kit scanner replaces the web camera/libdmtx path. -->
+    <div id="cmfNativePanel" class="cmf-native-panel" style="display:none;">
+      <div class="cmf-native-brick">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20h.01M20 20v-3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </div>
+      <div class="cmf-native-hint">Point at the small square 2D code on the box bottom (right of the barcode).</div>
+      <button id="cmfNativeBtn" class="btn" onclick="_cmfNativeScanOnce()">Scan CMF Box</button>
+    </div>
+
+    <!-- Figure pop-out when a code resolves -->
     <div id="cmfPop" class="cmf-pop">
       <div class="cmf-pop-card">
         <img id="cmfPopImg" alt="">
@@ -1516,18 +1655,38 @@
         <div id="cmfPopSeries" class="cmf-pop-series"></div>
       </div>
     </div>
+
+    <!-- Idle hint -->
+    <div id="cmfHintPill" class="cmf-hint-pill">Center the small <b>square 2D code</b> (right of the barcode) — get close, hold steady. Tap to grab a frame.</div>
+
+    <!-- Result bar: thumb + name + add/remove stepper -->
+    <div id="cmfBottomBar" class="cmf-bottombar" onclick="event.stopPropagation()">
+      <button class="cmf-bb-close" onclick="cmfScanAnother()" aria-label="Dismiss">✕</button>
+      <img id="cmfBarImg" alt="">
+      <div class="cmf-bb-info">
+        <div id="cmfBarName" class="cmf-bb-name"></div>
+        <div id="cmfBarSub" class="cmf-bb-sub"></div>
+      </div>
+      <div class="cmf-step">
+        <button class="minus" id="cmfStepMinus" onclick="_cmfStepRemove()" aria-label="Remove one">−</button>
+        <span class="cmf-qty" id="cmfStepQty">0</span>
+        <button id="cmfStepPlus" onclick="_cmfStepAdd()" aria-label="Add one">+</button>
+      </div>
+    </div>
   </div>
-  <div id="cmfStatus" class="voice-status" style="min-height:18px;text-align:center;margin-top:10px;"></div>
-  <button class="btn" onclick="document.getElementById('cmfPhotoInput').click()" style="width:100%;margin-top:8px;">📷 Take a photo of the code</button>
-  <input type="file" id="cmfPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="cmfPhotoSelected(this)">
-  <div style="font-size:11px;color:var(--muted2);text-align:center;margin-top:6px;">Most reliable — uses the full camera with autofocus.</div>
-  <div id="cmfResult" style="width:100%;margin-top:10px;"></div>
-  <div style="display:flex;gap:8px;width:100%;align-items:center;margin-top:12px;">
-    <input id="cmfManualInput" type="text" class="voice-input" inputmode="numeric"
-      placeholder="…or type the 7-digit code" style="flex:1;"
-      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-      onkeydown="if(event.key==='Enter')cmfLookupManual()">
-    <button class="voice-go" onclick="cmfLookupManual()">Look up</button>
+
+  <!-- Status + manual entry / capture drawer (below the immersive stage) -->
+  <div class="cmf-drawer">
+    <div id="cmfStatus" class="voice-status" style="min-height:18px;text-align:center;"></div>
+    <div id="cmfResult" style="width:100%;"></div>
+    <div style="display:flex;gap:8px;width:100%;align-items:center;">
+      <input id="cmfManualInput" type="text" class="voice-input" inputmode="numeric"
+        placeholder="…or type the 7-digit code" style="flex:1;"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        onkeydown="if(event.key==='Enter')cmfLookupManual()">
+      <button class="voice-go" onclick="cmfLookupManual()">Look up</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted2);text-align:center;">Series 25+ boxes only; blind bags have no readable code. The 📷 button (top-right) is the most reliable — it uses the full camera with autofocus.</div>
   </div>
 </div>
 
@@ -2372,6 +2531,7 @@
   // live-scan stream so a box code is caught during ordinary minifig scanning.
   let _cmfLastCode = null, _cmfResult = null, _cmfLastRaw = '';
   let _cmfStream = null, _cmfDecodeTimer = null, _cmfDmReader = null, _cmfCanvas = null, _cmfHints = null;
+  let _cmfTorchOn = false, _cmfOwnedQty = 0, _cmfStepBusy = false;
 
   // ── Capture: tag an unknown code → figure, saved to the local store ──────
   let _cmfCaptureCode = null, _cmfFigTimer = null, _cmfFigRows = [];
@@ -2436,31 +2596,81 @@
       .catch(() => { status.textContent = 'Network error.'; });
   }
 
+  // ── Native (Capacitor / iOS app) Data Matrix scanner ────────────────────
+  // Inside the iOS shell we use the on-device ML Kit scanner (Vision-grade) via
+  // the Capacitor bridge instead of the web camera + libdmtx path. Everything
+  // after the decode — lookup, tag-unknown, add to My Minifigs — is the same web
+  // flow. In a plain browser _cmfNative() is null and nothing here runs.
+  function _cmfNative() {
+    return (window.Capacitor && typeof Capacitor.isNativePlatform === 'function'
+            && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.BarcodeScanner)
+      ? Capacitor.Plugins.BarcodeScanner : null;
+  }
+  // Show the native launcher panel instead of the web camera UI.
+  function _cmfShowNativePanel() {
+    const v = document.getElementById('cmfVideo'); if (v) v.style.display = 'none';
+    document.querySelector('#cmfVideoWrap .cmf-reticle')?.style.setProperty('display', 'none');
+    document.querySelector('#cmfVideoWrap .cmf-controls')?.style.setProperty('display', 'none');
+    const hint = document.getElementById('cmfHintPill'); if (hint) hint.style.display = 'none';
+    const panel = document.getElementById('cmfNativePanel'); if (panel) panel.style.display = 'flex';
+  }
+  function _cmfHideNativePanel() {
+    const panel = document.getElementById('cmfNativePanel'); if (panel) panel.style.display = 'none';
+  }
+  async function _cmfNativeScanOnce() {
+    const BS = _cmfNative();
+    if (!BS) return;
+    try {
+      const perm = await BS.requestPermissions();
+      if (!(perm && (perm.camera === 'granted' || perm.camera === 'limited'))) {
+        _cmfMsg('Camera permission needed — enable it for Brick Scanner in Settings.');
+        return;
+      }
+    } catch (e) {}
+    _cmfMsg('');
+    _cmfHideNativePanel();
+    try {
+      const res = await BS.scan({ formats: ['DATA_MATRIX'] });
+      const list = (res && res.barcodes) || [];
+      if (list.length) {
+        const raw = list[0].rawValue || list[0].displayValue || '';
+        _cmfLastCode = null;        // allow re-scanning the same code
+        _cmfOnCode(raw);            // → _cmf7 extracts the 7-digit field → cmfLookup
+      } else {
+        _cmfShowNativePanel();
+        _cmfMsg('No code detected — try again, holding the square code steady.');
+      }
+    } catch (e) {
+      // user cancelled or scanner error
+      _cmfShowNativePanel();
+    }
+  }
+
   // Entering the CMF tab: reset state and start the box scanner.
   function _cmfEnterTab() {
     document.getElementById('cmfResult').innerHTML = '';
     document.getElementById('cmfManualInput').value = '';
-    document.getElementById('cmfStatus').textContent = '';
+    _cmfMsg('');
     _cmfLastCode = null; _cmfResult = null; _cmfCaptureCode = null;
     _cmfHidePop();
-    _cmfStartScan();
+    if (_cmfNative()) { _cmfShowNativePanel(); return; }   // iOS app → native scanner
+    _cmfStartScan();                                       // browser → web camera
   }
   // iOS Safari's ZXing decodeFromVideoDevice grabs a low-res stream and rarely
   // reads these tiny Data Matrix codes. So we drive it ourselves: open a high-res
   // rear-camera stream and decode full-resolution snapshots with the core
   // DataMatrixReader (TRY_HARDER) on a short interval.
   async function _cmfStartScan() {
-    const status = document.getElementById('cmfStatus');
     const wrap = document.getElementById('cmfVideoWrap');
     const video = document.getElementById('cmfVideo');
     if (!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
       if (wrap) wrap.style.display = 'none';
-      status.textContent = 'Camera needs HTTPS — type the 7-digit code below instead.';
+      _cmfMsg('Camera needs HTTPS — type the 7-digit code below instead.');
       return;
     }
     if (!(window.ZXing && ZXing.MultiFormatReader && ZXing.HTMLCanvasElementLuminanceSource)) {
       if (wrap) wrap.style.display = 'none';
-      status.textContent = 'Scanner unavailable — type the 7-digit code below.';
+      _cmfMsg('Scanner unavailable — type the 7-digit code below.');
       return;
     }
     try {
@@ -2471,18 +2681,51 @@
       });
     } catch (e) {
       if (wrap) wrap.style.display = 'none';
-      status.textContent = 'Couldn’t open the camera — type the code below.';
+      _cmfMsg('Couldn’t open the camera — type the code below.');
       return;
     }
     if (wrap) wrap.style.display = '';
-    status.textContent = 'Center the small square 2D code (right of the barcode) — get close, hold steady.';
+    _cmfMsg('');
     video.srcObject = _cmfStream;
     video.muted = true; video.setAttribute('playsinline', '');
     try { await video.play(); } catch (e) {}
+    _cmfSetupTorch();
+    _cmfSrvBusy = false; _cmfSrvOff = false;   // re-probe the server decoder this session
     // Multi-format: the box's 2D code may be a QR code OR a Data Matrix, so try both.
     _cmfEnsureReader();
     if (_cmfDecodeTimer) clearInterval(_cmfDecodeTimer);
     _cmfDecodeTimer = setInterval(_cmfDecodeFrame, 400);
+  }
+  // Flashlight (torch) — only some devices/browsers expose it via getUserMedia
+  // (Android Chrome typically yes; iOS Safari does not). Show the button only
+  // when the active video track advertises a `torch` capability.
+  function _cmfTorchTrack() {
+    if (!_cmfStream) return null;
+    const t = _cmfStream.getVideoTracks ? _cmfStream.getVideoTracks()[0] : null;
+    return t || null;
+  }
+  function _cmfSetupTorch() {
+    _cmfTorchOn = false;
+    const btn = document.getElementById('cmfTorchBtn');
+    if (btn) { btn.hidden = true; btn.classList.remove('on'); }
+    const track = _cmfTorchTrack();
+    if (!track || !track.getCapabilities) return;
+    let caps = {};
+    try { caps = track.getCapabilities() || {}; } catch (e) {}
+    if (btn && 'torch' in caps && caps.torch) btn.hidden = false;
+  }
+  async function _cmfToggleTorch() {
+    const track = _cmfTorchTrack();
+    const btn = document.getElementById('cmfTorchBtn');
+    if (!track || !track.applyConstraints) return;
+    _cmfTorchOn = !_cmfTorchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: _cmfTorchOn }] });
+      if (btn) btn.classList.toggle('on', _cmfTorchOn);
+    } catch (e) {
+      _cmfTorchOn = false;
+      if (btn) btn.classList.remove('on');
+    }
   }
   function _cmfBuildHints() {
     const h = new Map();
@@ -2511,18 +2754,56 @@
       return (result && (result.getText ? result.getText() : result.text)) || '';
     } catch (e) { return ''; }
   }
+  // These tiny Data Matrix codes only decode when the code fills a good fraction
+  // of the image handed to ZXing, so we sweep several centered crop scales. Doing
+  // all of them every 400 ms tick would back the loop up (TRY_HARDER decodes are
+  // slow), so we cycle ONE tight scale per tick + an occasional full-frame pass —
+  // covering every scale across ~1.5 s while staying responsive.
+  let _cmfCropIdx = 0;
+  const _CMF_CROP_FRACS = [0.42, 0.55, 0.7, 0.9];
   function _cmfDecodeFrame() {
     const video = document.getElementById('cmfVideo');
     if (!video || video.readyState < 2 || !video.videoWidth || !_cmfDmReader) return;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    // Try the centered square first (the code the user is aiming into the box —
-    // a smaller region means the code fills more of the decoded image), then the
-    // whole frame as a fallback for off-centre codes.
-    const side = Math.floor(Math.min(vw, vh) * 0.6);
+    const vw = video.videoWidth, vh = video.videoHeight, m = Math.min(vw, vh);
+    const frac = _CMF_CROP_FRACS[_cmfCropIdx % _CMF_CROP_FRACS.length];
+    _cmfCropIdx++;
+    const side = Math.floor(m * frac);
     const cx = Math.floor((vw - side) / 2), cy = Math.floor((vh - side) / 2);
-    const text = _cmfTryDecodeRegion(video, cx, cy, side, side)
-              || _cmfTryDecodeRegion(video, 0, 0, vw, vh);
-    if (text) _cmfOnCode(text);
+    let text = _cmfTryDecodeRegion(video, cx, cy, side, side);
+    // Every few ticks also sweep the whole frame for an off-centre code.
+    if (!text && _cmfCropIdx % 3 === 0) text = _cmfTryDecodeRegion(video, 0, 0, vw, vh);
+    if (text) { _cmfOnCode(text); return; }
+    // The in-browser ZXing decode is weak on these tiny codes — every ~1.2 s also
+    // hand the current frame to the server's stronger libdmtx decoder (one request
+    // in flight at a time). Disables itself if the server decoder isn't installed.
+    if (_cmfCropIdx % 3 === 2) _cmfServerDecodeFrame();
+  }
+  let _cmfSrvBusy = false, _cmfSrvOff = false, _cmfSrvCanvas = null;
+  function _cmfServerDecodeFrame() {
+    if (_cmfSrvBusy || _cmfSrvOff) return;
+    const video = document.getElementById('cmfVideo');
+    if (!video || video.readyState < 2 || !video.videoWidth) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const scale = Math.min(1, 1280 / Math.max(vw, vh));
+    if (!_cmfSrvCanvas) _cmfSrvCanvas = document.createElement('canvas');
+    const c = _cmfSrvCanvas;
+    c.width = Math.max(1, Math.round(vw * scale)); c.height = Math.max(1, Math.round(vh * scale));
+    c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+    _cmfSrvBusy = true;
+    c.toBlob((blob) => {
+      if (!blob) { _cmfSrvBusy = false; return; }
+      const fd = new FormData();
+      fd.append('image', blob, 'frame.jpg');
+      fd.append('mode', 'live');
+      fetch('/api/cmf/decode', { method: 'POST', body: fd })
+        .then(r => {
+          if (r.status === 503) { _cmfSrvOff = true; return null; }  // not installed → stop trying
+          return r.ok ? r.json() : null;
+        })
+        .then(d => { if (d && d.found && d.code && _cmfDecodeTimer) _cmfOnCode(String(d.code)); })
+        .catch(() => {})
+        .finally(() => { _cmfSrvBusy = false; });
+    }, 'image/jpeg', 0.7);
   }
   // Tap the viewfinder to force an immediate decode of the current frame.
   function cmfTapScan() { if (_cmfStream && _cmfDecodeTimer) _cmfDecodeFrame(); }
@@ -2532,31 +2813,55 @@
   function _cmfDecodeImage(img) {
     const w = img.naturalWidth, h = img.naturalHeight;
     if (!w || !h) return '';
-    const side = Math.floor(Math.min(w, h) * 0.6);
-    const cx = Math.floor((w - side) / 2), cy = Math.floor((h - side) / 2);
-    return _cmfTryDecodeRegion(img, 0, 0, w, h)
-        || _cmfTryDecodeRegion(img, cx, cy, side, side);
+    const m = Math.min(w, h);
+    // A still has no time pressure, so sweep the full frame then progressively
+    // tighter centre crops (the code fills more of each → far better odds).
+    let text = _cmfTryDecodeRegion(img, 0, 0, w, h);
+    const fracs = [0.7, 0.55, 0.42, 0.3];
+    for (let i = 0; i < fracs.length && !text; i++) {
+      const side = Math.floor(m * fracs[i]);
+      const cx = Math.floor((w - side) / 2), cy = Math.floor((h - side) / 2);
+      text = _cmfTryDecodeRegion(img, cx, cy, side, side);
+    }
+    return text;
   }
-  function cmfPhotoSelected(input) {
+  async function cmfPhotoSelected(input) {
     const file = input.files && input.files[0];
     input.value = '';   // allow re-picking the same file
     if (!file) return;
-    const status = document.getElementById('cmfStatus');
-    if (!_cmfEnsureReader()) { status.textContent = 'Scanner unavailable — type the code instead.'; return; }
-    status.textContent = 'Reading photo…';
+    _cmfMsg('Reading photo…');
+    // Server-side libdmtx is far stronger on these tiny Data Matrix codes than
+    // the in-browser ZXing decode — try it first, fall back to ZXing if the
+    // server decoder isn't available (e.g. production) or doesn't get a hit.
+    const code = await _cmfServerDecode(file);
+    if (code) { _cmfLastRaw = code; cmfLookup(code); return; }
+    if (!_cmfEnsureReader()) { _cmfMsg('Scanner unavailable — type the code below.'); return; }
     const img = new Image();
     img.onload = () => {
       const text = _cmfDecodeImage(img);
       URL.revokeObjectURL(img.src);
       if (text) {
         _cmfLastRaw = text.trim();
-        cmfLookup(_cmfLastRaw.replace(/\D/g, ''));
+        cmfLookup(_cmfLastRaw);   // cmfLookup pulls the first 7-digit field
       } else {
-        status.textContent = 'Couldn’t read it — retake closer, with the square code filling the frame and in sharp focus.';
+        _cmfMsg('Couldn’t read the code. Get closer so the square fills the frame, avoid glare (tilt the box / turn off overhead light), or type the 7-digit code below.');
       }
     };
-    img.onerror = () => { status.textContent = 'Couldn’t load that photo.'; };
+    img.onerror = () => { _cmfMsg('Couldn’t load that photo.'); };
     img.src = URL.createObjectURL(file);
+  }
+  // POST a photo to the server's libdmtx decoder. Returns the digit string, or
+  // '' (no hit / decoder unavailable → caller falls back to in-browser ZXing).
+  async function _cmfServerDecode(file) {
+    try {
+      const fd = new FormData();
+      fd.append('image', file, file.name || 'cmf.jpg');
+      fd.append('mode', 'photo');   // logged server-side for diagnosis
+      const r = await fetch('/api/cmf/decode', { method: 'POST', body: fd });
+      if (!r.ok) return '';   // 503 = decoder not installed
+      const d = await r.json();
+      return (d && d.found && d.code) ? String(d.code) : '';
+    } catch (e) { return ''; }
   }
   function _cmfStopScan() {
     if (_cmfDecodeTimer) { clearInterval(_cmfDecodeTimer); _cmfDecodeTimer = null; }
@@ -2564,6 +2869,9 @@
     const video = document.getElementById('cmfVideo');
     if (video) video.srcObject = null;
     _cmfDmReader = null;
+    _cmfTorchOn = false;
+    const tb = document.getElementById('cmfTorchBtn');
+    if (tb) { tb.hidden = true; tb.classList.remove('on'); }
     _cmfHidePop();
   }
   // Pause/resume just the decode loop (keeps the camera live behind the pop-out).
@@ -2576,43 +2884,63 @@
   function _cmfHidePop() {
     const pop = document.getElementById('cmfPop');
     if (pop) pop.classList.remove('show');
+    const bar = document.getElementById('cmfBottomBar');
+    if (bar) bar.classList.remove('show');
+    const hint = document.getElementById('cmfHintPill');
+    if (hint) hint.style.display = '';
+  }
+  // A CMF Data Matrix payload is several space-separated fields, e.g.
+  // "6605269 211R6 15945242 007416" — the figure's stable 7-digit code is the
+  // FIRST field (later fields include a per-box serial). Pull just that out; never
+  // concatenate all digits (that yields a bogus, box-unique number).
+  function _cmf7(raw) {
+    const runs = String(raw == null ? '' : raw).match(/\d+/g) || [];
+    for (const r of runs) if (r.length === 7) return r;
+    for (const r of runs) if (r.length >= 7) return r.slice(0, 7);
+    return '';
   }
   function _cmfOnCode(text) {
     const raw = (text || '').trim();
-    const code = raw.replace(/\D/g, '');
+    const code = _cmf7(raw);
     if (!code || code === _cmfLastCode) return;
     _cmfLastCode = code; _cmfLastRaw = raw;
     cmfLookup(code);
   }
   function cmfLookupManual() {
     const code = (document.getElementById('cmfManualInput').value || '').replace(/\D/g, '');
-    if (!code) { document.getElementById('cmfStatus').textContent = 'Enter the 7-digit code.'; return; }
+    if (!code) { _cmfMsg('Enter the 7-digit code.'); return; }
     _cmfLastCode = code;
     cmfLookup(code);
   }
+  // Write a status message both on the camera stage (visible) and in the drawer.
+  function _cmfMsg(text) {
+    const el = document.getElementById('cmfScanMsg');
+    if (el) el.textContent = text || '';
+    const s = document.getElementById('cmfStatus');
+    if (s) s.textContent = text || '';
+  }
   function cmfLookup(code) {
-    const status = document.getElementById('cmfStatus');
-    const digits = (code || '').replace(/\D/g, '');
-    status.textContent = 'Looking up ' + digits + '…';
+    const digits = _cmf7(code) || (code || '').replace(/\D/g, '');
+    _cmfMsg('Looking up ' + digits + '…');
     fetch('/api/cmf/lookup/' + encodeURIComponent(digits))
       .then(r => r.json())
       .then(data => {
         if (data.found) {
           _cmfPauseDecode();       // keep the camera live behind the pop-out
-          status.textContent = '';
+          _cmfMsg('');
           _cmfRenderResult(data);
         } else if (digits.length === 7) {
           _cmfStopScan();          // pause camera so it doesn't re-fire while tagging
-          status.textContent = '';
+          _cmfMsg('');
           _cmfShowCapture(digits); // unknown but valid → let the user tag it
         } else {
           // Surface the raw decoded payload so we can see exactly what the box
           // encodes (it may not be a clean 7-digit number).
-          status.textContent = 'Scanned “' + (_cmfLastRaw || digits) + '” — not a recognised 7-digit code.';
+          _cmfMsg('Scanned “' + (_cmfLastRaw || digits) + '” — not a recognised 7-digit code.');
           _cmfLastCode = null;     // allow a re-scan
         }
       })
-      .catch(() => { status.textContent = 'Network error.'; _cmfLastCode = null; });
+      .catch(() => { _cmfMsg('Network error.'); _cmfLastCode = null; });
   }
   function _cmfRenderResult(data) {
     _cmfResult = data;
@@ -2629,38 +2957,64 @@
         [data.series, data.code].filter(Boolean).join(' · ');
       pop.classList.remove('show'); void pop.offsetWidth; pop.classList.add('show');  // restart anim
     }
-    // Actions below the viewfinder.
-    document.getElementById('cmfResult').innerHTML = `
-      <div style="display:flex;gap:8px;width:100%;">
-        <button class="btn" onclick="cmfScanAnother()" style="flex:1;background:var(--surface3);color:var(--text);">Scan another</button>
-        <button class="btn" id="cmfAddBtn" onclick="cmfAddMinifig()" style="flex:1;"${data.fig_num ? '' : ' disabled'}>Add to My Minifigs</button>
-      </div>`;
-  }
-  function cmfScanAnother() {
-    _cmfResult = null; _cmfLastCode = null;
+    // Persistent bottom bar: thumb + name + an inline add/remove stepper, so you
+    // add the figure to My Minifigs without leaving the scanner (tap + per copy).
+    const hint = document.getElementById('cmfHintPill');
+    if (hint) hint.style.display = 'none';
+    document.getElementById('cmfBarImg').src = data.img_url || '/static/minifig.png';
+    document.getElementById('cmfBarName').textContent = data.name || 'Unknown figure';
+    document.getElementById('cmfBarSub').textContent =
+      [data.series, data.code].filter(Boolean).join(' · ') || (data.fig_num || '');
+    document.getElementById('cmfBottomBar').classList.add('show');
     document.getElementById('cmfResult').innerHTML = '';
-    document.getElementById('cmfManualInput').value = '';
-    _cmfHidePop();
-    const wrap = document.getElementById('cmfVideoWrap'); if (wrap) wrap.style.display = '';
-    document.getElementById('cmfStatus').textContent = 'Center the small square 2D code — get close, hold steady.';
-    if (_cmfStream) _cmfResumeDecode(); else _cmfStartScan();
+    // Seed the stepper with however many of this fig you already own.
+    _cmfOwnedQty = 0; _cmfRenderStepper();
+    if (data.fig_num) {
+      fetch('/api/owned_minifigs/' + encodeURIComponent(data.fig_num))
+        .then(r => r.json())
+        .then(d => { if (_cmfResult === data) { _cmfOwnedQty = (d && d.owned) ? (parseInt(d.quantity) || 0) : 0; _cmfRenderStepper(); } })
+        .catch(() => {});
+    }
   }
-  function cmfAddMinifig() {
-    if (!_cmfResult || !_cmfResult.fig_num) return;
-    const d = _cmfResult, btn = document.getElementById('cmfAddBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+  function _cmfRenderStepper() {
+    const q = document.getElementById('cmfStepQty');
+    if (q) q.textContent = _cmfOwnedQty;
+    const minus = document.getElementById('cmfStepMinus');
+    if (minus) minus.disabled = _cmfOwnedQty <= 0;
+    const plus = document.getElementById('cmfStepPlus');
+    if (plus) plus.disabled = !(_cmfResult && _cmfResult.fig_num);
+  }
+  function _cmfStepAdd() {
+    const d = _cmfResult;
+    if (!d || !d.fig_num) return;
+    _cmfOwnedQty += 1; _cmfRenderStepper();   // optimistic — snappy for multi-add
     fetch('/api/add_minifig', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ set_num: d.fig_num, quantity: 1, name: d.name || d.fig_num, img_url: d.img_url || '', bl_id: '' })
     })
-      .then(r => r.json().then(data => ({ ok: r.ok, data })))
-      .then(({ ok, data }) => {
-        if (!ok) { document.getElementById('cmfStatus').textContent = 'Couldn’t add — try again.'; if (btn) { btn.disabled = false; btn.textContent = 'Add to My Minifigs'; } return; }
-        const qty = parseInt(data.quantity) || 1;
-        if (btn) btn.textContent = data._updated ? `In My Minifigs ×${qty}` : 'Added ✓';
-        if (typeof showToast === 'function') showToast(data._updated ? `Now ×${qty} in My Minifigs` : 'Added to My Minifigs');
-      })
-      .catch(() => { document.getElementById('cmfStatus').textContent = 'Network error.'; if (btn) { btn.disabled = false; btn.textContent = 'Add to My Minifigs'; } });
+      .then(r => { if (!r.ok) throw 0; })
+      .catch(() => { _cmfOwnedQty = Math.max(0, _cmfOwnedQty - 1); _cmfRenderStepper(); _cmfMsg('Couldn’t add — try again.'); });
+  }
+  function _cmfStepRemove() {
+    const d = _cmfResult;
+    if (!d || !d.fig_num || _cmfOwnedQty <= 0) return;
+    _cmfOwnedQty -= 1; _cmfRenderStepper();
+    fetch('/api/remove_minifig_one', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set_num: d.fig_num })
+    })
+      .then(r => { if (!r.ok) throw 0; })
+      .catch(() => { _cmfOwnedQty += 1; _cmfRenderStepper(); _cmfMsg('Couldn’t update — try again.'); });
+  }
+  function cmfScanAnother() {
+    _cmfResult = null; _cmfLastCode = null; _cmfOwnedQty = 0;
+    document.getElementById('cmfResult').innerHTML = '';
+    document.getElementById('cmfManualInput').value = '';
+    _cmfHidePop();   // hides pop-out + bottom bar, restores the idle hint
+    const wrap = document.getElementById('cmfVideoWrap'); if (wrap) wrap.style.display = '';
+    _cmfMsg('');
+    if (_cmfNative()) { document.getElementById('cmfHintPill').style.display = 'none'; _cmfShowNativePanel(); return; }
+    if (_cmfStream) _cmfResumeDecode(); else _cmfStartScan();
   }
 
   // Start/stop the camera based on whether the scan screen is showing (in a
@@ -3057,13 +3411,27 @@
     const badge = sourceBadge(source, results.length);
     // When a BrickLink minifig id (e.g. sw0131) was translated to a name, explain
     // why named results are showing and that the user should pick the right one.
-    const blNote = blMatch ? `<div class="bl-match-note">BrickLink <b>${escapeHtml(blMatch.id)}</b> = “${escapeHtml(blMatch.name)}”.<br>Rebrickable has no BrickLink minifig numbers — pick the matching figure below.</div>` : '';
+    const blNote = blMatch ? `<div class="bl-match-note">BrickLink <b>${escapeHtml(blMatch.id)}</b> = “${escapeHtml(blMatch.name)}”.<br>Rebrickable has no BrickLink minifig numbers — pick the matching figure below, or add it straight from BrickLink if none match.</div>` : '';
+    // Escape hatch for figures BrickLink's crowd-sourced catalog already has but
+    // Rebrickable doesn't (yet) — e.g. brand-new releases. Adds the figure to the
+    // collection using only BrickLink data (name, image, id), keyed by the
+    // BrickLink id itself since there's no Rebrickable fig_num to key on.
+    const blOnlyCard = blMatch ? `
+        <div class="local-result" data-bl-only="1">
+          <img src="${blMatch.img_url ? escapeHtml(blMatch.img_url) : fallbackImg}" onerror="this.src='${fallbackImg}'">
+          <div style="flex:1;min-width:0;">
+            <div class="lr-num">BL ${escapeHtml(blMatch.id)}</div>
+            <div class="lr-name">${escapeHtml(blMatch.name)}</div>
+            <div class="lr-meta" style="color:var(--yellow);">Not in Rebrickable’s catalog — add using BrickLink data only</div>
+          </div>
+        </div>` : '';
     if (!results.length) {
       const empty = blMatch
         ? `<div style="padding:12px;color:var(--muted);font-size:13px;">No Rebrickable match found for BrickLink ${escapeHtml(blMatch.id)} (“${escapeHtml(blMatch.name)}”).</div>`
         : '<div style="padding:12px;color:var(--muted);font-size:13px;">No matches found</div>';
-      el.innerHTML = badge + blNote + empty;
+      el.innerHTML = badge + blNote + empty + blOnlyCard;
       el.style.display = 'block';
+      _wireLocalResultClicks(el, results, kind, blMatch);
       return;
     }
     el.innerHTML = badge + blNote + results.map((r, i) => {
@@ -3082,9 +3450,12 @@
             ${meta ? `<div class="lr-meta">${meta}</div>` : ''}
           </div>
         </div>`;
-    }).join('');
+    }).join('') + blOnlyCard;
     el.style.display = 'block';
-    el.querySelectorAll('.local-result').forEach(node => {
+    _wireLocalResultClicks(el, results, kind, blMatch);
+  }
+  function _wireLocalResultClicks(el, results, kind, blMatch) {
+    el.querySelectorAll('.local-result[data-idx]').forEach(node => {
       node.addEventListener('click', () => {
         const r = results[parseInt(node.getAttribute('data-idx'), 10)];
         el.style.display = 'none';
@@ -3092,6 +3463,13 @@
         else openPartFromSearch(r.part_num, r.name, r.img_url);
       });
     });
+    const blOnlyEl = el.querySelector('[data-bl-only="1"]');
+    if (blOnlyEl && blMatch) {
+      blOnlyEl.addEventListener('click', () => {
+        el.style.display = 'none';
+        openMinifigFromBlOnly(blMatch.id, blMatch.name, blMatch.img_url);
+      });
+    }
   }
 
   // Open a catalog part in the identify screen. Uses local name/image immediately,
@@ -3131,6 +3509,19 @@
         item.bl_id = m.external_id || null;
       }
     } catch (e) { /* offline: fall back to local data */ }
+    document.getElementById('minifigSearchInput').value = '';
+    showIdentifyScreen({ items: [item] });
+  }
+
+  // Open a minifig that exists on BrickLink but has no Rebrickable catalog
+  // entry (yet) — e.g. a brand-new release. There's no fig_num to look up, so
+  // skip the Rebrickable fetch entirely and build the card from BrickLink data
+  // alone; `bl_only: true` tells populateCardInfo to skip the (broken) Rebrickable
+  // link, and `id` is the BrickLink id itself — that's what gets saved as the
+  // collection key when the user taps "Add to My Minifigs".
+  function openMinifigFromBlOnly(blId, name, img) {
+    clearCapturedPhoto();
+    const item = { type: 'minifig', id: blId, name: name, img_url: img || '', bl_id: blId, bl_only: true };
     document.getElementById('minifigSearchInput').value = '';
     showIdentifyScreen({ items: [item] });
   }
@@ -3582,8 +3973,11 @@
     catImg.onclick = () => { if (catImg.src) openImageModal(catImg.src, blId || '', isMinifig ? 'M' : 'P'); };
 
     if (isMinifig) {
-      document.getElementById('rbValue').innerHTML =
-        `<a href="https://rebrickable.com/minifigs/${item.id}/" target="_blank">${item.id}</a>`;
+      // bl_only figs have no Rebrickable fig_num — `id` is the BrickLink id
+      // itself, so a Rebrickable link would 404. Say so instead.
+      document.getElementById('rbValue').innerHTML = item.bl_only
+        ? '<span style="color:var(--muted);">Not in Rebrickable’s catalog</span>'
+        : `<a href="https://rebrickable.com/minifigs/${item.id}/" target="_blank">${item.id}</a>`;
       // Rebrickable exposes no BrickLink minifig id, so for search-opened figs we
       // usually have none — show a search link + an ✎ edit control to enter it by
       // hand (which enables pricing). See _renderMinifigBlRow.
@@ -3838,7 +4232,7 @@
       // Fetch price + sets in parallel
       _loadMinifigPriceFor(items[0].bl_id);
 
-      fetch(`/api/minifig_sets/${items[0].id}`)
+      fetch(`/api/minifig_sets/${items[0].id}${items[0].bl_id ? `?bl_id=${encodeURIComponent(items[0].bl_id)}` : ''}`)
         .then(r => r.json())
         .then(data => { if (scanSeq === _scanSeq) renderMinifigSets(data); })
         .catch(() => { if (scanSeq === _scanSeq) document.getElementById('setsSection').style.display = 'none'; });
@@ -4609,7 +5003,7 @@
           : '<div class="set-thumb"></div>'}
         <div class="set-info">
           <div class="set-name">${s.name}</div>
-          <div class="set-meta">${s.set_num} &middot; ${s.year}</div>
+          <div class="set-meta">${s.set_num}${s.year ? ` &middot; ${s.year}` : ''}</div>
         </div>
       </a>`).join('');
   }
@@ -4729,6 +5123,7 @@
     if (listId === '__minifigs__') return loadMinifigsIntoListView(seq);
     if (listId === '__sets__') return loadSetsIntoListView(seq);
     _listMode = 'parts';
+    _updateListSortControls();  // parts have no per-row price — hide both sort selects
     document.getElementById('listSearchInput').placeholder = _LIST_SEARCH_PH;
     if (!listId) { grid.innerHTML = ''; _listAllParts = []; wrap.style.display = 'none'; return; }
     _listAllParts = [];
@@ -4765,6 +5160,7 @@
   function loadMinifigsIntoListView(seq) {
     seq = seq || ++_listLoadSeq;
     _listMode = 'minifigs';
+    _updateListSortControls();
     const grid = document.getElementById('listPartsGrid');
     const wrap = document.getElementById('listSearchWrap');
     document.getElementById('listSearchInput').value = '';
@@ -4784,6 +5180,7 @@
   function loadSetsIntoListView(seq) {
     seq = seq || ++_listLoadSeq;
     _listMode = 'sets';
+    _updateListSortControls();
     const grid = document.getElementById('listPartsGrid');
     const wrap = document.getElementById('listSearchWrap');
     document.getElementById('listSearchInput').value = '';
@@ -4822,9 +5219,10 @@
       (s.set_num || '').toLowerCase().includes(q) ||
       (s.name || '').toLowerCase().includes(q) ||
       String(s.year || '').includes(q));
-    if (countEl) countEl.textContent = q
+    sets = _sortCollection(sets, _setsSortMode, _setMarketPrice);
+    if (countEl) countEl.textContent = (q
       ? `${sets.length} of ${_listAllSets.length} sets`
-      : `${_listAllSets.length} set${_listAllSets.length === 1 ? '' : 's'}`;
+      : `${_listAllSets.length} set${_listAllSets.length === 1 ? '' : 's'}`) + _setsValueSuffix(sets);
     if (!sets.length) {
       grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:24px 0">No matches for “${escapeHtml(q)}”.</p>`;
       return;
@@ -4856,6 +5254,7 @@
       (f.fig_num || '').toLowerCase().includes(q) ||
       (f.name || '').toLowerCase().includes(q) ||
       (f.bl_id || '').toLowerCase().includes(q));
+    figs = _sortCollection(figs, _minifigsSortMode, _figMarketPrice);
     const value = _minifigCollectionValue(figs);
     const valTxt = value > 0 ? ` · ≈$${Math.round(value)}` : '';
     if (countEl) countEl.textContent = (q
@@ -6135,16 +6534,66 @@
     _applyMySetsCollapsed();
   }
 
+  // ── Collection sorting — shared by My Sets / My Minifigs, in both their
+  // home-tab sections and the Lists-tab views (which render the very same rows
+  // via _renderSetRows/_renderMinifigRows). One persisted mode per collection
+  // so the order stays consistent everywhere it's shown; 'name' = alphabetical
+  // A→Z, 'price_desc'/'price_asc' = by BrickLink market estimate (the BL ~$X
+  // chip — every priced item has one once the daily refresh runs). Items with
+  // no market price yet sink to the bottom regardless of direction (an unknown
+  // price is neither the highest nor the lowest).
+  let _setsSortMode = 'name';
+  try { _setsSortMode = localStorage.getItem('setsSortMode') || 'name'; } catch (e) {}
+  let _minifigsSortMode = 'name';
+  try { _minifigsSortMode = localStorage.getItem('minifigsSortMode') || 'name'; } catch (e) {}
+  function _sortCollection(items, mode, priceFn) {
+    const arr = items.slice();
+    if (mode === 'price_desc' || mode === 'price_asc') {
+      const priced = [], rest = [];
+      arr.forEach(it => (priceFn(it) != null ? priced : rest).push(it));
+      priced.sort((a, b) => mode === 'price_desc' ? priceFn(b) - priceFn(a) : priceFn(a) - priceFn(b));
+      return priced.concat(rest);
+    }
+    arr.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return arr;
+  }
+  // Keep every <select> for a collection (home-tab + Lists-tab view) showing
+  // the same chosen mode, persist it, and re-render wherever it's visible.
+  function _onSetsSortChange(mode) {
+    _setsSortMode = mode;
+    try { localStorage.setItem('setsSortMode', mode); } catch (e) {}
+    ['mySetsSort', 'listSetsSort'].forEach(id => { const el = document.getElementById(id); if (el) el.value = mode; });
+    loadMySets();
+    if (_listMode === 'sets') renderSetListRows(document.getElementById('listSearchInput').value);
+  }
+  function _onMinifigsSortChange(mode) {
+    _minifigsSortMode = mode;
+    try { localStorage.setItem('minifigsSortMode', mode); } catch (e) {}
+    ['myMinifigsSort', 'listMinifigsSort'].forEach(id => { const el = document.getElementById(id); if (el) el.value = mode; });
+    loadMyMinifigs();
+    if (_listMode === 'minifigs') renderMinifigListRows(document.getElementById('listSearchInput').value);
+  }
+  // Show only the sort <select> matching the Lists-tab view's current mode
+  // (parts has neither — there's no per-row price to sort by) and sync its value.
+  function _updateListSortControls() {
+    const setsSel = document.getElementById('listSetsSort');
+    const figsSel = document.getElementById('listMinifigsSort');
+    if (setsSel) { setsSel.style.display = (_listMode === 'sets') ? '' : 'none'; setsSel.value = _setsSortMode; }
+    if (figsSel) { figsSel.style.display = (_listMode === 'minifigs') ? '' : 'none'; figsSel.value = _minifigsSortMode; }
+  }
+
   function loadMySets() {
     const grid = document.getElementById('mySetsGrid');
     const countEl = document.getElementById('mySetsCount');
     grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Loading your sets…</p>';
     countEl.textContent = '';
     _applyMySetsCollapsed();  // keep the persisted collapsed state across loads
+    const sortSel = document.getElementById('mySetsSort');
+    if (sortSel) sortSel.value = _setsSortMode;
     return fetch('/api/owned_sets')
       .then(r => r.json())
       .then(data => {
-        const sets = data.results || [];
+        const sets = _sortCollection(data.results || [], _setsSortMode, _setMarketPrice);
         if (data.error) {
           grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Couldn’t load your sets.</p>';
           return;
@@ -6154,7 +6603,8 @@
           return;
         }
         const totalCopies = sets.reduce((n, s) => n + (s.quantity || 1), 0);
-        countEl.textContent = `${sets.length} set${sets.length === 1 ? '' : 's'} · ${totalCopies} owned`;
+        countEl.textContent = `${sets.length} set${sets.length === 1 ? '' : 's'} · ${totalCopies} owned`
+          + _setsValueSuffix(sets);
         _renderSetRows(sets, grid, loadMySets);
       })
       .catch(() => {
@@ -6203,6 +6653,33 @@
     _myMinifigsCollapsed = !_myMinifigsCollapsed;
     try { localStorage.setItem('myMinifigsCollapsed', _myMinifigsCollapsed ? '1' : '0'); } catch (e) {}
     _applyMyMinifigsCollapsed();
+  }
+  // Manual BrickLink price refresh for My Sets — mirrors refreshMinifigPrices/
+  // _pollMinifigPrices above (the daily 05:30 launchd job calls
+  // refresh_set_prices() directly; this just lets the user trigger it on demand).
+  function refreshSetPrices() {
+    const btn = document.getElementById('setPricesBtn');
+    if (btn) btn.disabled = true;
+    fetch('/api/set_prices/refresh', { method: 'POST' })
+      .then(r => r.json())
+      .then(() => { showToast('Refreshing BrickLink prices…'); _pollSetPrices(0); })
+      .catch(() => { showToast('Couldn’t refresh prices'); if (btn) btn.disabled = false; });
+  }
+  function _pollSetPrices(tries) {
+    const finish = (msg) => {
+      const btn = document.getElementById('setPricesBtn');
+      if (btn) btn.disabled = false;
+      loadMySets();
+      if (msg) showToast(msg);
+    };
+    if (tries > 60) return finish('');  // ~90s safety cap
+    fetch('/api/set_prices/status')
+      .then(r => r.json())
+      .then(s => {
+        if (s.running) setTimeout(() => _pollSetPrices(tries + 1), 1500);
+        else finish('Prices updated');
+      })
+      .catch(() => finish(''));
   }
   // ── Swipe-left-to-remove-one for list rows (iOS Mail style) ─────────────
   // Wraps an existing row so a leftward swipe slides it to reveal a "Remove 1"
@@ -6296,6 +6773,33 @@
       .catch(() => { showToast('Network error'); ctl.fail(); });
   }
 
+  // Collection-value helpers for "My Sets" — mirror _figMarketPrice/
+  // _minifigCollectionValue below. Two figures, since sets carry two kinds of
+  // money: what you paid (price_paid, always available once entered) and
+  // BrickLink's current market read (price_used/price_new, needs the daily
+  // refresh job — absent until then, so each total only counts what it has).
+  function _setMarketPrice(s) {
+    const u = (s.price_used != null) ? s.price_used : null;
+    const n = (s.price_new != null) ? s.price_new : null;
+    return s.condition === 'new' ? (n != null ? n : u) : (u != null ? u : n);
+  }
+  function _setsSpentValue(sets) {
+    return sets.reduce((sum, s) => sum + ((s.price_paid != null) ? s.price_paid * (s.quantity || 1) : 0), 0);
+  }
+  function _setsMarketValue(sets) {
+    return sets.reduce((sum, s) => { const m = _setMarketPrice(s); return sum + (m != null ? m * (s.quantity || 1) : 0); }, 0);
+  }
+  // " · spent ≈$X · ≈$Y BL" suffix for the My Sets count line — each clause
+  // appears only once there's data to back it (price_paid entries / a price refresh).
+  function _setsValueSuffix(sets) {
+    const spent = _setsSpentValue(sets);
+    const mkt = _setsMarketValue(sets);
+    const bits = [];
+    if (spent > 0) bits.push(`spent ≈$${Math.round(spent)}`);
+    if (mkt > 0) bits.push(`≈$${Math.round(mkt)} BL`);
+    return bits.length ? ` · ${bits.join(' · ')}` : '';
+  }
+
   // Shared set-row renderer used by both the Sets-tab "My Sets" section and the
   // Lists-tab "My Sets" view. `reloadFn` is what a swipe-remove calls to refresh.
   function _setRowHtml(s) {
@@ -6310,6 +6814,10 @@
       cond ? `<span style="font-size:11px;color:var(--muted);">${cond}</span>` : '',
       price ? `<span style="font-family:var(--font-mono);font-size:11px;color:var(--green);">${price}</span>` : '',
     ].filter(Boolean).join('<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>');
+    const mkt = _setMarketPrice(s);
+    const mktLine = mkt != null
+      ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);margin-top:2px;">BL ~$${mkt.toFixed(2)}</div>`
+      : '';
     return `<div class="my-set-row" data-set-num="${num}" data-set-name="${name}"
         style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
       <img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
@@ -6325,6 +6833,7 @@
         ${purchaseBits
           ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">${purchaseBits}</div>`
           : '<div style="font-size:11px;color:var(--muted);">owned</div>'}
+        ${mktLine}
       </div>
     </div>`;
   }
@@ -6371,9 +6880,9 @@
     const bl = f.bl_id ? escapeHtml(f.bl_id) : '';
     const meta = f.num_parts ? `${f.num_parts} pcs` : '';
     const dot = '<span style="width:3px;height:3px;border-radius:50%;background:var(--muted2);"></span>';
-    const blPart = bl
-      ? `<span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">BL ${bl}</span>`
-      : `<span style="font-size:11px;color:var(--red-text);background:var(--red-bg);border:1px solid var(--red-border);border-radius:4px;padding:1px 6px;">no BL id</span>`;
+    const blPart = !bl
+      ? `<span style="font-size:11px;color:var(--red-text);background:var(--red-bg);border:1px solid var(--red-border);border-radius:4px;padding:1px 6px;">no BL id</span>`
+      : (bl === num ? '' : `<span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">BL ${bl}</span>`);
     const idLine = [
       `<span style="font-family:var(--font-mono);font-size:12px;color:var(--yellow);">${num}</span>`,
       blPart,
@@ -6424,6 +6933,7 @@
     goTo('screen-scan');
     if (mode === 'minifigs') loadMyMinifigs();
   }
+  let _myMinifigsAll = [];   // full My-Minifigs collection held in memory for live search
   function loadMyMinifigs() {
     const grid = document.getElementById('myMinifigsGrid');
     const countEl = document.getElementById('myMinifigsCount');
@@ -6431,27 +6941,55 @@
     grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Loading your minifigs…</p>';
     countEl.textContent = '';
     _applyMyMinifigsCollapsed();
+    const sortSel = document.getElementById('myMinifigsSort');
+    if (sortSel) sortSel.value = _minifigsSortMode;
     return fetch('/api/owned_minifigs')
       .then(r => r.json())
       .then(data => {
-        const figs = data.results || [];
         if (data.error) {
+          _myMinifigsAll = [];
           grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Couldn’t load your minifigs.</p>';
           return;
         }
-        if (!figs.length) {
-          grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">No minifigs yet. Scan or search a minifig and tap “Add to My Minifigs.”</p>';
-          return;
-        }
-        const totalCopies = figs.reduce((n, f) => n + (f.quantity || 1), 0);
-        const value = _minifigCollectionValue(figs);
-        countEl.textContent = `${figs.length} fig${figs.length === 1 ? '' : 's'} · ${totalCopies} owned`
-          + (value > 0 ? ` · ≈$${Math.round(value)}` : '');
-        _renderMinifigRows(figs, grid, loadMyMinifigs);
+        _myMinifigsAll = data.results || [];
+        renderMyMinifigsGrid();
       })
       .catch(() => {
+        _myMinifigsAll = [];
         grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Network error.</p>';
       });
+  }
+  // Filter (name / fig # / BrickLink id) + sort the in-memory collection and
+  // re-render — keeps the search box live without re-fetching on every keystroke.
+  function renderMyMinifigsGrid() {
+    const grid = document.getElementById('myMinifigsGrid');
+    const countEl = document.getElementById('myMinifigsCount');
+    if (!grid) return;
+    if (!_myMinifigsAll.length) {
+      grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">No minifigs yet. Scan or search a minifig and tap “Add to My Minifigs.”</p>';
+      countEl.textContent = '';
+      return;
+    }
+    const searchEl = document.getElementById('myMinifigsSearchInput');
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    let figs = _myMinifigsAll;
+    if (q) figs = figs.filter(f =>
+      (f.name || '').toLowerCase().includes(q) ||
+      (f.fig_num || '').toLowerCase().includes(q) ||
+      (f.bl_id || '').toLowerCase().includes(q));
+    figs = _sortCollection(figs, _minifigsSortMode, _figMarketPrice);
+    if (!figs.length) {
+      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">No matches for “${escapeHtml(q)}”.</p>`;
+      countEl.textContent = `0 of ${_myMinifigsAll.length} figs`;
+      return;
+    }
+    const totalCopies = _myMinifigsAll.reduce((n, f) => n + (f.quantity || 1), 0);
+    const value = _minifigCollectionValue(figs);
+    const valTxt = value > 0 ? ` · ≈$${Math.round(value)}` : '';
+    countEl.textContent = (q
+      ? `${figs.length} of ${_myMinifigsAll.length} figs`
+      : `${_myMinifigsAll.length} fig${_myMinifigsAll.length === 1 ? '' : 's'} · ${totalCopies} owned`) + valTxt;
+    _renderMinifigRows(figs, grid, loadMyMinifigs);
   }
 
   // Viewport-based lazy image loading. Native loading="lazy" is unreliable on
@@ -6551,8 +7089,22 @@
     contentDiv.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">Loading minifigs...</p>';
 
     try {
-      const resp = await fetch(`/api/sets/${encodeURIComponent(setNum)}/minifigs`);
+      const [resp, ownedResp] = await Promise.all([
+        fetch(`/api/sets/${encodeURIComponent(setNum)}/minifigs`),
+        fetch('/api/owned_minifigs').catch(() => null)
+      ]);
       const data = await resp.json();
+
+      // Cross-reference against the local "My Minifigs" collection so each row
+      // can show a green checkmark when you already own that figure — mirrors
+      // the "Already in inventory" treatment on the parts side.
+      const ownedMap = {};
+      if (ownedResp && ownedResp.ok) {
+        try {
+          const ownedData = await ownedResp.json();
+          (ownedData.results || []).forEach(f => { if (f.fig_num) ownedMap[f.fig_num] = f.quantity || 1; });
+        } catch (e) {}
+      }
 
       const minifigs = data.results || [];
       if (minifigs.length === 0) {
@@ -6566,12 +7118,16 @@
         const figName = fig.fig_name || 'Unknown Minifig';
         const figNum = fig.fig_num || 'N/A';
         const quantity = fig.quantity || 1;
+        const ownedQty = ownedMap[figNum];
+        const ownedBadge = ownedQty
+          ? `<span title="In My Minifigs ×${ownedQty}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:800;flex-shrink:0;margin-left:6px;vertical-align:middle;">✓</span>`
+          : '';
 
         html += `
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid var(--border-bright);align-items:flex-start;">
             <img data-src="${figImage}" alt="${figNum}" onclick="openImageModal('${figImage.replace(/'/g, "\\'")}', '${figNum.replace(/'/g, "\\'")}', 'M')" onerror="this.onerror=null;this.src='/static/minifig.png'" style="width:50px;height:50px;object-fit:contain;background:var(--surface3);border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#3B9EFF;font-size:13px;margin-bottom:2px;">${figNum}</div>
+              <div style="font-weight:600;color:#3B9EFF;font-size:13px;margin-bottom:2px;">${figNum}${ownedBadge}</div>
               <div style="color:#fff;font-size:12px;word-break:break-word;">${figName}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
