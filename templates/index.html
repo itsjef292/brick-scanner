@@ -483,6 +483,19 @@
       border-radius: 0;
       padding: 0 0 12px;
     }
+    /* Focal card sweeps in from the right each time the Identify screen shows
+       (display:none → flex restarts the animation). Ends at the natural state —
+       no persistent transform, so nothing inside ever gets a stray containing block. */
+    .screen.active .identify-card {
+      animation: cardSweepIn .42s cubic-bezier(.22, .9, .32, 1) backwards;
+    }
+    @keyframes cardSweepIn {
+      from { transform: translateX(100%); opacity: .55; }
+      to   { transform: none; opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .screen.active .identify-card { animation: none; }
+    }
     .dual-images {
       display: flex;
       gap: 0;
