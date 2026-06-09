@@ -3,6 +3,17 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Removed the CMF box-code scanner + native iOS shell (June 2026):**
+- Dropped the entire CMF (Collectible Minifigure) box-code feature — the **CMF**
+  nav tab + `#screen-cmf`, all `_cmf*` frontend JS, the `/api/cmf/*` endpoints
+  (`series`/`lookup`/`decode`/`capture`/`captured`) and their libdmtx/Pillow
+  decode path, and the `cmf_codes.json` / `.cmf_captured.json` data. Web is the
+  focus for now. `pylibdmtx`+`Pillow` dropped from `requirements.txt`; the
+  CMF-only `static/zxing.min.js` removed.
+- Removed the Capacitor **native iOS shell** (`native/`, `BUILD_IOS.md`) — it
+  existed mainly to add on-device Data Matrix scanning for the CMF tab.
+- See the entry below for what was removed; revivable from git history if needed.
+
 **Detect BrickLink minifig variants on scan (June 2026):**
 - BrickLink has no "variants of" API and Rebrickable carries no BrickLink minifig
   ids, so the only way to know `sw0574a` exists is to ask BrickLink for that exact

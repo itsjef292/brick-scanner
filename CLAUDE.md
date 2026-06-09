@@ -205,9 +205,6 @@ Render/Tailscale/keys/cost detail: **`SETUP.md`**.
 - **.interface-design/system.md** — design system; read before UI work.
 - **build_brick_db.py** — builds `brick_parts.db` from the `Brick Parts/` CSV dump.
 - **static/** — minifig PNG, header SVG, PWA assets (`manifest.webmanifest`, `sw.js`, icons).
-- **native/ + BUILD_IOS.md** — Capacitor iOS shell; loads the live web app over
-  Tailscale and adds on-device Data Matrix scanning for the CMF tab (feature-detected
-  via `_cmfNative()`; web flow untouched). `ios/` + `node_modules/` git-ignored.
 - **SETUP.md** — new-machine setup, Tailscale, Render keys/cost.
 - **CHANGELOG.md** — full history of notable changes.
 - **install_agents.sh** + `com.brickscanner.*.plist` / `refresh_*.sh|py` — launchd

@@ -4,10 +4,3 @@ python-dotenv==1.0.0
 requests-oauthlib==1.3.0
 gunicorn==21.2.0
 Werkzeug==2.3.7
-# CMF box-code Data Matrix decoding (server-side, /api/cmf/decode). pylibdmtx is
-# a thin wrapper over the native libdmtx lib — install that separately (macOS:
-# `brew install libdmtx`; Debian/Render: `apt-get install libdmtx0b`). If the
-# native lib is absent the import is caught and the feature self-disables (the
-# client falls back to in-browser ZXing), so this is safe to ship anywhere.
-pylibdmtx==0.1.10
-Pillow==11.3.0

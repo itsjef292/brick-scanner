@@ -30,17 +30,8 @@ xcode-select --install                              # provides /usr/bin/python3 
 git clone https://github.com/itsjef292/brick-scanner.git "Brick Scanner" && cd "Brick Scanner"
 pip3 install -r requirements.txt
 # (requirements.txt pins are for Render/Docker; locally the unpinned set also works:
-#  pip3 install flask requests python-dotenv requests-oauthlib pylibdmtx Pillow)
+#  pip3 install flask requests python-dotenv requests-oauthlib)
 ```
-
-> **CMF box-code scanner needs the native libdmtx lib.** `pylibdmtx` (in
-> requirements) is just a wrapper; install the C library too so server-side
-> Data Matrix decode (`/api/cmf/decode`) works: `brew install libdmtx`. On
-> Apple-Silicon macOS the dylib lands in `/opt/homebrew/lib`, which is outside
-> ctypes' default search path and stripped from the SIP-protected `/usr/bin/python3`
-> environment — `app.py` handles this by setting `DYLD_FALLBACK_LIBRARY_PATH`
-> in-process before importing. If the lib is missing the feature self-disables and
-> the client falls back to in-browser ZXing (so it's optional, just much weaker).
 
 **3. 🔴 API credentials — the one thing nothing in git can give you.** The real
 values live only in the old machine's `.env` (git-ignored, by design) and in the

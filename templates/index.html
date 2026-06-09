@@ -883,119 +883,6 @@
     .voice-hint { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5; }
     .voice-hint em { color: var(--text); font-style: normal; font-family: var(--font-mono); }
 
-    /* CMF result "pop-out" over the camera view (WhatFig-style) */
-    .cmf-pop {
-      position: absolute; inset: 0; display: none;
-      align-items: center; justify-content: center;
-      background: rgba(8,11,15,0.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-    }
-    .cmf-pop.show { display: flex; }
-    .cmf-pop-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 16px; }
-    .cmf-pop-card img {
-      width: 140px; height: 140px; object-fit: contain;
-      filter: drop-shadow(0 10px 22px rgba(0,0,0,0.55));
-    }
-    .cmf-pop-name {
-      font-family: var(--font-display); font-weight: 700; font-size: 18px;
-      color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.6); text-align: center;
-    }
-    .cmf-pop-series { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.82); }
-    .cmf-pop.show .cmf-pop-card { animation: cmfPop .42s cubic-bezier(.2,.9,.3,1.25) both; }
-    @keyframes cmfPop {
-      0% { transform: scale(.5); opacity: 0; }
-      60% { transform: scale(1.08); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    /* ── CMF immersive scanner (WhatFig-style full-screen camera) ── */
-    #screen-cmf { padding: 0; }
-    .cmf-stage {
-      position: relative; width: 100%;
-      height: calc(100dvh - 112px); min-height: 360px;
-      background: #000; overflow: hidden;
-    }
-    .cmf-stage video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    /* faint centered scan reticle the user aims the 2D code into */
-    .cmf-reticle {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 56%; max-width: 280px; aspect-ratio: 1;
-      border: 2px solid rgba(255,255,255,0.7); border-radius: 14px; pointer-events: none;
-    }
-    /* top-right floating controls (flashlight + photo capture) */
-    .cmf-controls { position: absolute; top: 14px; right: 14px; display: flex; gap: 12px; z-index: 6; }
-    .cmf-ctrl-btn {
-      width: 46px; height: 46px; border-radius: 50%; padding: 0;
-      background: rgba(8,11,15,0.5); border: 2px solid var(--yellow); color: var(--yellow);
-      display: flex; align-items: center; justify-content: center; cursor: pointer;
-      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-    }
-    .cmf-ctrl-btn:active { background: rgba(8,11,15,0.82); }
-    .cmf-ctrl-btn svg { width: 22px; height: 22px; }
-    .cmf-ctrl-btn.on { background: var(--yellow); color: #06121F; }
-    .cmf-ctrl-btn[hidden] { display: none; }
-    /* on-stage status message (kept visible over the camera — the drawer below is
-       off-screen on the full-height stage, so feedback must live here) */
-    .cmf-scan-msg {
-      position: absolute; top: 70px; left: 14px; right: 14px; z-index: 6;
-      background: rgba(8,11,15,0.72); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-      border: 1px solid var(--border-bright); border-radius: 10px;
-      padding: 9px 13px; text-align: center; color: #fff; font-size: 12.5px; line-height: 1.4;
-    }
-    .cmf-scan-msg:empty { display: none; }
-    /* idle bottom hint pill */
-    .cmf-hint-pill {
-      position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 5;
-      background: rgba(8,11,15,0.6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-      border: 1px solid var(--border-bright); border-radius: 12px;
-      padding: 10px 14px; text-align: center; color: rgba(255,255,255,0.9);
-      font-size: 12px; line-height: 1.4;
-    }
-    /* bottom result bar (figure resolved) — thumb + name + qty stepper */
-    .cmf-bottombar {
-      position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 7;
-      display: none; align-items: center; gap: 11px;
-      background: rgba(8,11,15,0.8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-      border: 1px solid var(--border-bright); border-radius: 14px; padding: 10px 12px;
-    }
-    .cmf-bottombar.show { display: flex; }
-    .cmf-bottombar > img { width: 50px; height: 50px; object-fit: contain; background: #fff; border-radius: 10px; flex-shrink: 0; }
-    .cmf-bb-info { flex: 1; min-width: 0; }
-    .cmf-bb-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: #fff; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .cmf-bb-sub { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; }
-    .cmf-step { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
-    .cmf-step button {
-      width: 38px; height: 38px; border-radius: 10px; border: none; cursor: pointer; padding: 0;
-      background: var(--yellow); color: #06121F; font-size: 22px; font-weight: 700; line-height: 1;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .cmf-step button.minus { background: var(--surface3); color: #fff; }
-    .cmf-step button:disabled { opacity: 0.4; pointer-events: none; }
-    .cmf-step .cmf-qty { font-family: var(--font-mono); font-weight: 700; font-size: 18px; color: #fff; min-width: 20px; text-align: center; }
-    .cmf-bb-close {
-      position: absolute; top: -9px; right: -7px; width: 24px; height: 24px; border-radius: 50%;
-      background: var(--surface3); border: 1px solid var(--border-bright); color: #fff;
-      font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    }
-    /* manual-entry / capture drawer below the stage */
-    .cmf-drawer { padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
-    /* native (iOS app) scan launcher — centered over the (camera-less) stage */
-    .cmf-native-panel {
-      position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 16px; padding: 28px; text-align: center;
-    }
-    .cmf-native-brick { width: 64px; height: 64px; color: var(--yellow); opacity: 0.9; }
-    .cmf-native-brick svg { width: 100%; height: 100%; }
-    .cmf-native-hint { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 280px; }
-    .cmf-native-panel .btn { width: auto; padding: 13px 28px; margin: 0; }
-    /* While the native ML Kit scanner runs, the camera is rendered BEHIND the
-       WebView — make the stage transparent so it shows through, leaving only the
-       reticle/controls/hint overlay painted. */
-    body.cmf-native-scanning,
-    body.cmf-native-scanning #screen-cmf,
-    body.cmf-native-scanning .cmf-stage,
-    body.cmf-native-scanning #cmfVideoWrap { background: transparent !important; }
-    body.cmf-native-scanning #cmfVideo,
-    body.cmf-native-scanning .cmf-drawer { display: none !important; }
     .voice-mic {
       width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
       background: var(--yellow); color: #06121F; font-size: 34px;
@@ -1308,9 +1195,6 @@
   <button class="mode-tab" data-mode="lists" onclick="switchMode('lists')">
     <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="4" rx="1.3"/><rect x="4" y="10" width="16" height="4" rx="1.3"/><rect x="4" y="16" width="16" height="4" rx="1.3"/></svg><span>Part Lists</span>
   </button>
-  <button class="mode-tab" data-mode="cmf" onclick="switchMode('cmf')">
-    <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20h.01M20 20v-3"/></svg><span>CMF</span>
-  </button>
 </div>
 
 <!-- Pull-to-refresh indicator (fixed, body-level so screen transforms don't move it) -->
@@ -1399,13 +1283,17 @@
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;">
       <button id="myMinifigsDupesBtn" onclick="event.stopPropagation(); toggleMinifigDupes()" title="Show only figs you own 2 or more of"
         style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Owned 2+</button>
-      <select id="myMinifigsSort" onclick="event.stopPropagation()" onchange="_onMinifigsSortChange(this.value)"
-        style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
-        <option value="name">Name A–Z</option>
-        <option value="theme">Theme</option>
-        <option value="price_desc">Price: High → Low</option>
-        <option value="price_asc">Price: Low → High</option>
-      </select>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="myMinifigsExportBtn" onclick="event.stopPropagation(); exportMinifigsCSV()"
+          style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Export CSV</button>
+        <select id="myMinifigsSort" onclick="event.stopPropagation()" onchange="_onMinifigsSortChange(this.value)"
+          style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+          <option value="name">Name A–Z</option>
+          <option value="theme">Theme</option>
+          <option value="price_desc">Price: High → Low</option>
+          <option value="price_asc">Price: Low → High</option>
+        </select>
+      </div>
     </div>
     <div id="myMinifigsGrid"></div>
   </div>
@@ -1580,7 +1468,9 @@
       <button id="setPricesBtn" onclick="event.stopPropagation(); refreshSetPrices();" title="Refresh BrickLink prices"
         style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 10px;">
+      <button id="mySetsExportBtn" onclick="event.stopPropagation(); exportSetsCSV()"
+        style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Export CSV</button>
       <select id="mySetsSort" onclick="event.stopPropagation()" onchange="_onSetsSortChange(this.value)"
         style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
         <option value="name">Name A–Z</option>
@@ -1643,81 +1533,6 @@
   <div id="setDetailsContent" style="padding:14px;"></div>
 </div>
 
-<!-- Screen: CMF box-code scanner (immersive full-screen camera) -->
-<div class="screen" id="screen-cmf">
-  <div id="cmfVideoWrap" class="cmf-stage" onclick="cmfTapScan()">
-    <video id="cmfVideo" playsinline muted></video>
-    <div class="cmf-reticle"></div>
-
-    <!-- Floating controls: cancel (native scan) + flashlight + photo capture -->
-    <div class="cmf-controls">
-      <button id="cmfNativeStopBtn" class="cmf-ctrl-btn" style="display:none;" onclick="event.stopPropagation(); _cmfMlkitCancel();" aria-label="Stop scanning" title="Stop">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-      <button id="cmfTorchBtn" class="cmf-ctrl-btn" hidden onclick="event.stopPropagation(); _cmfToggleTorch();" aria-label="Toggle flashlight" title="Flashlight">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6l-.6 5.4a2 2 0 0 1-.5 1.1l-.9 1a2 2 0 0 0-.5 1.3V21a1 1 0 0 1-2 0v-9.2a2 2 0 0 0-.5-1.3l-.9-1a2 2 0 0 1-.5-1.1L9 2Z"/><path d="M8 6h8"/></svg>
-      </button>
-      <button class="cmf-ctrl-btn" onclick="event.stopPropagation(); document.getElementById('cmfPhotoInput').click();" aria-label="Take a photo of the code" title="Take photo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      </button>
-    </div>
-    <input type="file" id="cmfPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="cmfPhotoSelected(this)">
-
-    <!-- On-stage status (visible feedback over the camera) -->
-    <div id="cmfScanMsg" class="cmf-scan-msg"></div>
-
-    <!-- Native (iOS app) scan launcher — shown only inside the Capacitor shell,
-         where an on-device ML Kit scanner replaces the web camera/libdmtx path. -->
-    <div id="cmfNativePanel" class="cmf-native-panel" style="display:none;">
-      <div class="cmf-native-brick">
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20h.01M20 20v-3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-      </div>
-      <div class="cmf-native-hint">Point at the small square 2D code on the box bottom (right of the barcode).</div>
-      <button id="cmfNativeBtn" class="btn" onclick="_cmfScanTap()">Scan CMF Box</button>
-    </div>
-
-    <!-- Figure pop-out when a code resolves -->
-    <div id="cmfPop" class="cmf-pop">
-      <div class="cmf-pop-card">
-        <img id="cmfPopImg" alt="">
-        <div id="cmfPopName" class="cmf-pop-name"></div>
-        <div id="cmfPopSeries" class="cmf-pop-series"></div>
-      </div>
-    </div>
-
-    <!-- Idle hint -->
-    <div id="cmfHintPill" class="cmf-hint-pill">Center the small <b>square 2D code</b> (right of the barcode) — get close, hold steady. Tap to grab a frame.</div>
-
-    <!-- Result bar: thumb + name + add/remove stepper -->
-    <div id="cmfBottomBar" class="cmf-bottombar" onclick="event.stopPropagation()">
-      <button class="cmf-bb-close" onclick="cmfScanAnother()" aria-label="Dismiss">✕</button>
-      <img id="cmfBarImg" alt="">
-      <div class="cmf-bb-info">
-        <div id="cmfBarName" class="cmf-bb-name"></div>
-        <div id="cmfBarSub" class="cmf-bb-sub"></div>
-      </div>
-      <div class="cmf-step">
-        <button class="minus" id="cmfStepMinus" onclick="_cmfStepRemove()" aria-label="Remove one">−</button>
-        <span class="cmf-qty" id="cmfStepQty">0</span>
-        <button id="cmfStepPlus" onclick="_cmfStepAdd()" aria-label="Add one">+</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Status + manual entry / capture drawer (below the immersive stage) -->
-  <div class="cmf-drawer">
-    <div id="cmfStatus" class="voice-status" style="min-height:18px;text-align:center;"></div>
-    <div id="cmfResult" style="width:100%;"></div>
-    <div style="display:flex;gap:8px;width:100%;align-items:center;">
-      <input id="cmfManualInput" type="text" class="voice-input" inputmode="numeric"
-        placeholder="…or type the 7-digit code" style="flex:1;"
-        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-        onkeydown="if(event.key==='Enter')cmfLookupManual()">
-      <button class="voice-go" onclick="cmfLookupManual()">Look up</button>
-    </div>
-    <div style="font-size:11px;color:var(--muted2);text-align:center;">Series 25+ boxes only; blind bags have no readable code. The 📷 button (top-right) is the most reliable — it uses the full camera with autofocus.</div>
-  </div>
-</div>
 
 <!-- Screen 2: Loading -->
 <div class="screen" id="screen-loading">
@@ -2077,7 +1892,6 @@
   <button class="btn" style="margin-top:16px;max-width:300px" onclick="goTo('screen-scan')">Scan Another</button>
 </div>
 
-<script src="/static/zxing.min.js"></script>
 <script>
   let colors = [];
   let selectedColorId = null;
@@ -2133,7 +1947,7 @@
 
     // If we're on the identify screen and switching modes, go back to scan (unless going to lists/sets)
     if (document.getElementById('screen-identify').classList.contains('active')) {
-      if (m === 'lists' || m === 'sets' || m === 'cmf') {
+      if (m === 'lists' || m === 'sets') {
         // Going to a browse/scan tab, hide identify screen
         document.getElementById('screen-identify').classList.remove('active');
       } else {
@@ -2147,32 +1961,21 @@
       document.getElementById('screen-set-details').classList.remove('active');
     }
 
-    // Switch between scan screen, lists browser, sets browser, and shopping list
-    if (m !== 'cmf') _cmfStopScan();   // leaving the CMF tab → release its camera
-
+    // Switch between scan screen, lists browser, and sets browser
     if (m === 'lists') {
       document.getElementById('screen-scan').classList.remove('active');
       document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-cmf').classList.remove('active');
       document.getElementById('screen-lists').classList.add('active');
       populateListsViewSelect();
     } else if (m === 'sets') {
       document.getElementById('screen-scan').classList.remove('active');
       document.getElementById('screen-lists').classList.remove('active');
-      document.getElementById('screen-cmf').classList.remove('active');
       document.getElementById('screen-sets').classList.add('active');
       loadMySets();
-    } else if (m === 'cmf') {
-      document.getElementById('screen-scan').classList.remove('active');
-      document.getElementById('screen-lists').classList.remove('active');
-      document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-cmf').classList.add('active');
-      _cmfEnterTab();
     } else {
       // parts or minifigs
       document.getElementById('screen-lists').classList.remove('active');
       document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-cmf').classList.remove('active');
       document.getElementById('screen-scan').classList.add('active');
       // Pick up lists created elsewhere since the page loaded (dropdown is
       // otherwise only populated once at startup).
@@ -2556,577 +2359,6 @@
     }
   }
 
-  // ── CMF (Collectible Minifigure) box-code scanning ──────────────────────
-  // Recent CMF boxes (Series 25+) carry a Data Matrix code on the bottom whose
-  // 7-digit value identifies the figure inside (server lookup → cmf_codes.json).
-  // We decode it with ZXing: a dedicated modal scanner (reliable, get-close) +
-  // a manual entry fallback, AND a best-effort parallel watcher on the normal
-  // live-scan stream so a box code is caught during ordinary minifig scanning.
-  let _cmfLastCode = null, _cmfResult = null, _cmfLastRaw = '';
-  let _cmfStream = null, _cmfDecodeTimer = null, _cmfDmReader = null, _cmfCanvas = null, _cmfHints = null;
-  let _cmfTorchOn = false, _cmfOwnedQty = 0, _cmfStepBusy = false;
-
-  // ── Capture: tag an unknown code → figure, saved to the local store ──────
-  let _cmfCaptureCode = null, _cmfFigTimer = null, _cmfFigRows = [];
-
-  function _cmfShowCapture(code) {
-    _cmfCaptureCode = code; _cmfFigRows = [];
-    _cmfHidePop();
-    const wrap = document.getElementById('cmfVideoWrap');
-    if (wrap) wrap.style.display = 'none';   // hide the (paused) camera while tagging
-    document.getElementById('cmfResult').innerHTML = `
-      <div style="width:100%;text-align:left;">
-        <div style="font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--text);">New code <span style="font-family:var(--font-mono);">${escapeHtml(code)}</span></div>
-        <div style="font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.45;">Not in the catalog yet — tag which figure is in this box to save it. Builds your table for next time.</div>
-        <input id="cmfFigSearch" type="text" class="voice-input" placeholder="Search figure — e.g. Cute Witch"
-          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-          oninput="_cmfFigSearchDebounced(this.value)" style="width:100%;">
-        <div id="cmfFigResults" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;"></div>
-      </div>`;
-    const inp = document.getElementById('cmfFigSearch');
-    if (inp) inp.focus();
-  }
-  function _cmfFigSearchDebounced(q) {
-    clearTimeout(_cmfFigTimer);
-    _cmfFigTimer = setTimeout(() => _cmfFigSearch(q), 250);
-  }
-  function _cmfFigSearch(q) {
-    q = (q || '').trim();
-    const box = document.getElementById('cmfFigResults');
-    if (!box) return;
-    if (q.length < 2) { box.innerHTML = ''; return; }
-    fetch('/api/local/search?type=minifigs&limit=12&q=' + encodeURIComponent(q))
-      .then(r => r.json())
-      .then(d => {
-        _cmfFigRows = d.results || [];
-        if (!_cmfFigRows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted);">No matches.</div>'; return; }
-        box.innerHTML = _cmfFigRows.map((r, i) => `
-          <button onclick="cmfCapturePick(${i})"
-            style="display:flex;gap:10px;align-items:center;text-align:left;background:var(--surface3);border:1px solid var(--border-bright);border-radius:10px;padding:8px;cursor:pointer;color:var(--text);">
-            <img src="${escapeHtml(r.img_url || '')}" alt="" style="width:40px;height:40px;object-fit:contain;background:var(--surface);border-radius:6px;flex-shrink:0;">
-            <span style="flex:1;min-width:0;"><span style="font-size:13px;font-weight:600;">${escapeHtml(r.name || '')}</span><br><span style="font-family:var(--font-mono);font-size:11px;color:var(--muted2);">${escapeHtml(r.fig_num || '')}</span></span>
-          </button>`).join('');
-      })
-      .catch(() => { box.innerHTML = '<div style="font-size:12px;color:var(--red);">Search error.</div>'; });
-  }
-  function cmfCapturePick(i) {
-    const fig = _cmfFigRows[i];
-    if (!fig || !_cmfCaptureCode) return;
-    const status = document.getElementById('cmfStatus');
-    status.textContent = 'Saving…';
-    fetch('/api/cmf/capture', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: _cmfCaptureCode, fig_num: fig.fig_num, name: fig.name, series: '' })
-    })
-      .then(r => r.json().then(d => ({ ok: r.ok, d })))
-      .then(({ ok, d }) => {
-        if (!ok) { status.textContent = d.error || 'Save failed.'; return; }
-        status.textContent = 'Saved ✓ — ' + _cmfCaptureCode + ' → ' + (fig.name || '');
-        _cmfLastCode = null; _cmfCaptureCode = null;
-        _cmfRenderResult(d);   // show the now-resolved card (with Add to My Minifigs)
-        if (typeof showToast === 'function') showToast('Saved: ' + (fig.name || ''));
-      })
-      .catch(() => { status.textContent = 'Network error.'; });
-  }
-
-  // ── Native (Capacitor / iOS app) Data Matrix scanner ────────────────────
-  // Inside the iOS shell we use the on-device ML Kit scanner (Vision-grade) via
-  // the Capacitor bridge instead of the web camera + libdmtx path. Everything
-  // after the decode — lookup, tag-unknown, add to My Minifigs — is the same web
-  // flow. In a plain browser _cmfNative() is null and nothing here runs.
-  // We pick the best native scanner available in the iOS shell:
-  //   'vision' — our custom CmfScanner plugin (ultra-wide + macro, Apple Vision). Preferred.
-  //   'mlkit'  — the @capacitor-mlkit/barcode-scanning plugin (fallback if Vision build absent).
-  //   null     — plain browser → use the web camera + libdmtx path.
-  let _cmfScanKind = undefined, _cmfVision = null, _cmfBS = null;
-  function _cmfIsNativePlatform() {
-    return !!(window.Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()
-              && typeof Capacitor.registerPlugin === 'function');
-  }
-  async function _cmfProbeScanner() {
-    _cmfScanKind = null; _cmfVision = null; _cmfBS = null;
-    if (!_cmfIsNativePlatform()) return;
-    try {
-      const v = Capacitor.registerPlugin('CmfScanner');
-      const r = await v.isAvailable();
-      if (r && r.available) { _cmfVision = v; _cmfScanKind = 'vision'; return; }
-    } catch (e) {}
-    try {
-      const m = Capacitor.registerPlugin('BarcodeScanner');
-      await m.isSupported();   // rejects if the plugin isn't in the build
-      _cmfBS = m; _cmfScanKind = 'mlkit'; return;
-    } catch (e) {}
-  }
-  function _cmfNative() { return _cmfScanKind === 'mlkit' ? _cmfBS : null; }   // ML Kit proxy (torch/stop hooks)
-
-  // The launcher panel (tap to scan).
-  function _cmfShowNativePanel() {
-    const v = document.getElementById('cmfVideo'); if (v) v.style.display = 'none';
-    document.querySelector('#cmfVideoWrap .cmf-reticle')?.style.setProperty('display', 'none');
-    document.querySelector('#cmfVideoWrap .cmf-controls')?.style.setProperty('display', 'none');
-    const hint = document.getElementById('cmfHintPill'); if (hint) hint.style.display = 'none';
-    const panel = document.getElementById('cmfNativePanel'); if (panel) panel.style.display = 'flex';
-  }
-  function _cmfHideNativePanel() {
-    const panel = document.getElementById('cmfNativePanel'); if (panel) panel.style.display = 'none';
-  }
-  // Panel "Scan CMF Box" tap → dispatch to whichever native scanner we found.
-  function _cmfScanTap() {
-    if (_cmfScanKind === 'vision') return _cmfVisionScan();
-    if (_cmfScanKind === 'mlkit') return _cmfMlkitStart();
-    _cmfStartScan();
-  }
-  // Custom plugin: a single-shot native scanner (it owns its full-screen UI), so
-  // the JS just awaits the decoded payload and runs the normal lookup flow.
-  async function _cmfVisionScan() {
-    if (!_cmfVision) return;
-    _cmfHideNativePanel(); _cmfMsg('');
-    try {
-      const res = await _cmfVision.scan();
-      if (res && res.value) { _cmfLastCode = null; _cmfOnCode(String(res.value)); }
-      else { _cmfShowNativePanel(); }   // cancelled
-    } catch (e) {
-      _cmfShowNativePanel();
-      _cmfMsg('Scanner error — if you just added the plugin, rebuild the app in Xcode.');
-    }
-  }
-  // ML Kit fallback: continuous scan with the camera behind a transparented WebView;
-  // we overlay the reticle/hint/torch and listen for barcodes (scan() is Android-only).
-  let _cmfNativeListener = null, _cmfNativeActive = false, _cmfNativeHandling = false;
-  async function _cmfMlkitStart() {
-    const BS = _cmfNative();
-    if (!BS) return;
-    try {
-      let perm = {};
-      try { perm = await BS.checkPermissions(); } catch (e) {}
-      const ok = (p) => p && (p.camera === 'granted' || p.camera === 'limited');
-      if (!ok(perm)) { try { perm = await BS.requestPermissions(); } catch (e) {} }
-      if (!ok(perm)) { _cmfShowNativePanel(); _cmfMsg('Camera permission needed — enable it for Brick Scanner in Settings.'); return; }
-    } catch (e) {}
-    _cmfNativeHandling = false;
-    _cmfMsg('');
-    _cmfHideNativePanel();
-    try {
-      if (!_cmfNativeListener) {
-        _cmfNativeListener = await BS.addListener('barcodesScanned', (result) => {
-          if (_cmfNativeHandling) return;
-          const list = (result && result.barcodes) || [];
-          const raw = list.length ? (list[0].rawValue || list[0].displayValue || '') : '';
-          if (raw) { _cmfNativeHandling = true; _cmfMlkitStop().then(() => { _cmfLastCode = null; _cmfOnCode(raw); }); }
-        });
-      }
-      document.body.classList.add('cmf-native-scanning');
-      document.querySelector('#cmfVideoWrap .cmf-reticle')?.style.setProperty('display', '');
-      document.querySelector('#cmfVideoWrap .cmf-controls')?.style.setProperty('display', '');
-      const torch = document.getElementById('cmfTorchBtn'); if (torch) torch.hidden = false;
-      const hint = document.getElementById('cmfHintPill'); if (hint) hint.style.display = '';
-      const stop = document.getElementById('cmfNativeStopBtn'); if (stop) stop.style.display = '';
-      await BS.startScan({ formats: ['DATA_MATRIX'] });
-      _cmfNativeActive = true;
-    } catch (e) {
-      document.body.classList.remove('cmf-native-scanning');
-      _cmfShowNativePanel();
-      _cmfMsg('Couldn’t start the camera scanner.');
-    }
-  }
-  async function _cmfMlkitStop() {
-    const BS = _cmfNative();
-    document.body.classList.remove('cmf-native-scanning');
-    _cmfNativeActive = false; _cmfTorchOn = false;
-    const stop = document.getElementById('cmfNativeStopBtn'); if (stop) stop.style.display = 'none';
-    const torch = document.getElementById('cmfTorchBtn'); if (torch) torch.classList.remove('on');
-    try { if (BS) await BS.stopScan(); } catch (e) {}
-    try { if (_cmfNativeListener) { await _cmfNativeListener.remove(); _cmfNativeListener = null; } } catch (e) {}
-  }
-  function _cmfMlkitCancel() { _cmfMlkitStop().then(() => { _cmfShowNativePanel(); _cmfMsg(''); }); }
-
-  // Entering the CMF tab: reset state and start the box scanner.
-  async function _cmfEnterTab() {
-    document.getElementById('cmfResult').innerHTML = '';
-    document.getElementById('cmfManualInput').value = '';
-    _cmfMsg('');
-    _cmfLastCode = null; _cmfResult = null; _cmfCaptureCode = null;
-    _cmfHidePop();
-    if (_cmfIsNativePlatform()) {
-      if (_cmfScanKind === undefined) await _cmfProbeScanner();
-      if (_cmfScanKind) { _cmfShowNativePanel(); return; }   // native scanner → launcher panel
-    }
-    _cmfStartScan();                                          // browser → web camera
-  }
-  // iOS Safari's ZXing decodeFromVideoDevice grabs a low-res stream and rarely
-  // reads these tiny Data Matrix codes. So we drive it ourselves: open a high-res
-  // rear-camera stream and decode full-resolution snapshots with the core
-  // DataMatrixReader (TRY_HARDER) on a short interval.
-  async function _cmfStartScan() {
-    const wrap = document.getElementById('cmfVideoWrap');
-    const video = document.getElementById('cmfVideo');
-    if (!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-      if (wrap) wrap.style.display = 'none';
-      _cmfMsg('Camera needs HTTPS — type the 7-digit code below instead.');
-      return;
-    }
-    if (!(window.ZXing && ZXing.MultiFormatReader && ZXing.HTMLCanvasElementLuminanceSource)) {
-      if (wrap) wrap.style.display = 'none';
-      _cmfMsg('Scanner unavailable — type the 7-digit code below.');
-      return;
-    }
-    try {
-      _cmfStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' },
-                 width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
-    } catch (e) {
-      if (wrap) wrap.style.display = 'none';
-      _cmfMsg('Couldn’t open the camera — type the code below.');
-      return;
-    }
-    if (wrap) wrap.style.display = '';
-    _cmfMsg('');
-    video.srcObject = _cmfStream;
-    video.muted = true; video.setAttribute('playsinline', '');
-    try { await video.play(); } catch (e) {}
-    _cmfSetupTorch();
-    _cmfSrvBusy = false; _cmfSrvOff = false;   // re-probe the server decoder this session
-    // Multi-format: the box's 2D code may be a QR code OR a Data Matrix, so try both.
-    _cmfEnsureReader();
-    if (_cmfDecodeTimer) clearInterval(_cmfDecodeTimer);
-    _cmfDecodeTimer = setInterval(_cmfDecodeFrame, 400);
-  }
-  // Flashlight (torch) — only some devices/browsers expose it via getUserMedia
-  // (Android Chrome typically yes; iOS Safari does not). Show the button only
-  // when the active video track advertises a `torch` capability.
-  function _cmfTorchTrack() {
-    if (!_cmfStream) return null;
-    const t = _cmfStream.getVideoTracks ? _cmfStream.getVideoTracks()[0] : null;
-    return t || null;
-  }
-  function _cmfSetupTorch() {
-    _cmfTorchOn = false;
-    const btn = document.getElementById('cmfTorchBtn');
-    if (btn) { btn.hidden = true; btn.classList.remove('on'); }
-    const track = _cmfTorchTrack();
-    if (!track || !track.getCapabilities) return;
-    let caps = {};
-    try { caps = track.getCapabilities() || {}; } catch (e) {}
-    if (btn && 'torch' in caps && caps.torch) btn.hidden = false;
-  }
-  async function _cmfToggleTorch() {
-    const btn = document.getElementById('cmfTorchBtn');
-    // Native scan: drive the ML Kit plugin's torch.
-    if (_cmfNativeActive) {
-      const BS = _cmfNative();
-      if (!BS) return;
-      _cmfTorchOn = !_cmfTorchOn;
-      try {
-        if (BS.toggleTorch) await BS.toggleTorch();
-        else if (_cmfTorchOn && BS.enableTorch) await BS.enableTorch();
-        else if (BS.disableTorch) await BS.disableTorch();
-        if (btn) btn.classList.toggle('on', _cmfTorchOn);
-      } catch (e) { _cmfTorchOn = false; if (btn) btn.classList.remove('on'); }
-      return;
-    }
-    const track = _cmfTorchTrack();
-    if (!track || !track.applyConstraints) return;
-    _cmfTorchOn = !_cmfTorchOn;
-    try {
-      await track.applyConstraints({ advanced: [{ torch: _cmfTorchOn }] });
-      if (btn) btn.classList.toggle('on', _cmfTorchOn);
-    } catch (e) {
-      _cmfTorchOn = false;
-      if (btn) btn.classList.remove('on');
-    }
-  }
-  function _cmfBuildHints() {
-    const h = new Map();
-    h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX]);
-    h.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    return h;
-  }
-  function _cmfEnsureReader() {
-    if (!(window.ZXing && ZXing.MultiFormatReader && ZXing.HTMLCanvasElementLuminanceSource)) return false;
-    if (!_cmfDmReader) { _cmfDmReader = new ZXing.MultiFormatReader(); _cmfHints = _cmfBuildHints(); _cmfDmReader.setHints(_cmfHints); }
-    if (!_cmfCanvas) _cmfCanvas = document.createElement('canvas');
-    return true;
-  }
-  // Decode a region of a source (video frame or <img>), scaling huge stills down
-  // to a sane size for the binarizer.
-  function _cmfTryDecodeRegion(source, sx, sy, sw, sh) {
-    const cap = 1600;
-    const scale = Math.min(1, cap / Math.max(sw, sh));
-    const dw = Math.max(1, Math.round(sw * scale)), dh = Math.max(1, Math.round(sh * scale));
-    const c = _cmfCanvas; c.width = dw; c.height = dh;
-    c.getContext('2d', { willReadFrequently: true }).drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
-    try {
-      const lum = new ZXing.HTMLCanvasElementLuminanceSource(c);
-      const bin = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
-      const result = _cmfDmReader.decode(bin, _cmfHints);
-      return (result && (result.getText ? result.getText() : result.text)) || '';
-    } catch (e) { return ''; }
-  }
-  // These tiny Data Matrix codes only decode when the code fills a good fraction
-  // of the image handed to ZXing, so we sweep several centered crop scales. Doing
-  // all of them every 400 ms tick would back the loop up (TRY_HARDER decodes are
-  // slow), so we cycle ONE tight scale per tick + an occasional full-frame pass —
-  // covering every scale across ~1.5 s while staying responsive.
-  let _cmfCropIdx = 0;
-  const _CMF_CROP_FRACS = [0.42, 0.55, 0.7, 0.9];
-  function _cmfDecodeFrame() {
-    const video = document.getElementById('cmfVideo');
-    if (!video || video.readyState < 2 || !video.videoWidth || !_cmfDmReader) return;
-    const vw = video.videoWidth, vh = video.videoHeight, m = Math.min(vw, vh);
-    const frac = _CMF_CROP_FRACS[_cmfCropIdx % _CMF_CROP_FRACS.length];
-    _cmfCropIdx++;
-    const side = Math.floor(m * frac);
-    const cx = Math.floor((vw - side) / 2), cy = Math.floor((vh - side) / 2);
-    let text = _cmfTryDecodeRegion(video, cx, cy, side, side);
-    // Every few ticks also sweep the whole frame for an off-centre code.
-    if (!text && _cmfCropIdx % 3 === 0) text = _cmfTryDecodeRegion(video, 0, 0, vw, vh);
-    if (text) { _cmfOnCode(text); return; }
-    // The in-browser ZXing decode is weak on these tiny codes — every ~1.2 s also
-    // hand the current frame to the server's stronger libdmtx decoder (one request
-    // in flight at a time). Disables itself if the server decoder isn't installed.
-    if (_cmfCropIdx % 3 === 2) _cmfServerDecodeFrame();
-  }
-  let _cmfSrvBusy = false, _cmfSrvOff = false, _cmfSrvCanvas = null;
-  function _cmfServerDecodeFrame() {
-    if (_cmfSrvBusy || _cmfSrvOff) return;
-    const video = document.getElementById('cmfVideo');
-    if (!video || video.readyState < 2 || !video.videoWidth) return;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const scale = Math.min(1, 1280 / Math.max(vw, vh));
-    if (!_cmfSrvCanvas) _cmfSrvCanvas = document.createElement('canvas');
-    const c = _cmfSrvCanvas;
-    c.width = Math.max(1, Math.round(vw * scale)); c.height = Math.max(1, Math.round(vh * scale));
-    c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
-    _cmfSrvBusy = true;
-    c.toBlob((blob) => {
-      if (!blob) { _cmfSrvBusy = false; return; }
-      const fd = new FormData();
-      fd.append('image', blob, 'frame.jpg');
-      fd.append('mode', 'live');
-      fetch('/api/cmf/decode', { method: 'POST', body: fd })
-        .then(r => {
-          if (r.status === 503) { _cmfSrvOff = true; return null; }  // not installed → stop trying
-          return r.ok ? r.json() : null;
-        })
-        .then(d => { if (d && d.found && d.code && _cmfDecodeTimer) _cmfOnCode(String(d.code)); })
-        .catch(() => {})
-        .finally(() => { _cmfSrvBusy = false; });
-    }, 'image/jpeg', 0.7);
-  }
-  // Tap the viewfinder to force an immediate decode of the current frame.
-  function cmfTapScan() { if (_cmfStream && _cmfDecodeTimer) _cmfDecodeFrame(); }
-
-  // Most reliable path on iOS: take ONE high-res, autofocused photo with the
-  // native camera and decode that still (full image, then a zoomed centre crop).
-  function _cmfDecodeImage(img) {
-    const w = img.naturalWidth, h = img.naturalHeight;
-    if (!w || !h) return '';
-    const m = Math.min(w, h);
-    // A still has no time pressure, so sweep the full frame then progressively
-    // tighter centre crops (the code fills more of each → far better odds).
-    let text = _cmfTryDecodeRegion(img, 0, 0, w, h);
-    const fracs = [0.7, 0.55, 0.42, 0.3];
-    for (let i = 0; i < fracs.length && !text; i++) {
-      const side = Math.floor(m * fracs[i]);
-      const cx = Math.floor((w - side) / 2), cy = Math.floor((h - side) / 2);
-      text = _cmfTryDecodeRegion(img, cx, cy, side, side);
-    }
-    return text;
-  }
-  async function cmfPhotoSelected(input) {
-    const file = input.files && input.files[0];
-    input.value = '';   // allow re-picking the same file
-    if (!file) return;
-    _cmfMsg('Reading photo…');
-    // Server-side libdmtx is far stronger on these tiny Data Matrix codes than
-    // the in-browser ZXing decode — try it first, fall back to ZXing if the
-    // server decoder isn't available (e.g. production) or doesn't get a hit.
-    const code = await _cmfServerDecode(file);
-    if (code) { _cmfLastRaw = code; cmfLookup(code); return; }
-    if (!_cmfEnsureReader()) { _cmfMsg('Scanner unavailable — type the code below.'); return; }
-    const img = new Image();
-    img.onload = () => {
-      const text = _cmfDecodeImage(img);
-      URL.revokeObjectURL(img.src);
-      if (text) {
-        _cmfLastRaw = text.trim();
-        cmfLookup(_cmfLastRaw);   // cmfLookup pulls the first 7-digit field
-      } else {
-        _cmfMsg('Couldn’t read the code. Get closer so the square fills the frame, avoid glare (tilt the box / turn off overhead light), or type the 7-digit code below.');
-      }
-    };
-    img.onerror = () => { _cmfMsg('Couldn’t load that photo.'); };
-    img.src = URL.createObjectURL(file);
-  }
-  // POST a photo to the server's libdmtx decoder. Returns the digit string, or
-  // '' (no hit / decoder unavailable → caller falls back to in-browser ZXing).
-  async function _cmfServerDecode(file) {
-    try {
-      const fd = new FormData();
-      fd.append('image', file, file.name || 'cmf.jpg');
-      fd.append('mode', 'photo');   // logged server-side for diagnosis
-      const r = await fetch('/api/cmf/decode', { method: 'POST', body: fd });
-      if (!r.ok) return '';   // 503 = decoder not installed
-      const d = await r.json();
-      return (d && d.found && d.code) ? String(d.code) : '';
-    } catch (e) { return ''; }
-  }
-  function _cmfStopScan() {
-    if (_cmfNativeActive) { _cmfMlkitStop(); }   // leaving the tab during an ML Kit scan
-    if (_cmfDecodeTimer) { clearInterval(_cmfDecodeTimer); _cmfDecodeTimer = null; }
-    if (_cmfStream) { try { _cmfStream.getTracks().forEach(t => t.stop()); } catch (e) {} _cmfStream = null; }
-    const video = document.getElementById('cmfVideo');
-    if (video) video.srcObject = null;
-    _cmfDmReader = null;
-    _cmfTorchOn = false;
-    const tb = document.getElementById('cmfTorchBtn');
-    if (tb) { tb.hidden = true; tb.classList.remove('on'); }
-    _cmfHidePop();
-  }
-  // Pause/resume just the decode loop (keeps the camera live behind the pop-out).
-  function _cmfPauseDecode() {
-    if (_cmfDecodeTimer) { clearInterval(_cmfDecodeTimer); _cmfDecodeTimer = null; }
-  }
-  function _cmfResumeDecode() {
-    if (_cmfStream && !_cmfDecodeTimer) _cmfDecodeTimer = setInterval(_cmfDecodeFrame, 400);
-  }
-  function _cmfHidePop() {
-    const pop = document.getElementById('cmfPop');
-    if (pop) pop.classList.remove('show');
-    const bar = document.getElementById('cmfBottomBar');
-    if (bar) bar.classList.remove('show');
-    const hint = document.getElementById('cmfHintPill');
-    if (hint) hint.style.display = '';
-  }
-  // A CMF Data Matrix payload is several space-separated fields, e.g.
-  // "6605269 211R6 15945242 007416" — the figure's stable 7-digit code is the
-  // FIRST field (later fields include a per-box serial). Pull just that out; never
-  // concatenate all digits (that yields a bogus, box-unique number).
-  function _cmf7(raw) {
-    const runs = String(raw == null ? '' : raw).match(/\d+/g) || [];
-    for (const r of runs) if (r.length === 7) return r;
-    for (const r of runs) if (r.length >= 7) return r.slice(0, 7);
-    return '';
-  }
-  function _cmfOnCode(text) {
-    const raw = (text || '').trim();
-    const code = _cmf7(raw);
-    if (!code || code === _cmfLastCode) return;
-    _cmfLastCode = code; _cmfLastRaw = raw;
-    cmfLookup(code);
-  }
-  function cmfLookupManual() {
-    const code = (document.getElementById('cmfManualInput').value || '').replace(/\D/g, '');
-    if (!code) { _cmfMsg('Enter the 7-digit code.'); return; }
-    _cmfLastCode = code;
-    cmfLookup(code);
-  }
-  // Write a status message both on the camera stage (visible) and in the drawer.
-  function _cmfMsg(text) {
-    const el = document.getElementById('cmfScanMsg');
-    if (el) el.textContent = text || '';
-    const s = document.getElementById('cmfStatus');
-    if (s) s.textContent = text || '';
-  }
-  function cmfLookup(code) {
-    const digits = _cmf7(code) || (code || '').replace(/\D/g, '');
-    _cmfMsg('Looking up ' + digits + '…');
-    fetch('/api/cmf/lookup/' + encodeURIComponent(digits))
-      .then(r => r.json())
-      .then(data => {
-        if (data.found) {
-          _cmfPauseDecode();       // keep the camera live behind the pop-out
-          _cmfMsg('');
-          _cmfRenderResult(data);
-        } else if (digits.length === 7) {
-          _cmfStopScan();          // pause camera so it doesn't re-fire while tagging
-          _cmfMsg('');
-          _cmfShowCapture(digits); // unknown but valid → let the user tag it
-        } else {
-          // Surface the raw decoded payload so we can see exactly what the box
-          // encodes (it may not be a clean 7-digit number).
-          _cmfMsg('Scanned “' + (_cmfLastRaw || digits) + '” — not a recognised 7-digit code.');
-          _cmfLastCode = null;     // allow a re-scan
-        }
-      })
-      .catch(() => { _cmfMsg('Network error.'); _cmfLastCode = null; });
-  }
-  function _cmfRenderResult(data) {
-    _cmfResult = data;
-    // Pop the figure image out over the (still-live) camera view.
-    const wrap = document.getElementById('cmfVideoWrap');
-    if (wrap) wrap.style.display = '';
-    const pop = document.getElementById('cmfPop');
-    if (pop) {
-      const im = document.getElementById('cmfPopImg');
-      im.src = data.img_url || '';
-      im.style.display = data.img_url ? '' : 'none';
-      document.getElementById('cmfPopName').textContent = data.name || 'Unknown figure';
-      document.getElementById('cmfPopSeries').textContent =
-        [data.series, data.code].filter(Boolean).join(' · ');
-      pop.classList.remove('show'); void pop.offsetWidth; pop.classList.add('show');  // restart anim
-    }
-    // Persistent bottom bar: thumb + name + an inline add/remove stepper, so you
-    // add the figure to My Minifigs without leaving the scanner (tap + per copy).
-    const hint = document.getElementById('cmfHintPill');
-    if (hint) hint.style.display = 'none';
-    document.getElementById('cmfBarImg').src = data.img_url || '/static/minifig.png';
-    document.getElementById('cmfBarName').textContent = data.name || 'Unknown figure';
-    document.getElementById('cmfBarSub').textContent =
-      [data.series, data.code].filter(Boolean).join(' · ') || (data.fig_num || '');
-    document.getElementById('cmfBottomBar').classList.add('show');
-    document.getElementById('cmfResult').innerHTML = '';
-    // Seed the stepper with however many of this fig you already own.
-    _cmfOwnedQty = 0; _cmfRenderStepper();
-    if (data.fig_num) {
-      fetch('/api/owned_minifigs/' + encodeURIComponent(data.fig_num))
-        .then(r => r.json())
-        .then(d => { if (_cmfResult === data) { _cmfOwnedQty = (d && d.owned) ? (parseInt(d.quantity) || 0) : 0; _cmfRenderStepper(); } })
-        .catch(() => {});
-    }
-  }
-  function _cmfRenderStepper() {
-    const q = document.getElementById('cmfStepQty');
-    if (q) q.textContent = _cmfOwnedQty;
-    const minus = document.getElementById('cmfStepMinus');
-    if (minus) minus.disabled = _cmfOwnedQty <= 0;
-    const plus = document.getElementById('cmfStepPlus');
-    if (plus) plus.disabled = !(_cmfResult && _cmfResult.fig_num);
-  }
-  function _cmfStepAdd() {
-    const d = _cmfResult;
-    if (!d || !d.fig_num) return;
-    _cmfOwnedQty += 1; _cmfRenderStepper();   // optimistic — snappy for multi-add
-    fetch('/api/add_minifig', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ set_num: d.fig_num, quantity: 1, name: d.name || d.fig_num, img_url: d.img_url || '', bl_id: '' })
-    })
-      .then(r => { if (!r.ok) throw 0; })
-      .catch(() => { _cmfOwnedQty = Math.max(0, _cmfOwnedQty - 1); _cmfRenderStepper(); _cmfMsg('Couldn’t add — try again.'); });
-  }
-  function _cmfStepRemove() {
-    const d = _cmfResult;
-    if (!d || !d.fig_num || _cmfOwnedQty <= 0) return;
-    _cmfOwnedQty -= 1; _cmfRenderStepper();
-    fetch('/api/remove_minifig_one', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ set_num: d.fig_num })
-    })
-      .then(r => { if (!r.ok) throw 0; })
-      .catch(() => { _cmfOwnedQty += 1; _cmfRenderStepper(); _cmfMsg('Couldn’t update — try again.'); });
-  }
-  function cmfScanAnother() {
-    _cmfResult = null; _cmfLastCode = null; _cmfOwnedQty = 0;
-    document.getElementById('cmfResult').innerHTML = '';
-    document.getElementById('cmfManualInput').value = '';
-    _cmfHidePop();   // hides pop-out + bottom bar, restores the idle hint
-    const wrap = document.getElementById('cmfVideoWrap'); if (wrap) wrap.style.display = '';
-    _cmfMsg('');
-    if (_cmfScanKind) { _cmfScanTap(); return; }   // restart the native scan
-    if (_cmfStream) _cmfResumeDecode(); else _cmfStartScan();
-  }
 
   // Start/stop the camera based on whether the scan screen is showing (in a
   // parts/minifig mode). Called after every navigation (goTo + switchMode).
@@ -3134,7 +2366,7 @@
   // shows the "Start Live Scan" button so the permission prompt only fires on an
   // explicit tap (no nagging prompt on every open/resume).
   function syncLiveScan() {
-    // Never grab the camera while the CMF scanner (or another overlay) owns it.
+    // Never grab the camera while an overlay owns it.
     if (typeof _overlayOpen === 'function' && _overlayOpen()) { stopLiveScan(); return; }
     const onScan = document.getElementById('screen-scan').classList.contains('active')
       && (mode === 'parts' || mode === 'minifigs');
@@ -3209,10 +2441,8 @@
     if (document.hidden) {
       _hiddenAt = Date.now();
       stopLiveScan();
-      _cmfStopScan();
     } else {
       syncLiveScan();
-      if (document.getElementById('screen-cmf').classList.contains('active')) _cmfStartScan();
       if (Date.now() - _hiddenAt > 2000) { checkForUpdate(); refreshActiveScreenData(); }
     }
   });
@@ -6840,6 +6070,7 @@
     if (figsSel) { figsSel.style.display = (_listMode === 'minifigs') ? '' : 'none'; figsSel.value = _minifigsSortMode; }
   }
 
+  let _mySetsAll = [];   // full My-Sets collection held in memory for CSV export
   function loadMySets() {
     const grid = document.getElementById('mySetsGrid');
     const countEl = document.getElementById('mySetsCount');
@@ -6851,6 +6082,7 @@
     return fetch('/api/owned_sets')
       .then(r => r.json())
       .then(data => {
+        _mySetsAll = data.results || [];
         const sets = _sortCollection(data.results || [], _setsSortMode, _setMarketPrice);
         if (data.error) {
           grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Couldn’t load your sets.</p>';
@@ -6868,6 +6100,34 @@
       .catch(() => {
         grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Network error.</p>';
       });
+  }
+
+  // Export the whole owned-set collection as a CSV download. Built client-side
+  // from the in-memory list, so it works offline and needs no server round-trip.
+  function exportSetsCSV() {
+    if (!_mySetsAll.length) { alert('No sets to export yet.'); return; }
+    const cols = [
+      'set_num', 'name', 'year', 'quantity', 'condition',
+      'price_paid', 'price_used', 'price_new', 'num_parts', 'price_updated',
+    ];
+    const esc = (v) => {
+      const s = (v === null || v === undefined) ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const rows = [cols.join(',')];
+    for (const s of _mySetsAll) {
+      rows.push(cols.map(c => esc(s[c])).join(','));
+    }
+    const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `my-sets-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   // ── "My Minifigs" — the owned-minifig collection, shown in minifig mode ──
@@ -7267,6 +6527,36 @@
         _myMinifigsAll = [];
         grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Network error.</p>';
       });
+  }
+  // Export the whole owned-minifig collection as a CSV download. Built client-side
+  // from the in-memory list, so it works offline and needs no server round-trip.
+  function exportMinifigsCSV() {
+    if (!_myMinifigsAll.length) { alert('No minifigs to export yet.'); return; }
+    const cols = [
+      ['fig_num', 'fig_num'], ['name', 'name'], ['bl_id', 'bl_id'],
+      ['quantity', 'quantity'], ['condition', 'condition'],
+      ['price_paid', 'price_paid'], ['price_used', 'price_used'],
+      ['price_new', 'price_new'], ['num_parts', 'num_parts'],
+      ['price_updated', 'price_updated'],
+    ];
+    const esc = (v) => {
+      const s = (v === null || v === undefined) ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const rows = [cols.map(c => c[0]).join(',')];
+    for (const f of _myMinifigsAll) {
+      rows.push(cols.map(c => esc(f[c[1]])).join(','));
+    }
+    const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `my-minifigs-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   // Filter (name / fig # / BrickLink id) + sort the in-memory collection and
   // re-render — keeps the search box live without re-fetching on every keystroke.
