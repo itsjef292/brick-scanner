@@ -3,6 +3,42 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Detect BrickLink minifig variants on scan (June 2026):**
+- BrickLink has no "variants of" API and Rebrickable carries no BrickLink minifig
+  ids, so the only way to know `sw0574a` exists is to ask BrickLink for that exact
+  id. New `GET /api/minifig_variants/<bl_id>` takes a minifig id, strips it to its
+  numeric base (`_minifig_base_id`), and probes `base`, `base+a…` via the BrickLink
+  API (`_probe_minifig_variants`), keeping the ids that exist. Stops after 2
+  consecutive misses — letters are contiguous, and this also catches bases whose
+  plain id 404s while `…a` exists (e.g. `sw0001` → a/b/c/d).
+- Results are cached in local `.bl_minifig_variants.json` keyed by base, with a
+  30-day TTL so the list **grows as you scan** and newly-added variants are
+  re-detected later. A transient BrickLink outage (empty probe) never clobbers a
+  good cache. LOCAL-ONLY (needs BrickLink creds); git-ignored.
+- Identify card: a new **Variants** row (`#variantsRow`) shows a chip per sibling
+  id (only when the family has >1), tooltip = each variant's own name (`sw0574` =
+  "…Hair" vs `sw0574a` = "…Helmet"). Tapping a chip switches the BrickLink id
+  (`_switchMinifigVariant` → price + ownership re-check), reusing the variant-entry
+  logic below. Loaded async on card open + after a manual ✎ id edit.
+
+**Track BrickLink minifig variants separately (June 2026):**
+- BrickLink splits print/mold variants of a minifig with a trailing-letter suffix
+  (e.g. `sw0574` vs `sw0574a`) where Rebrickable keeps a single fig (`fig-004079`).
+  My Minifigs now tracks these as **separate collection entries** with their own
+  quantity / condition / price-paid / BrickLink market price.
+- New `_minifig_variant_suffix()` + `_minifig_ckey(fig_num, bl_id)` in `app.py`:
+  the suffix-less/base id keeps the bare `fig_num` key (existing entries
+  unaffected — backward compatible); a suffixed id keys to `fig_num#<suffix>`.
+  Entries now also store the real `fig_num` since the dict key can be composite.
+- Owned-minifig routes (`add_minifig`, `remove_minifig_one`, `owned_minifig_status`,
+  `/meta`, `/blid`) take an optional `bl_id` (body) / `?bl=` (query) to address a
+  specific variant; `owned_minifigs_list` returns the real `fig_num`. The price
+  refresh already iterates by collection key, so variants price independently.
+- Frontend: the identify card's BRICKLINK ID editor (✎) is now variant-aware —
+  typing a suffixed id (e.g. `sw0574a`) re-checks ownership for that variant, so
+  "Add to My Minifigs" creates its own row. My Minifigs rows carry `data-fig-bl`
+  so reopening / swipe-removing a variant targets the correct entry.
+
 **Subtract-a-Set promoted to its own tab (June 2026):**
 - The **Subtract a Set** tool is now a top-level bubble in the Lists tab bar
   (My Lists · Shopping · **Subtract Set**) instead of being buried in the

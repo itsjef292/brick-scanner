@@ -1383,7 +1383,9 @@
       placeholder="Search your minifigs — name or BrickLink id"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       onclick="event.stopPropagation()" oninput="renderMyMinifigsGrid()">
-    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;">
+      <button id="myMinifigsDupesBtn" onclick="event.stopPropagation(); toggleMinifigDupes()" title="Show only figs you own 2 or more of"
+        style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Owned 2+</button>
       <select id="myMinifigsSort" onclick="event.stopPropagation()" onchange="_onMinifigsSortChange(this.value)"
         style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
         <option value="name">Name A–Z</option>
@@ -1883,6 +1885,10 @@
     <div class="info-row" id="blRow">
       <span class="label">BrickLink ID</span>
       <span class="value" id="blValue">—</span>
+    </div>
+    <div id="variantsRow" style="display:none;padding:12px 0 2px;">
+      <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.6px;margin:0 2px 8px;">Variants on BrickLink</div>
+      <div id="variantsValue" style="display:flex;flex-direction:column;gap:6px;"></div>
     </div>
     <div class="info-row" id="categoryRow" style="display:none;">
       <span class="label">Theme</span>
@@ -3587,7 +3593,10 @@
     await showIdentifyScreen({ items: [item] });
   }
 
-  async function openMinifigFromSearch(figNum, name, img) {
+  // blIdOverride: open a specific BrickLink variant (e.g. sw0574a) — used when
+  // reopening a variant row from My Minifigs so it doesn't collapse back to the
+  // base id that Rebrickable returns.
+  async function openMinifigFromSearch(figNum, name, img, blIdOverride) {
     clearCapturedPhoto();
     const item = { type: 'minifig', id: figNum, name: name, img_url: img, bl_id: null };
     try {
@@ -3599,6 +3608,7 @@
         item.bl_id = m.external_id || null;
       }
     } catch (e) { /* offline: fall back to local data */ }
+    if (blIdOverride) item.bl_id = blIdOverride;   // preserve the picked variant
     document.getElementById('minifigSearchInput').value = '';
     showIdentifyScreen({ items: [item] });
   }
@@ -4048,6 +4058,7 @@
     const blId = isMinifig ? item.bl_id : extractBlId(item);
     selectedPart = { ...item, blId };
     renderInventoryStatus(0);
+    _hideVariantsRow();   // cleared per card; the minifig path re-loads it below
     // Reset the minifig banners; the minifig path re-shows them as needed.
     const _ownedBanner = document.getElementById('minifigOwnedBanner');
     if (_ownedBanner) _ownedBanner.style.display = 'none';
@@ -4100,7 +4111,8 @@
       renderInventoryStatus(0, 'hidden');
       // Flag a missing BrickLink id — it means this fig can't be priced.
       document.getElementById('minifigNoBlBanner').style.display = blId ? 'none' : 'flex';
-      loadOwnedMinifigStatus(item.id);
+      loadOwnedMinifigStatus(item.id, blId);
+      _loadMinifigVariants(blId);   // detect & show sibling variants (cached locally)
     } else {
       addBtn.style.display = '';
       ownBar.style.display = 'none';
@@ -4777,7 +4789,7 @@
     const price = raw === '' ? null : parseFloat(raw);
     fetch(`/api/owned_minifigs/${encodeURIComponent(selectedPart.id)}/meta`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ condition: window.currentFigCondition, price_paid: price })
+      body: JSON.stringify({ condition: window.currentFigCondition, price_paid: price, bl_id: selectedPart.blId || '' })
     }).catch(() => _figOwnMsg('Couldn’t save purchase info.', true));
   }
   // Render the minifig BRICKLINK ID row from selectedPart.blId: the id (link +
@@ -4819,20 +4831,117 @@
     const noBl = document.getElementById('minifigNoBlBanner');
     if (noBl) noBl.style.display = selectedPart.blId ? 'none' : 'flex';
     _loadMinifigPriceFor(selectedPart.blId);
-    // Persist to the collection if this fig is already owned (else it's saved on Add).
-    if (window.currentFigOwned) {
-      fetch(`/api/owned_minifigs/${encodeURIComponent(selectedPart.id)}/blid`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bl_id: selectedPart.blId })
-      })
-        .then(() => showToast(selectedPart.blId ? 'BrickLink id saved' : 'BrickLink id cleared'))
-        .catch(() => showToast('Couldn’t save BrickLink id'));
-    }
+    // A variant suffix (e.g. sw0574a) is a *separate* collection entry, so changing
+    // the id may switch which entry the owned bar reflects — re-check ownership.
+    loadOwnedMinifigStatus(selectedPart.id, selectedPart.blId);
+    _loadMinifigVariants(selectedPart.blId);   // a new base may have its own variants
+    // Backfill the id onto the matching entry if it already exists (suffix-less id
+    // → base entry; a brand-new variant no-ops server-side until you tap Add).
+    fetch(`/api/owned_minifigs/${encodeURIComponent(selectedPart.id)}/blid`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bl_id: selectedPart.blId })
+    })
+      .then(() => showToast(selectedPart.blId ? 'BrickLink id saved' : 'BrickLink id cleared'))
+      .catch(() => showToast('Couldn’t save BrickLink id'));
   }
-  function loadOwnedMinifigStatus(figNum) {
+  // ── BrickLink variant detection. BrickLink splits print/mold variants of one
+  //    fig across ids that share a numeric base (sw0574 / sw0574a / …) with no
+  //    "variants of" API, so the server probes + caches the family locally and we
+  //    surface the others as tappable chips that switch the BrickLink id. ──
+  let _variantsToken = 0;
+  let _lastVariants = [];
+  function _hideVariantsRow() {
+    const row = document.getElementById('variantsRow');
+    if (row) row.style.display = 'none';
+    const cell = document.getElementById('variantsValue');
+    if (cell) cell.innerHTML = '';
+    _lastVariants = [];
+  }
+  function _loadMinifigVariants(blId) {
+    _hideVariantsRow();
+    if (!blId || !selectedPart) return;
+    const tok = ++_variantsToken;
+    const figId = selectedPart.id;
+    fetch(`/api/minifig_variants/${encodeURIComponent(blId)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (tok !== _variantsToken) return;                       // a newer card/edit won
+        if (!selectedPart || selectedPart.id !== figId) return;
+        _lastVariants = d.variants || [];
+        _renderVariantChips(_lastVariants);
+      })
+      .catch(() => {});
+  }
+  // The variant names share a long common prefix (e.g. "Ezra Bridger - Dark Tan
+  // Vest, "), so show only the distinguishing tail ("Hair" / "Helmet"); fall back
+  // to the full name when there's no meaningful shared prefix.
+  function _variantTails(variants) {
+    const names = variants.map(v => v.name || '');
+    if (names.some(n => !n)) return names;            // missing a name → show as-is
+    let p = names[0];
+    for (const n of names) { let i = 0; while (i < p.length && i < n.length && p[i] === n[i]) i++; p = p.slice(0, i); }
+    // The common prefix can stop mid-word (e.g. "…Vest, H" for Hair/Helmet); back
+    // up to the last separator so the distinguishing word stays whole.
+    let lastSep = -1;
+    for (let i = 0; i < p.length; i++) { if (/[\s,–\-]/.test(p[i])) lastSep = i; }
+    const cut = lastSep + 1;                           // strip through the last separator
+    if (cut < 6) return names;                         // not enough shared → keep full names
+    return names.map(n => n.slice(cut).replace(/^[\s,–\-]+/, '') || n);
+  }
+  function _renderVariantChips(variants) {
+    const row = document.getElementById('variantsRow');
+    const cell = document.getElementById('variantsValue');
+    if (!row || !cell) return;
+    if (!variants || variants.length < 2) { _hideVariantsRow(); return; }  // a family of 1 isn't a "variant"
+    const cur = (selectedPart && selectedPart.blId) ? String(selectedPart.blId).toLowerCase() : '';
+    const tails = _variantTails(variants);
+    cell.innerHTML = variants.map((v, i) => {
+      const id = String(v.id);
+      const active = id.toLowerCase() === cur;
+      const safeId = id.replace(/'/g, "\\'");
+      const label = decodeHtmlEntities(tails[i] || v.name || id);
+      return `<button onclick="_switchMinifigVariant('${safeId}')"
+        style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
+          padding:9px 11px;border-radius:var(--radius-sm);
+          border:1px solid ${active ? 'var(--yellow)' : 'var(--border)'};
+          background:var(--surface3);">
+        <span style="font-family:var(--font-mono);font-size:12px;flex-shrink:0;color:${active ? 'var(--yellow)' : 'var(--text)'};">${escapeHtml(id)}</span>
+        <span style="font-size:12px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(label)}</span>
+        ${active ? '<span style="color:var(--yellow);font-size:13px;flex-shrink:0;">✓</span>' : ''}
+      </button>`;
+    }).join('');
+    row.style.display = 'block';
+  }
+  function _switchMinifigVariant(id) {
+    if (!selectedPart || !id) return;
+    if (String(selectedPart.blId || '').toLowerCase() === id.toLowerCase()) return;
+    selectedPart.blId = id;
+    selectedPart.bl_id = id;
+    // Update the card title + image to the chosen variant so it's clear which one
+    // you're looking at (and so Add stores the right name/image).
+    const v = (_lastVariants || []).find(x => String(x.id).toLowerCase() === id.toLowerCase());
+    if (v) {
+      if (v.name) {
+        selectedPart.name = v.name;
+        const pn = document.getElementById('partName'); if (pn) pn.textContent = decodeHtmlEntities(v.name);
+      }
+      if (v.img_url) {
+        selectedPart.img_url = v.img_url;
+        const ci = document.getElementById('catalogImg'); if (ci) ci.src = v.img_url;
+      }
+    }
+    _renderMinifigBlRow();
+    const noBl = document.getElementById('minifigNoBlBanner');
+    if (noBl) noBl.style.display = 'none';
+    _loadMinifigPriceFor(id);
+    loadOwnedMinifigStatus(selectedPart.id, id);
+    _renderVariantChips(_lastVariants);   // just re-highlight — family is unchanged
+  }
+  function loadOwnedMinifigStatus(figNum, blId) {
     _renderOwnedMinifigUI(false, 0);
     _figOwnMsg('');
-    fetch(`/api/owned_minifigs/${encodeURIComponent(figNum)}`)
+    const q = blId ? `?bl=${encodeURIComponent(blId)}` : '';
+    fetch(`/api/owned_minifigs/${encodeURIComponent(figNum)}${q}`)
       .then(r => r.json())
       .then(d => {
         _renderOwnedMinifigUI(!!d.owned, d.quantity || 0, d.condition, d.price_paid);
@@ -4884,7 +4993,7 @@
     _figOwnMsg('');
     fetch('/api/remove_minifig_one', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ set_num: selectedPart.id })
+      body: JSON.stringify({ set_num: selectedPart.id, bl_id: selectedPart.blId || '' })
     })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
@@ -6636,6 +6745,23 @@
   try { _setsSortMode = localStorage.getItem('setsSortMode') || 'name'; } catch (e) {}
   let _minifigsSortMode = 'name';
   try { _minifigsSortMode = localStorage.getItem('minifigsSortMode') || 'name'; } catch (e) {}
+  // "Owned 2+" filter — show only fig entries you own more than one of.
+  let _minifigsDupesOnly = false;
+  try { _minifigsDupesOnly = localStorage.getItem('minifigsDupesOnly') === '1'; } catch (e) {}
+  function _syncMinifigDupesBtn() {
+    const b = document.getElementById('myMinifigsDupesBtn');
+    if (!b) return;
+    const on = _minifigsDupesOnly;
+    b.style.color = on ? 'var(--bg)' : 'var(--muted)';
+    b.style.background = on ? 'var(--yellow)' : 'var(--surface3)';
+    b.style.borderColor = on ? 'var(--yellow)' : 'var(--border-bright)';
+  }
+  function toggleMinifigDupes() {
+    _minifigsDupesOnly = !_minifigsDupesOnly;
+    try { localStorage.setItem('minifigsDupesOnly', _minifigsDupesOnly ? '1' : '0'); } catch (e) {}
+    _syncMinifigDupesBtn();
+    renderMyMinifigsGrid();
+  }
   function _sortCollection(items, mode, priceFn) {
     const arr = items.slice();
     if (mode === 'price_desc' || mode === 'price_asc') {
@@ -6938,8 +7064,8 @@
     });
     lazyLoadImages(gridEl);
   }
-  function swipeRemoveOwnedMinifig(figNum, ctl, reloadFn) {
-    fetch('/api/remove_minifig_one', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ set_num: figNum }) })
+  function swipeRemoveOwnedMinifig(figNum, blId, ctl, reloadFn) {
+    fetch('/api/remove_minifig_one', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ set_num: figNum, bl_id: blId || '' }) })
       .then(r => r.json().then(data => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) { showToast('Couldn’t remove minifig'); ctl.fail(); return; }
@@ -6989,7 +7115,7 @@
     const mktLine = mkt != null
       ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);margin-top:2px;">BL ~$${mkt.toFixed(2)}</div>`
       : '';
-    return `<div class="my-fig-row" data-fig-num="${num}" data-fig-name="${name}" data-fig-img="${img}"
+    return `<div class="my-fig-row" data-fig-num="${num}" data-fig-name="${name}" data-fig-img="${img}" data-fig-bl="${bl}"
         style="display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;">
       <img data-src="${img}" onerror="this.onerror=null;this.src='/static/minifig.png'" style="width:54px;height:54px;object-fit:contain;background:var(--socket);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
       <div style="flex:1;min-width:0;">
@@ -7010,9 +7136,9 @@
     gridEl.querySelectorAll('.my-fig-row').forEach(el => {
       el.addEventListener('click', () => {
         if (consumeSwipe(el)) return;
-        openMinifigFromSearch(el.dataset.figNum, el.dataset.figName, el.dataset.figImg);
+        openMinifigFromSearch(el.dataset.figNum, el.dataset.figName, el.dataset.figImg, el.dataset.figBl || null);
       });
-      makeSwipeRemovable(el, (ctl) => swipeRemoveOwnedMinifig(el.dataset.figNum, ctl, reloadFn));
+      makeSwipeRemovable(el, (ctl) => swipeRemoveOwnedMinifig(el.dataset.figNum, el.dataset.figBl || null, ctl, reloadFn));
     });
     lazyLoadImages(gridEl);
   }
@@ -7033,6 +7159,7 @@
     _applyMyMinifigsCollapsed();
     const sortSel = document.getElementById('myMinifigsSort');
     if (sortSel) sortSel.value = _minifigsSortMode;
+    _syncMinifigDupesBtn();
     return fetch('/api/owned_minifigs')
       .then(r => r.json())
       .then(data => {
@@ -7067,18 +7194,22 @@
       (f.name || '').toLowerCase().includes(q) ||
       (f.fig_num || '').toLowerCase().includes(q) ||
       (f.bl_id || '').toLowerCase().includes(q));
+    if (_minifigsDupesOnly) figs = figs.filter(f => (f.quantity || 1) > 1);
+    const filtered = !!q || _minifigsDupesOnly;
     figs = _sortCollection(figs, _minifigsSortMode, _figMarketPrice);
     if (!figs.length) {
-      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">No matches for “${escapeHtml(q)}”.</p>`;
-      countEl.textContent = `0 of ${_myMinifigsAll.length} figs`;
+      const emptyMsg = q ? `No matches for “${escapeHtml(q)}”.`
+        : (_minifigsDupesOnly ? 'No figs owned more than once.' : 'No minifigs yet.');
+      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">${emptyMsg}</p>`;
+      countEl.textContent = `0 of ${_myMinifigsAll.length} fig entries`;
       return;
     }
     const totalCopies = _myMinifigsAll.reduce((n, f) => n + (f.quantity || 1), 0);
     const value = _minifigCollectionValue(figs);
     const valTxt = value > 0 ? ` · ≈$${Math.round(value)}` : '';
-    countEl.textContent = (q
-      ? `${figs.length} of ${_myMinifigsAll.length} figs`
-      : `${_myMinifigsAll.length} fig${_myMinifigsAll.length === 1 ? '' : 's'} · ${totalCopies} owned`) + valTxt;
+    countEl.textContent = (filtered
+      ? `${figs.length} of ${_myMinifigsAll.length} fig entries`
+      : `${_myMinifigsAll.length} fig ${_myMinifigsAll.length === 1 ? 'entry' : 'entries'} · ${totalCopies} Total`) + valTxt;
     _renderMinifigRows(figs, grid, loadMyMinifigs);
   }
 

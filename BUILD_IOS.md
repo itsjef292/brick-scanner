@@ -67,6 +67,29 @@ the Data Matrix and drops you into the normal lookup / tag / add flow.
 
 ---
 
+## Custom CMF scanner plugin (ultra-wide + macro)
+
+The CMF tab prefers a custom native plugin (`native/ios-plugin/CmfScannerPlugin.swift`
++ `.m`) that scans on the **ultra-wide camera with near/macro focus** and decodes
+Data Matrix with Apple **Vision** (no Google pods). The web JS probes for it
+(`registerPlugin('CmfScanner')` → `isAvailable`) and falls back to the ML Kit
+plugin, then the web camera.
+
+These two files live outside the generated `ios/` project, so add them to the
+Xcode target once (and re-add after a fresh `npx cap add ios`):
+
+1. In Xcode, right-click the inner **App** group (with `AppDelegate.swift`) →
+   **Add Files to "App"…** → select both files in `native/ios-plugin/` →
+   tick **Copy items if needed** + the **App** target → **Add**.
+2. If prompted, **Create Bridging Header** (can stay empty — lets the `.m` compile).
+3. Build & Run. The plugin registers itself as `CmfScanner` via the `CAP_PLUGIN`
+   macro; no other wiring needed.
+
+Once it's confirmed working you can drop the ML Kit fallback to shed the Google
+pods: `npm uninstall @capacitor-mlkit/barcode-scanning && npx cap sync ios`.
+
+---
+
 ## Day-to-day
 
 - **Changing the web app** (Flask, `templates/index.html`, etc.): just change it —

@@ -310,6 +310,73 @@ def _bricklink_minifig_lookup(bl_id):
     return None
 
 
+BL_MINIFIG_VARIANTS_PATH = os.path.join(_HERE, ".bl_minifig_variants.json")
+_VARIANT_TTL_DAYS = 30
+
+
+def _minifig_base_id(bl_id):
+    """Numeric base of a BrickLink minifig id — strips a trailing variant suffix.
+    'sw0574a' → 'sw0574'; 'sw0574' → 'sw0574'. None if it isn't a minifig id."""
+    m = re.match(r'^([a-z]+\d+)[a-z]*$', (bl_id or "").strip().lower())
+    return m.group(1) if m else None
+
+
+def _probe_minifig_variants(base):
+    """Probe BrickLink for the family of minifig ids sharing a numeric base
+    (sw0574, sw0574a, sw0574b…). BrickLink exposes no "variants of" API, so we
+    ask for each candidate id and keep the ones that exist. Stops after 2
+    consecutive misses — BrickLink letters its variants contiguously, and this
+    also catches bases whose plain id 404s while '…a' exists (e.g. sw0001).
+    Returns [{id, name, img_url}] (the family, base included)."""
+    found, misses = [], 0
+    candidates = [base] + [base + chr(c) for c in range(ord("a"), ord("h"))]
+    for cand in candidates:
+        info = _bricklink_minifig_lookup(cand)
+        if info:
+            found.append({"id": cand, "name": info.get("name"), "img_url": info.get("img_url")})
+            misses = 0
+        else:
+            misses += 1
+            if misses >= 2:
+                break
+        time.sleep(0.25)  # be polite to the BrickLink API
+    return found
+
+
+@app.route("/api/minifig_variants/<bl_id>")
+def minifig_variants(bl_id):
+    """BrickLink minifig ids sharing this id's numeric base (its variants).
+    Probes BrickLink once per base and caches the family locally
+    (.bl_minifig_variants.json) with a TTL, so the local list grows as you scan
+    and newly-added variants are re-detected on the next check. LOCAL-ONLY —
+    needs BrickLink creds. → {base, variants:[{id,name,img_url}], cached}."""
+    base = _minifig_base_id(bl_id)
+    if not base:
+        return jsonify({"base": None, "variants": []})
+    force = request.args.get("force") == "1"
+    rec = _load_meta(BL_MINIFIG_VARIANTS_PATH).get(base)
+    fresh = False
+    if rec and not force:
+        try:
+            ts = datetime.datetime.fromisoformat(rec.get("fetched_at", ""))
+            fresh = (datetime.datetime.now() - ts).days < _VARIANT_TTL_DAYS
+        except (TypeError, ValueError):
+            fresh = False
+    if rec and fresh:
+        return jsonify({"base": base, "variants": rec.get("variants", []), "cached": True})
+
+    variants = _probe_minifig_variants(base)
+    # A transient BrickLink outage returns nothing — don't clobber a good cache.
+    if not variants and rec:
+        return jsonify({"base": base, "variants": rec.get("variants", []), "cached": True})
+    with _meta_lock:
+        cache = _load_meta(BL_MINIFIG_VARIANTS_PATH)
+        cache[base] = {"variants": variants,
+                       "fetched_at": datetime.datetime.now().isoformat(timespec="seconds")}
+        _save_meta(BL_MINIFIG_VARIANTS_PATH, cache)
+    return jsonify({"base": base, "variants": variants, "cached": False})
+
+
 def _bricklink_minifig_sets(bl_id):
     """Sets containing a minifig, looked up directly from BrickLink by its
     catalog id via the "supersets" endpoint. BrickLink's catalog is
@@ -2071,53 +2138,83 @@ def delete_minifiglist(list_id):
 #    display name/image) lives in a local JSON store keyed by fig_num.
 #    LOCAL-ONLY: ephemeral on Render, same as the set metadata. ──
 
+def _minifig_variant_suffix(bl_id):
+    """The BrickLink variant suffix of a minifig id — the trailing letter(s)
+    after the numeric part (e.g. 'sw0574a' → 'a', 'sw0574' → ''). BrickLink
+    splits print/mold variants of one Rebrickable fig with these suffixes, so the
+    suffix is what distinguishes two owned variants of the same fig_num."""
+    m = re.match(r'^[a-z]+\d+([a-z]+)$', (bl_id or "").strip().lower())
+    return m.group(1) if m else ""
+
+
+def _minifig_ckey(fig_num, bl_id):
+    """Collection key for an owned minifig. Variants of the same Rebrickable fig
+    (distinguished only by BrickLink suffix) are tracked as separate entries: the
+    base/suffix-less id keeps the bare fig_num key (backward compatible — existing
+    entries are unaffected); a suffixed variant gets 'fig_num#<suffix>'."""
+    suf = _minifig_variant_suffix(bl_id)
+    return f"{fig_num}#{suf}" if suf else fig_num
+
+
 @app.route("/api/add_minifig", methods=["POST"])
 def add_minifig():
     """Add a minifig to the local owned-minifig collection (merges quantity).
-    Body: {set_num (fig_num), quantity, name, img_url}."""
+    Body: {set_num (fig_num), quantity, name, img_url, bl_id}. A BrickLink id with
+    a variant suffix (e.g. sw0574a) is tracked as its own entry — see
+    _minifig_ckey."""
     data = request.json
     fig_num = data["set_num"]
+    bl_id = (data.get("bl_id") or "").strip() or None
+    key = _minifig_ckey(fig_num, bl_id)
     quantity = int(data.get("quantity", 1))
     with _meta_lock:
         coll = _load_meta(MINIFIG_COLLECTION_PATH)
-        entry = coll.get(fig_num) or {"condition": None, "price_paid": None}
+        entry = coll.get(key) or {"condition": None, "price_paid": None}
         prev = int(entry.get("quantity", 0))
         entry["quantity"] = prev + quantity
+        entry["fig_num"] = fig_num  # real Rebrickable fig (key may be composite)
         if data.get("name"):
             entry["name"] = data["name"]
         if data.get("img_url"):
             entry["img_url"] = data["img_url"]
-        if data.get("bl_id"):
-            entry["bl_id"] = data["bl_id"]
-        coll[fig_num] = entry
+        if bl_id:
+            entry["bl_id"] = bl_id
+        coll[key] = entry
         _save_meta(MINIFIG_COLLECTION_PATH, coll)
     return jsonify({"quantity": entry["quantity"], "_updated": prev > 0, "_previous_quantity": prev})
 
 
 @app.route("/api/remove_minifig_one", methods=["POST"])
 def remove_minifig_one():
-    """Decrement an owned minifig by 1 (delete the entry, and its metadata, at 0)."""
+    """Decrement an owned minifig by 1 (delete the entry, and its metadata, at 0).
+    Body: {set_num (fig_num), bl_id?} — a suffixed bl_id targets that variant's
+    own entry (see _minifig_ckey)."""
     fig_num = request.json["set_num"]
+    bl_id = (request.json.get("bl_id") or "").strip() or None
+    key = _minifig_ckey(fig_num, bl_id)
     with _meta_lock:
         coll = _load_meta(MINIFIG_COLLECTION_PATH)
-        entry = coll.get(fig_num)
+        entry = coll.get(key)
         if not entry:
             return jsonify({"error": "Minifig is not in your collection.", "quantity": 0}), 404
         prev = int(entry.get("quantity", 0))
         if prev <= 1:
-            coll.pop(fig_num, None)
+            coll.pop(key, None)
             _save_meta(MINIFIG_COLLECTION_PATH, coll)
             return jsonify({"_deleted": True, "_previous_quantity": prev, "quantity": 0})
         entry["quantity"] = prev - 1
-        coll[fig_num] = entry
+        coll[key] = entry
         _save_meta(MINIFIG_COLLECTION_PATH, coll)
         return jsonify({"_updated": True, "_previous_quantity": prev, "quantity": prev - 1})
 
 
 @app.route("/api/owned_minifigs/<fig_num>")
 def owned_minifig_status(fig_num):
-    """Is this minifig in the local collection? → {owned, quantity, condition, price_paid}."""
-    entry = _load_meta(MINIFIG_COLLECTION_PATH).get(fig_num)
+    """Is this minifig in the local collection? → {owned, quantity, condition,
+    price_paid, bl_id}. An optional ?bl=<bl_id> selects a specific BrickLink
+    variant's entry (see _minifig_ckey)."""
+    bl_id = (request.args.get("bl") or "").strip() or None
+    entry = _load_meta(MINIFIG_COLLECTION_PATH).get(_minifig_ckey(fig_num, bl_id))
     if entry and int(entry.get("quantity", 0)) > 0:
         return jsonify({
             "owned": True,
@@ -2132,17 +2229,21 @@ def owned_minifig_status(fig_num):
 @app.route("/api/owned_minifigs/<fig_num>/meta", methods=["POST"])
 def minifig_owned_meta(fig_num):
     """Save purchase metadata (condition + price paid) on an owned minifig.
-    Body: {condition: "used"|"new"|null, price_paid: number|null}. No-op if the
-    minifig isn't owned (metadata only attaches to a collection entry)."""
-    clean = _clean_meta(request.json or {}) or {}
+    Body: {condition: "used"|"new"|null, price_paid: number|null, bl_id?}. The
+    optional bl_id selects a variant's entry. No-op if the minifig isn't owned
+    (metadata only attaches to a collection entry)."""
+    body = request.json or {}
+    bl_id = (body.get("bl_id") or "").strip() or None
+    key = _minifig_ckey(fig_num, bl_id)
+    clean = _clean_meta(body) or {}
     with _meta_lock:
         coll = _load_meta(MINIFIG_COLLECTION_PATH)
-        entry = coll.get(fig_num)
+        entry = coll.get(key)
         if entry is None:
             return jsonify({"condition": None, "price_paid": None})
         entry["condition"] = clean.get("condition")
         entry["price_paid"] = clean.get("price_paid")
-        coll[fig_num] = entry
+        coll[key] = entry
         _save_meta(MINIFIG_COLLECTION_PATH, coll)
     return jsonify({"condition": entry["condition"], "price_paid": entry["price_paid"]})
 
@@ -2154,9 +2255,13 @@ def minifig_set_blid(fig_num):
     changes so a refresh re-fetches. No-op if the minifig isn't owned."""
     bl_id = (request.json or {}).get("bl_id")
     bl_id = bl_id.strip() if isinstance(bl_id, str) and bl_id.strip() else None
+    # Backfill only applies to the entry the new id keys to. A suffix-less id
+    # keys to the base (fig_num) entry; a suffixed id keys to its variant entry,
+    # which usually doesn't exist until "Add" creates it — then this no-ops.
+    key = _minifig_ckey(fig_num, bl_id)
     with _meta_lock:
         coll = _load_meta(MINIFIG_COLLECTION_PATH)
-        entry = coll.get(fig_num)
+        entry = coll.get(key)
         if entry is None:
             return jsonify({"bl_id": None})
         if entry.get("bl_id") != bl_id:
@@ -2164,7 +2269,7 @@ def minifig_set_blid(fig_num):
             entry["price_used"] = None
             entry["price_new"] = None
             entry["price_updated"] = None
-        coll[fig_num] = entry
+        coll[key] = entry
         _save_meta(MINIFIG_COLLECTION_PATH, coll)
     return jsonify({"bl_id": bl_id})
 
@@ -2174,9 +2279,12 @@ def owned_minifigs_list():
     """The local owned-minifig collection (quantity + condition + price), name-sorted."""
     coll = _load_meta(MINIFIG_COLLECTION_PATH)
     out = []
-    for fig_num, e in coll.items():
+    for key, e in coll.items():
         if int(e.get("quantity", 0)) <= 0:
             continue
+        # The dict key may be composite (fig_num#suffix) for a BrickLink variant;
+        # expose the real Rebrickable fig_num (stored on add, or the key's stem).
+        fig_num = e.get("fig_num") or key.split("#", 1)[0]
         out.append({
             "fig_num": fig_num,
             "name": e.get("name"),

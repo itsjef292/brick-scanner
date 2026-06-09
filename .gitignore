@@ -26,6 +26,8 @@ app.log
 .set_meta.json.tmp
 .minifig_collection.json
 .minifig_collection.json.tmp
+.bl_minifig_variants.json
+.bl_minifig_variants.json.tmp
 .cmf_captured.json
 .cmf_captured.json.tmp
 
