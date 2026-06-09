@@ -256,9 +256,31 @@ def _local_color_id_by_name(name):
         conn.close()
 
 
+# Gate for fuzzy BrickLink→Rebrickable minifig name matches. The two catalogs
+# name figs differently and a brand-new fig may not be in Rebrickable at all, so
+# an unbounded "most shared words" match can bind the wrong fig (e.g. 'Young Link'
+# for 'Link - Dark Azure Champion's Tunic', sharing only 'link'). Require a solid
+# fraction of the BrickLink name's significant words to match before trusting it.
+_MINIFIG_MATCH_MIN = 0.5
+
+
+def _minifig_name_words(name):
+    """Significant lowercase word tokens of a minifig name (drops 1-char tokens
+    like a possessive 's so 'Champion's' contributes 'champion')."""
+    return {w for w in re.findall(r'[a-z0-9]+', (name or "").lower()) if len(w) > 1}
+
+
+def _minifig_match_score(bl_name, cand_name):
+    """Fraction (0..1) of `bl_name`'s significant words also in `cand_name`."""
+    bw = _minifig_name_words(bl_name)
+    return (len(bw & _minifig_name_words(cand_name)) / len(bw)) if bw else 0.0
+
+
 def _local_resolve_minifig(name):
     """Find the best fig_num in the local catalog by word overlap with `name`,
-    mirroring the live-API search heuristic. Returns {fig_num, name, img_url} or None.
+    mirroring the live-API search heuristic. Returns {fig_num, name, img_url} or
+    None — including when the best match is too weak to trust (see
+    _MINIFIG_MATCH_MIN), so the caller can fall back to a BrickLink-only entry.
     """
     if not name:
         return None
@@ -277,6 +299,8 @@ def _local_resolve_minifig(name):
             return None
         full_words = set(re.findall(r'\w+', name.lower()))
         best = max(rows, key=lambda r: len(full_words & set(re.findall(r'\w+', r["name"].lower()))))
+        if _minifig_match_score(name, best["name"]) < _MINIFIG_MATCH_MIN:
+            return None
         return dict(best)
     finally:
         conn.close()
@@ -1043,14 +1067,15 @@ def identify():
             bl_external_id = ext.get("external_id", bl_id)
 
             # Resolve BrickLink ID → Rebrickable ID
-            # Minifigs default to "fig-{bl_id}" format even if search fails
-            rb_id = f"fig-{bl_id}" if item_type == "minifig" else bl_id
+            rb_id = bl_id
+            bl_only = False
             if item_type == "minifig":
                 name = ci.get("name", "")
+                resolved = None
                 # Prefer the offline catalog (no API quota); fall back to the live API.
                 local_fig = _local_resolve_minifig(name)
                 if local_fig:
-                    rb_id = local_fig["fig_num"]
+                    resolved = local_fig["fig_num"]
                 else:
                     try:
                         # Rebrickable doesn't support bricklink_id filtering for minifigs.
@@ -1069,9 +1094,22 @@ def identify():
                                     full_words = set(re.findall(r'\w+', name.lower()))
                                     def _overlap(r):
                                         return len(full_words & set(re.findall(r'\w+', r['name'].lower())))
-                                    rb_id = max(results, key=_overlap)['set_num']
+                                    best = max(results, key=_overlap)
+                                    # Only trust a strong match — a weak single-word
+                                    # overlap binds the wrong fig (see _MINIFIG_MATCH_MIN).
+                                    if _minifig_match_score(name, best['name']) >= _MINIFIG_MATCH_MIN:
+                                        resolved = best['set_num']
                     except Exception:
                         pass
+                if resolved:
+                    rb_id = resolved
+                else:
+                    # No confident Rebrickable match — identify by the BrickLink id so
+                    # the owned-collection key isn't bound to a wrong fig (e.g. a
+                    # brand-new fig Rebrickable hasn't catalogued). Mirrors the
+                    # bl-only search path (openMinifigFromBlOnly).
+                    rb_id = bl_external_id
+                    bl_only = True
                 img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
             else:
                 # Prefer the offline catalog (no API quota); fall back to the live API.
@@ -1125,6 +1163,8 @@ def identify():
                 "type": item_type,
                 "score": ci.get("score", 0),
             }
+            if bl_only:
+                item["bl_only"] = True   # no Rebrickable catalog entry; key by bl_id
             if rb_colors:
                 item["candidate_colors"] = rb_colors
             items.append(item)
@@ -2215,6 +2255,13 @@ def owned_minifig_status(fig_num):
     variant's entry (see _minifig_ckey)."""
     bl_id = (request.args.get("bl") or "").strip() or None
     entry = _load_meta(MINIFIG_COLLECTION_PATH).get(_minifig_ckey(fig_num, bl_id))
+    # If a specific bl_id was requested and the stored entry belongs to a different
+    # BrickLink id (same Rebrickable fig_num, different base id — e.g. sw0060 vs
+    # sw0224), don't report it as owned. Only applies when the stored entry actually
+    # has a bl_id recorded; if it doesn't we can't tell, so fall through.
+    if entry and bl_id and entry.get("bl_id") and \
+            entry["bl_id"].lower() != bl_id.lower():
+        entry = None
     if entry and int(entry.get("quantity", 0)) > 0:
         return jsonify({
             "owned": True,
@@ -2637,29 +2684,49 @@ def _bl_sold_price(item_type, item_no):
     if not (BL_CONSUMER_KEY and BL_TOKEN):
         return out
     auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
+    url = f"{BL_BASE}/items/{item_type}/{item_no}/price"
     for cond in ("U", "N"):
-        try:
-            r = requests.get(
-                f"{BL_BASE}/items/{item_type}/{item_no}/price",
-                params={"guide_type": "sold", "new_or_used": cond, "currency_code": "USD"},
-                auth=auth, timeout=8,
-            )
-            if r.status_code == 200:
-                out[cond] = r.json().get("data", {})
-            else:
-                print(f"[BL price] {item_type} {item_no} {cond} → {r.status_code}", file=sys.stderr)
-        except Exception as e:
-            print(f"[BL price] error: {e}", file=sys.stderr)
+        params = {"guide_type": "sold", "new_or_used": cond, "currency_code": "USD"}
+        # BrickLink's price-guide endpoint is genuinely slow for items with long
+        # sold histories and has intermittent slow spells, so use a generous read
+        # timeout and retry once on a *timeout* (not on a 4xx, which is a real
+        # answer). (connect, read) seconds.
+        for attempt in (1, 2):
+            try:
+                r = requests.get(url, params=params, auth=auth, timeout=(5, 15))
+                if r.status_code == 200:
+                    out[cond] = r.json().get("data", {})
+                else:
+                    print(f"[BL price] {item_type} {item_no} {cond} → {r.status_code}", file=sys.stderr)
+                break  # got a response (even a non-200) — don't retry
+            except requests.exceptions.Timeout as e:
+                if attempt == 1:
+                    print(f"[BL price] {item_type} {item_no} {cond} timeout — retrying", file=sys.stderr)
+                    continue
+                print(f"[BL price] error: {e}", file=sys.stderr)
+            except Exception as e:
+                print(f"[BL price] error: {e}", file=sys.stderr)
+                break  # non-timeout failure (e.g. connection/DNS) — don't retry
     return out
 
 
 @app.route("/api/minifig_price/<fig_id>")
 def get_minifig_price(fig_id):
+    # Keep in sync with _MINIFIG_THEME_MAP in templates/index.html (used there to
+    # group/search My Minifigs by theme).
     theme_map = {
-        'sw': 'Star Wars', 'hp': 'Harry Potter', 'lor': 'Lord of the Rings',
-        'loz': 'Legend of Zelda', 'dim': 'Dimensions', 'cmf': 'Collectible Minifigure',
-        'coltlm': 'The LEGO Movie', 'colsh': 'Super Heroes',
-        'col': 'Collectible Series', 'pm': 'Pirates of the Caribbean', 'njo': 'Ninjago',
+        'sw': 'Star Wars', 'hp': 'Harry Potter', 'colhp': 'Harry Potter',
+        'lor': 'Lord of the Rings', 'hob': 'The Hobbit', 'loz': 'Legend of Zelda',
+        'njo': 'Ninjago', 'nex': 'Nexo Knights', 'cas': 'Castle', 'cty': 'City',
+        'twn': 'Town', 'sh': 'Super Heroes', 'dim': 'Dimensions', 'idea': 'Ideas',
+        'hs': 'Hidden Side', 'mof': 'Monster Fighters', 'tlm': 'The LEGO Movie',
+        'coltlm': 'The LEGO Movie', 'coltlbm': 'The LEGO Batman Movie',
+        'col': 'Collectible Minifigures', 'coldis': 'Disney', 'colsim': 'The Simpsons',
+        'colmar': 'Marvel Studios', 'coldc': 'DC Super Heroes', 'jw': 'Jurassic World',
+        'elf': 'Elves', 'frnd': 'Friends', 'mk': 'Monkie Kid', 'pi': 'Pirates',
+        'pm': 'Pirates of the Caribbean', 'adv': 'Adventurers', 'toy': 'Toy Story',
+        'sp': 'Space', 'trn': 'Train', 'ovr': 'Overwatch', 'vik': 'Vikings',
+        'ww': 'Western', 'aqu': 'Aquazone', 'gen': 'General',
     }
     prefix = (re.match(r'^([a-z]+)', fig_id.lower()) or re.match(r'', '')).group(0)
     results = {"category": theme_map.get(prefix, 'Minifigure')}

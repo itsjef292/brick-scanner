@@ -1393,7 +1393,7 @@
         style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
     </div>
     <input id="myMinifigsSearchInput" type="text" class="list-search-input" style="margin:0 0 10px;"
-      placeholder="Search your minifigs — name or BrickLink id"
+      placeholder="Search your minifigs — name, theme, or BrickLink id"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       onclick="event.stopPropagation()" oninput="renderMyMinifigsGrid()">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;">
@@ -1402,6 +1402,7 @@
       <select id="myMinifigsSort" onclick="event.stopPropagation()" onchange="_onMinifigsSortChange(this.value)"
         style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
         <option value="name">Name A–Z</option>
+        <option value="theme">Theme</option>
         <option value="price_desc">Price: High → Low</option>
         <option value="price_asc">Price: Low → High</option>
       </select>
@@ -1459,6 +1460,7 @@
       </select>
       <select id="listMinifigsSort" onchange="_onMinifigsSortChange(this.value)" style="display:none;flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
         <option value="name">Name A–Z</option>
+        <option value="theme">Theme</option>
         <option value="price_desc">Price: High → Low</option>
         <option value="price_asc">Price: Low → High</option>
       </select>
@@ -3609,18 +3611,44 @@
   // blIdOverride: open a specific BrickLink variant (e.g. sw0574a) — used when
   // reopening a variant row from My Minifigs so it doesn't collapse back to the
   // base id that Rebrickable returns.
+  // Word overlap between two minifig names (0..1 of `a`'s significant words also
+  // in `b`) — mirrors the backend _minifig_match_score, used below to reject a
+  // wrong Rebrickable fig clobbering a stored BrickLink name.
+  function _minifigNameOverlap(a, b) {
+    const words = s => new Set((s || '').toLowerCase().match(/[a-z0-9]+/g)?.filter(w => w.length > 1) || []);
+    const aw = words(a);
+    if (!aw.size) return 0;
+    const bw = words(b);
+    let shared = 0; aw.forEach(w => { if (bw.has(w)) shared++; });
+    return shared / aw.size;
+  }
   async function openMinifigFromSearch(figNum, name, img, blIdOverride) {
     clearCapturedPhoto();
     const item = { type: 'minifig', id: figNum, name: name, img_url: img, bl_id: null };
-    try {
-      const resp = await fetch(`/api/minifig/${encodeURIComponent(figNum)}`);
-      if (resp.ok) {
-        const m = await resp.json();
-        item.name = m.name || name;
-        item.img_url = m.fig_img_url || m.set_img_url || img;
-        item.bl_id = m.external_id || null;
-      }
-    } catch (e) { /* offline: fall back to local data */ }
+    // A synthetic key (the BrickLink id itself, e.g. "loz003" / "fig-loz004") means
+    // this fig has no Rebrickable catalog entry — don't query Rebrickable (it'd
+    // 404 or, worse, a real-but-wrong fig_num would return a different figure).
+    const isRbFig = /^fig-\d+$/.test(figNum);
+    if (isRbFig) {
+      try {
+        const resp = await fetch(`/api/minifig/${encodeURIComponent(figNum)}`);
+        if (resp.ok) {
+          const m = await resp.json();
+          // Only adopt Rebrickable's name/img if it actually matches the figure we
+          // opened — a mis-bound fig_num (wrong fuzzy match at add time) would
+          // otherwise show a different minifig. Stored BrickLink data wins.
+          if (!blIdOverride || _minifigNameOverlap(name, m.name) >= 0.5) {
+            item.name = m.name || name;
+            item.img_url = m.fig_img_url || m.set_img_url || img;
+            item.bl_id = m.external_id || null;
+          } else {
+            item.bl_only = true;   // keep stored name/img; skip the broken RB link
+          }
+        }
+      } catch (e) { /* offline: fall back to local data */ }
+    } else {
+      item.bl_only = true;
+    }
     if (blIdOverride) item.bl_id = blIdOverride;   // preserve the picked variant
     document.getElementById('minifigSearchInput').value = '';
     showIdentifyScreen({ items: [item] });
@@ -5465,7 +5493,8 @@
     if (q) figs = figs.filter(f =>
       (f.fig_num || '').toLowerCase().includes(q) ||
       (f.name || '').toLowerCase().includes(q) ||
-      (f.bl_id || '').toLowerCase().includes(q));
+      (f.bl_id || '').toLowerCase().includes(q) ||
+      _minifigTheme(f).toLowerCase().includes(q));
     figs = _sortCollection(figs, _minifigsSortMode, _figMarketPrice);
     const value = _minifigCollectionValue(figs);
     const valTxt = value > 0 ? ` · ≈$${Math.round(value)}` : '';
@@ -7102,6 +7131,54 @@
   function _minifigCollectionValue(figs) {
     return figs.reduce((s, f) => { const m = _figMarketPrice(f); return s + (m != null ? m * (f.quantity || 1) : 0); }, 0);
   }
+  // Theme of an owned minifig, derived from its BrickLink id prefix (the leading
+  // letters before the number — e.g. sw0280 → "sw" → Star Wars; coltlm12 →
+  // "coltlm"). Mirrors the backend theme_map in get_minifig_price() — keep the
+  // two in sync. Figs with no bl_id or an unmapped prefix fall into "Other".
+  const _MINIFIG_THEME_MAP = {
+    sw:'Star Wars', hp:'Harry Potter', colhp:'Harry Potter',
+    lor:'Lord of the Rings', hob:'The Hobbit', loz:'Legend of Zelda',
+    njo:'Ninjago', nex:'Nexo Knights', cas:'Castle', cty:'City', twn:'Town',
+    sh:'Super Heroes', dim:'Dimensions', idea:'Ideas', hs:'Hidden Side',
+    mof:'Monster Fighters', tlm:'The LEGO Movie', coltlm:'The LEGO Movie',
+    coltlbm:'The LEGO Batman Movie', col:'Collectible Minifigures',
+    coldis:'Disney', colsim:'The Simpsons', colmar:'Marvel Studios',
+    coldc:'DC Super Heroes', jw:'Jurassic World', elf:'Elves', frnd:'Friends',
+    mk:'Monkie Kid', pi:'Pirates', pm:'Pirates of the Caribbean',
+    adv:'Adventurers', toy:'Toy Story', sp:'Space', trn:'Train',
+    ovr:'Overwatch', vik:'Vikings', ww:'Western', aqu:'Aquazone', gen:'General',
+  };
+  function _minifigTheme(f) {
+    const bl = ((f && f.bl_id) || '').toLowerCase();
+    const m = bl.match(/^[a-z]+/);
+    return (m && _MINIFIG_THEME_MAP[m[0]]) || 'Other';
+  }
+  // Build the "grouped by theme" markup for the My-Minifigs grid: a theme header
+  // (label · total-copies count) followed by that theme's rows. Themes are
+  // ordered by size (most figs first), then alphabetically; "Other" sinks last.
+  function _groupedMinifigHtml(figs) {
+    const groups = new Map();
+    figs.forEach(f => {
+      const t = _minifigTheme(f);
+      if (!groups.has(t)) groups.set(t, []);
+      groups.get(t).push(f);
+    });
+    const order = [...groups.keys()].sort((a, b) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      const d = groups.get(b).length - groups.get(a).length;
+      return d !== 0 ? d : a.localeCompare(b);
+    });
+    return order.map(t => {
+      const arr = groups.get(t);
+      const copies = arr.reduce((n, f) => n + (f.quantity || 1), 0);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:16px 4px 7px;">
+          <span style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;white-space:nowrap;">${escapeHtml(t)}</span>
+          <span style="flex:1;height:1px;background:var(--border);"></span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted2);">${copies}</span>
+        </div>${arr.map(_minifigRowHtml).join('')}`;
+    }).join('');
+  }
   function _minifigRowHtml(f) {
     const num = escapeHtml(f.fig_num || '');
     const name = escapeHtml(f.name || f.fig_num || '?');
@@ -7145,7 +7222,9 @@
     </div>`;
   }
   function _renderMinifigRows(figs, gridEl, reloadFn) {
-    gridEl.innerHTML = figs.map(_minifigRowHtml).join('');
+    gridEl.innerHTML = (_minifigsSortMode === 'theme')
+      ? _groupedMinifigHtml(figs)
+      : figs.map(_minifigRowHtml).join('');
     gridEl.querySelectorAll('.my-fig-row').forEach(el => {
       el.addEventListener('click', () => {
         if (consumeSwipe(el)) return;
@@ -7206,7 +7285,8 @@
     if (q) figs = figs.filter(f =>
       (f.name || '').toLowerCase().includes(q) ||
       (f.fig_num || '').toLowerCase().includes(q) ||
-      (f.bl_id || '').toLowerCase().includes(q));
+      (f.bl_id || '').toLowerCase().includes(q) ||
+      _minifigTheme(f).toLowerCase().includes(q));
     if (_minifigsDupesOnly) figs = figs.filter(f => (f.quantity || 1) > 1);
     const filtered = !!q || _minifigsDupesOnly;
     figs = _sortCollection(figs, _minifigsSortMode, _figMarketPrice);
