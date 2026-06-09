@@ -974,6 +974,15 @@
     .cmf-native-brick svg { width: 100%; height: 100%; }
     .cmf-native-hint { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 280px; }
     .cmf-native-panel .btn { width: auto; padding: 13px 28px; margin: 0; }
+    /* While the native ML Kit scanner runs, the camera is rendered BEHIND the
+       WebView — make the stage transparent so it shows through, leaving only the
+       reticle/controls/hint overlay painted. */
+    body.cmf-native-scanning,
+    body.cmf-native-scanning #screen-cmf,
+    body.cmf-native-scanning .cmf-stage,
+    body.cmf-native-scanning #cmfVideoWrap { background: transparent !important; }
+    body.cmf-native-scanning #cmfVideo,
+    body.cmf-native-scanning .cmf-drawer { display: none !important; }
     .voice-mic {
       width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
       background: var(--yellow); color: #06121F; font-size: 34px;
@@ -1623,8 +1632,11 @@
     <video id="cmfVideo" playsinline muted></video>
     <div class="cmf-reticle"></div>
 
-    <!-- Floating controls: flashlight + photo capture -->
+    <!-- Floating controls: cancel (native scan) + flashlight + photo capture -->
     <div class="cmf-controls">
+      <button id="cmfNativeStopBtn" class="cmf-ctrl-btn" style="display:none;" onclick="event.stopPropagation(); _cmfMlkitCancel();" aria-label="Stop scanning" title="Stop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <button id="cmfTorchBtn" class="cmf-ctrl-btn" hidden onclick="event.stopPropagation(); _cmfToggleTorch();" aria-label="Toggle flashlight" title="Flashlight">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6l-.6 5.4a2 2 0 0 1-.5 1.1l-.9 1a2 2 0 0 0-.5 1.3V21a1 1 0 0 1-2 0v-9.2a2 2 0 0 0-.5-1.3l-.9-1a2 2 0 0 1-.5-1.1L9 2Z"/><path d="M8 6h8"/></svg>
       </button>
@@ -1644,7 +1656,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20h.01M20 20v-3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       </div>
       <div class="cmf-native-hint">Point at the small square 2D code on the box bottom (right of the barcode).</div>
-      <button id="cmfNativeBtn" class="btn" onclick="_cmfNativeScanOnce()">Scan CMF Box</button>
+      <button id="cmfNativeBtn" class="btn" onclick="_cmfScanTap()">Scan CMF Box</button>
     </div>
 
     <!-- Figure pop-out when a code resolves -->
@@ -2601,12 +2613,32 @@
   // the Capacitor bridge instead of the web camera + libdmtx path. Everything
   // after the decode — lookup, tag-unknown, add to My Minifigs — is the same web
   // flow. In a plain browser _cmfNative() is null and nothing here runs.
-  function _cmfNative() {
-    return (window.Capacitor && typeof Capacitor.isNativePlatform === 'function'
-            && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.BarcodeScanner)
-      ? Capacitor.Plugins.BarcodeScanner : null;
+  // We pick the best native scanner available in the iOS shell:
+  //   'vision' — our custom CmfScanner plugin (ultra-wide + macro, Apple Vision). Preferred.
+  //   'mlkit'  — the @capacitor-mlkit/barcode-scanning plugin (fallback if Vision build absent).
+  //   null     — plain browser → use the web camera + libdmtx path.
+  let _cmfScanKind = undefined, _cmfVision = null, _cmfBS = null;
+  function _cmfIsNativePlatform() {
+    return !!(window.Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform()
+              && typeof Capacitor.registerPlugin === 'function');
   }
-  // Show the native launcher panel instead of the web camera UI.
+  async function _cmfProbeScanner() {
+    _cmfScanKind = null; _cmfVision = null; _cmfBS = null;
+    if (!_cmfIsNativePlatform()) return;
+    try {
+      const v = Capacitor.registerPlugin('CmfScanner');
+      const r = await v.isAvailable();
+      if (r && r.available) { _cmfVision = v; _cmfScanKind = 'vision'; return; }
+    } catch (e) {}
+    try {
+      const m = Capacitor.registerPlugin('BarcodeScanner');
+      await m.isSupported();   // rejects if the plugin isn't in the build
+      _cmfBS = m; _cmfScanKind = 'mlkit'; return;
+    } catch (e) {}
+  }
+  function _cmfNative() { return _cmfScanKind === 'mlkit' ? _cmfBS : null; }   // ML Kit proxy (torch/stop hooks)
+
+  // The launcher panel (tap to scan).
   function _cmfShowNativePanel() {
     const v = document.getElementById('cmfVideo'); if (v) v.style.display = 'none';
     document.querySelector('#cmfVideoWrap .cmf-reticle')?.style.setProperty('display', 'none');
@@ -2617,44 +2649,88 @@
   function _cmfHideNativePanel() {
     const panel = document.getElementById('cmfNativePanel'); if (panel) panel.style.display = 'none';
   }
-  async function _cmfNativeScanOnce() {
+  // Panel "Scan CMF Box" tap → dispatch to whichever native scanner we found.
+  function _cmfScanTap() {
+    if (_cmfScanKind === 'vision') return _cmfVisionScan();
+    if (_cmfScanKind === 'mlkit') return _cmfMlkitStart();
+    _cmfStartScan();
+  }
+  // Custom plugin: a single-shot native scanner (it owns its full-screen UI), so
+  // the JS just awaits the decoded payload and runs the normal lookup flow.
+  async function _cmfVisionScan() {
+    if (!_cmfVision) return;
+    _cmfHideNativePanel(); _cmfMsg('');
+    try {
+      const res = await _cmfVision.scan();
+      if (res && res.value) { _cmfLastCode = null; _cmfOnCode(String(res.value)); }
+      else { _cmfShowNativePanel(); }   // cancelled
+    } catch (e) {
+      _cmfShowNativePanel();
+      _cmfMsg('Scanner error — if you just added the plugin, rebuild the app in Xcode.');
+    }
+  }
+  // ML Kit fallback: continuous scan with the camera behind a transparented WebView;
+  // we overlay the reticle/hint/torch and listen for barcodes (scan() is Android-only).
+  let _cmfNativeListener = null, _cmfNativeActive = false, _cmfNativeHandling = false;
+  async function _cmfMlkitStart() {
     const BS = _cmfNative();
     if (!BS) return;
     try {
-      const perm = await BS.requestPermissions();
-      if (!(perm && (perm.camera === 'granted' || perm.camera === 'limited'))) {
-        _cmfMsg('Camera permission needed — enable it for Brick Scanner in Settings.');
-        return;
-      }
+      let perm = {};
+      try { perm = await BS.checkPermissions(); } catch (e) {}
+      const ok = (p) => p && (p.camera === 'granted' || p.camera === 'limited');
+      if (!ok(perm)) { try { perm = await BS.requestPermissions(); } catch (e) {} }
+      if (!ok(perm)) { _cmfShowNativePanel(); _cmfMsg('Camera permission needed — enable it for Brick Scanner in Settings.'); return; }
     } catch (e) {}
+    _cmfNativeHandling = false;
     _cmfMsg('');
     _cmfHideNativePanel();
     try {
-      const res = await BS.scan({ formats: ['DATA_MATRIX'] });
-      const list = (res && res.barcodes) || [];
-      if (list.length) {
-        const raw = list[0].rawValue || list[0].displayValue || '';
-        _cmfLastCode = null;        // allow re-scanning the same code
-        _cmfOnCode(raw);            // → _cmf7 extracts the 7-digit field → cmfLookup
-      } else {
-        _cmfShowNativePanel();
-        _cmfMsg('No code detected — try again, holding the square code steady.');
+      if (!_cmfNativeListener) {
+        _cmfNativeListener = await BS.addListener('barcodesScanned', (result) => {
+          if (_cmfNativeHandling) return;
+          const list = (result && result.barcodes) || [];
+          const raw = list.length ? (list[0].rawValue || list[0].displayValue || '') : '';
+          if (raw) { _cmfNativeHandling = true; _cmfMlkitStop().then(() => { _cmfLastCode = null; _cmfOnCode(raw); }); }
+        });
       }
+      document.body.classList.add('cmf-native-scanning');
+      document.querySelector('#cmfVideoWrap .cmf-reticle')?.style.setProperty('display', '');
+      document.querySelector('#cmfVideoWrap .cmf-controls')?.style.setProperty('display', '');
+      const torch = document.getElementById('cmfTorchBtn'); if (torch) torch.hidden = false;
+      const hint = document.getElementById('cmfHintPill'); if (hint) hint.style.display = '';
+      const stop = document.getElementById('cmfNativeStopBtn'); if (stop) stop.style.display = '';
+      await BS.startScan({ formats: ['DATA_MATRIX'] });
+      _cmfNativeActive = true;
     } catch (e) {
-      // user cancelled or scanner error
+      document.body.classList.remove('cmf-native-scanning');
       _cmfShowNativePanel();
+      _cmfMsg('Couldn’t start the camera scanner.');
     }
   }
+  async function _cmfMlkitStop() {
+    const BS = _cmfNative();
+    document.body.classList.remove('cmf-native-scanning');
+    _cmfNativeActive = false; _cmfTorchOn = false;
+    const stop = document.getElementById('cmfNativeStopBtn'); if (stop) stop.style.display = 'none';
+    const torch = document.getElementById('cmfTorchBtn'); if (torch) torch.classList.remove('on');
+    try { if (BS) await BS.stopScan(); } catch (e) {}
+    try { if (_cmfNativeListener) { await _cmfNativeListener.remove(); _cmfNativeListener = null; } } catch (e) {}
+  }
+  function _cmfMlkitCancel() { _cmfMlkitStop().then(() => { _cmfShowNativePanel(); _cmfMsg(''); }); }
 
   // Entering the CMF tab: reset state and start the box scanner.
-  function _cmfEnterTab() {
+  async function _cmfEnterTab() {
     document.getElementById('cmfResult').innerHTML = '';
     document.getElementById('cmfManualInput').value = '';
     _cmfMsg('');
     _cmfLastCode = null; _cmfResult = null; _cmfCaptureCode = null;
     _cmfHidePop();
-    if (_cmfNative()) { _cmfShowNativePanel(); return; }   // iOS app → native scanner
-    _cmfStartScan();                                       // browser → web camera
+    if (_cmfIsNativePlatform()) {
+      if (_cmfScanKind === undefined) await _cmfProbeScanner();
+      if (_cmfScanKind) { _cmfShowNativePanel(); return; }   // native scanner → launcher panel
+    }
+    _cmfStartScan();                                          // browser → web camera
   }
   // iOS Safari's ZXing decodeFromVideoDevice grabs a low-res stream and rarely
   // reads these tiny Data Matrix codes. So we drive it ourselves: open a high-res
@@ -2715,8 +2791,21 @@
     if (btn && 'torch' in caps && caps.torch) btn.hidden = false;
   }
   async function _cmfToggleTorch() {
-    const track = _cmfTorchTrack();
     const btn = document.getElementById('cmfTorchBtn');
+    // Native scan: drive the ML Kit plugin's torch.
+    if (_cmfNativeActive) {
+      const BS = _cmfNative();
+      if (!BS) return;
+      _cmfTorchOn = !_cmfTorchOn;
+      try {
+        if (BS.toggleTorch) await BS.toggleTorch();
+        else if (_cmfTorchOn && BS.enableTorch) await BS.enableTorch();
+        else if (BS.disableTorch) await BS.disableTorch();
+        if (btn) btn.classList.toggle('on', _cmfTorchOn);
+      } catch (e) { _cmfTorchOn = false; if (btn) btn.classList.remove('on'); }
+      return;
+    }
+    const track = _cmfTorchTrack();
     if (!track || !track.applyConstraints) return;
     _cmfTorchOn = !_cmfTorchOn;
     try {
@@ -2864,6 +2953,7 @@
     } catch (e) { return ''; }
   }
   function _cmfStopScan() {
+    if (_cmfNativeActive) { _cmfMlkitStop(); }   // leaving the tab during an ML Kit scan
     if (_cmfDecodeTimer) { clearInterval(_cmfDecodeTimer); _cmfDecodeTimer = null; }
     if (_cmfStream) { try { _cmfStream.getTracks().forEach(t => t.stop()); } catch (e) {} _cmfStream = null; }
     const video = document.getElementById('cmfVideo');
@@ -3013,7 +3103,7 @@
     _cmfHidePop();   // hides pop-out + bottom bar, restores the idle hint
     const wrap = document.getElementById('cmfVideoWrap'); if (wrap) wrap.style.display = '';
     _cmfMsg('');
-    if (_cmfNative()) { document.getElementById('cmfHintPill').style.display = 'none'; _cmfShowNativePanel(); return; }
+    if (_cmfScanKind) { _cmfScanTap(); return; }   // restart the native scan
     if (_cmfStream) _cmfResumeDecode(); else _cmfStartScan();
   }
 
