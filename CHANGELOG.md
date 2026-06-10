@@ -3,6 +3,26 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Sets + Part Lists consistency pass (June 2026):**
+- **Sets tab now mirrors Figs exactly:** centred copper `.collection-head`
+  ("My Sets" + mono stats), pill catalog search (`.list-search-input`, debounced
+  450 ms / min 3 chars via `onSetsSearchInput`, Enter forces) replacing the
+  boxed label+Find card, and a sort + `⋯` toolbar (`toggleSetsTools`) hiding
+  "↻ Refresh prices" (`setPricesBtn`, was a 28px `↻` circle with a forbidden
+  `title=`) and "Export CSV" in the overflow row. The My-Sets collapse chevron
+  + `_mySetsCollapsed` machinery removed (Figs precedent: the grid IS the screen).
+- **Part Lists:** list picker + search restyled as pills; "Manage list" `▶`/`▼`
+  text arrows → a rotating SVG caret driven by `[aria-expanded]` CSS (same
+  pattern as the scan tab's catalog drawer); `🛒` emoji dropped from the
+  BrickLink export button.
+- **Shared classes** replace four copy-pasted inline styles: `.collection-head`/
+  `.collection-title`/`.collection-count` (Figs + Sets headers) and
+  `.toolbar-select` (all toolbar sort selects). Copper officially extends to
+  all collection headers (system.md updated).
+- **Token sweep in JS-rendered rows:** remaining `color:#3B9EFF`/`color:#fff`
+  → `var(--yellow)`/`var(--text)` (white-on-white light-mode bugs in list/
+  shopping/set-detail rows); `#debugLabel` keeps `#fff` deliberately (black scrim).
+
 **Identify loading screen: scan your own photo (June 2026):**
 - The hand-drawn 3D brick + corner-tick frame + typewriter "IDENTIFYING..." +
   giant percent counter are gone. The loading screen now shows **the captured

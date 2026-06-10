@@ -1112,13 +1112,36 @@
 
     /* ── Misc inline styles replacement ── */
     .lists-view-header { padding: 14px 14px 8px; }
+    .lists-view-header select { border-radius: 999px; padding: 10px 36px 10px 16px; font-size: 14px; }
     .list-search-wrap { padding: 0 14px 10px; }
+    /* Collection / list search inputs share the scan tab's pill language */
     .list-search-input {
-      width: 100%; padding: 11px 12px; background: var(--surface3); color: var(--text);
-      border: 1px solid var(--border-bright); border-radius: var(--radius-sm); font-size: 14px;
+      width: 100%; padding: 11px 16px; background: var(--surface3); color: var(--text);
+      border: 1px solid var(--border-bright); border-radius: 999px; font-size: 14px;
       font-family: var(--font-body);
     }
+    .list-search-input:focus { outline: none; border-color: var(--yellow); }
     .list-search-input::placeholder { color: var(--muted); }
+    /* Centered copper collection header (My Minifigs / My Sets) */
+    .collection-head { margin: 18px 0 12px; text-align: center; }
+    .collection-title {
+      font-family: var(--font-display); font-size: 11px; color: var(--copper);
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .collection-count {
+      margin-top: 4px; font-family: var(--font-mono); font-size: 12px; color: var(--copper);
+    }
+    /* Compact toolbar sort select — shared by Figs / Sets / Lists toolbars */
+    .toolbar-select {
+      flex-shrink: 0; width: auto; -webkit-appearance: none; appearance: none;
+      padding: 6px 26px 6px 10px;
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      background-color: var(--surface3); background-position: right 8px center;
+      background-size: 9px;
+      color: var(--muted); border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm);
+    }
     .list-search-count {
       font-family: var(--font-display); font-size: 11px; color: var(--muted);
       margin-top: 6px; text-transform: uppercase; letter-spacing: 0.6px;
@@ -1157,7 +1180,11 @@
       letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
       text-align: left;
     }
-    .list-tools-arrow { margin-left: auto; color: var(--yellow); font-size: 10px; }
+    .list-tools-arrow {
+      margin-left: auto; width: 10px; height: 10px; fill: var(--yellow);
+      flex-shrink: 0; transition: transform 0.15s;
+    }
+    .list-tools-toggle[aria-expanded="true"] .list-tools-arrow { transform: rotate(180deg); }
     .list-tools-body {
       flex-direction: column; gap: 18px; padding: 2px 14px 16px;
     }
@@ -1210,12 +1237,6 @@
       border: none; border-radius: var(--radius-sm);
       font-family: var(--font-display); font-size: 12px; font-weight: 700;
       cursor: pointer; letter-spacing: 0.4px;
-    }
-
-    /* Sets search */
-    .sets-search-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px;
     }
 
     /* Offline catalog search results (parts / minifigs dropdown) */
@@ -1465,7 +1486,7 @@
   <!-- Offline catalog footer: one tappable line; details + refresh in the drawer (local dev only) -->
   <div id="catalogFooter" class="catalog-footer" style="display:none;">
     <button class="catalog-line" id="catalogLine" onclick="toggleCatalogDetails()" aria-expanded="false">
-      <span class="catalog-label">Catalog</span>
+      <span class="catalog-label">Catalog Refresh</span>
       <span id="catalogUpdated" class="catalog-updated">—</span>
       <svg class="catalog-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.3 6 8.1l3.8-3.8z"/></svg>
     </button>
@@ -1491,9 +1512,9 @@
      to the results) runs the catalog search to add a new fig. -->
 <div class="screen" id="screen-figs">
   <div id="myMinifigsSection" style="padding:0 0 24px;">
-    <div style="margin:18px 0 12px;text-align:center;">
-      <div style="font-family:var(--font-display);font-size:11px;color:var(--copper);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Minifigs</div>
-      <div id="myMinifigsCount" style="margin-top:4px;font-family:var(--font-mono);font-size:12px;color:var(--copper);"></div>
+    <div class="collection-head">
+      <div class="collection-title">My Minifigs</div>
+      <div id="myMinifigsCount" class="collection-count"></div>
     </div>
     <input id="myMinifigsSearchInput" type="text" class="list-search-input" style="margin:0 0 10px;"
       placeholder="Search your figs — Enter searches the catalog"
@@ -1505,8 +1526,7 @@
     <div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
       <button id="myMinifigsDupesBtn" onclick="toggleMinifigDupes()" class="figs-tool-btn">Owned 2+</button>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-        <select id="myMinifigsSort" onchange="_onMinifigsSortChange(this.value)"
-          style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+        <select id="myMinifigsSort" class="toolbar-select" onchange="_onMinifigsSortChange(this.value)">
           <option value="name">Name A–Z</option>
           <option value="theme">Theme</option>
           <option value="price_desc">Price: High → Low</option>
@@ -1546,12 +1566,12 @@
       oninput="filterListParts()">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <div id="listSearchCount" class="list-search-count"></div>
-      <select id="listSetsSort" onchange="_onSetsSortChange(this.value)" style="display:none;flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+      <select id="listSetsSort" class="toolbar-select" onchange="_onSetsSortChange(this.value)" style="display:none;">
         <option value="name">Name A–Z</option>
         <option value="price_desc">Price: High → Low</option>
         <option value="price_asc">Price: Low → High</option>
       </select>
-      <select id="listMinifigsSort" onchange="_onMinifigsSortChange(this.value)" style="display:none;flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+      <select id="listMinifigsSort" class="toolbar-select" onchange="_onMinifigsSortChange(this.value)" style="display:none;">
         <option value="name">Name A–Z</option>
         <option value="theme">Theme</option>
         <option value="price_desc">Price: High → Low</option>
@@ -1563,7 +1583,7 @@
   <div id="listTools" class="list-tools">
     <button class="list-tools-toggle" onclick="toggleListTools()" aria-expanded="false">
       <span>Manage list</span>
-      <span id="listToolsArrow" class="list-tools-arrow">▶</span>
+      <svg class="list-tools-arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.3 6 8.1l3.8-3.8z"/></svg>
     </button>
     <div id="listToolsBody" class="list-tools-body" style="display:none;">
       <div class="list-tool-group">
@@ -1577,7 +1597,7 @@
 
       <div class="list-tool-group">
         <div class="sub-label">Export</div>
-        <button class="action-btn" onclick="exportBricklink()">🛒 Export to BrickLink Wanted List</button>
+        <button class="action-btn" onclick="exportBricklink()">Export to BrickLink Wanted List</button>
         <div id="blExportStatus" class="status-text"></div>
       </div>
 
@@ -1652,36 +1672,32 @@
   </div>
 </div>
 
-<!-- Screen: Sets -->
+<!-- Screen: Sets — mirrors the Figs tab: copper collection header, one pill
+     search (catalog, debounced), sort + ⋯ overflow toolbar, grid. -->
 <div class="screen" id="screen-sets">
-  <div class="sets-search-card">
-    <label style="display:block;font-family:var(--font-display);font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Search for LEGO sets</label>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input type="text" id="setSearchInput" placeholder="e.g., 75060, castle, hogwarts..."
-        style="flex:1;padding:10px 12px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:15px;"
-        onkeydown="if(event.key==='Enter')searchSetsFromTop()">
-      <button onclick="searchSetsFromTop()" class="action-btn">Find</button>
+  <div id="mySetsSection" style="padding:0 0 24px;">
+    <div class="collection-head">
+      <div class="collection-title">My Sets</div>
+      <div id="mySetsCount" class="collection-count"></div>
     </div>
-  </div>
-  <div id="setSearchResults" style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);overflow-y:auto;display:none;box-shadow:var(--shadow-pop);"></div>
-
-  <div id="mySetsSection" style="padding:0 14px 24px;">
-    <div onclick="toggleMySets()" style="display:flex;align-items:center;gap:8px;margin:18px 0 12px;cursor:pointer;user-select:none;">
-      <svg id="mySetsChevron" viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--muted);transition:transform .15s;flex-shrink:0;"><path d="M7 10l5 5 5-5z"/></svg>
-      <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Sets</div>
-      <div id="mySetsCount" style="margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--muted2);"></div>
-      <button id="setPricesBtn" onclick="event.stopPropagation(); refreshSetPrices();" title="Refresh BrickLink prices"
-        style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
-    </div>
+    <input id="setSearchInput" type="text" class="list-search-input" style="margin:0 0 10px;"
+      placeholder="Search the set catalog — number or name"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"
+      oninput="onSetsSearchInput()"
+      onkeydown="if(event.key==='Enter'){clearTimeout(_setsSearchTimer);searchSetsFromTop();this.blur();}">
+    <div id="setSearchResults" style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);overflow-y:auto;display:none;box-shadow:var(--shadow-pop);margin:0 0 10px;"></div>
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 10px;">
-      <button id="mySetsExportBtn" onclick="event.stopPropagation(); exportSetsCSV()"
-        style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Export CSV</button>
-      <select id="mySetsSort" onclick="event.stopPropagation()" onchange="_onSetsSortChange(this.value)"
-        style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
+      <select id="mySetsSort" class="toolbar-select" onchange="_onSetsSortChange(this.value)">
         <option value="name">Name A–Z</option>
         <option value="price_desc">Price: High → Low</option>
         <option value="price_asc">Price: Low → High</option>
       </select>
+      <button id="mySetsMoreBtn" onclick="toggleSetsTools()" class="figs-tool-btn" aria-label="More actions"
+        style="padding:6px 10px;font-size:14px;line-height:1;">⋯</button>
+    </div>
+    <div id="setsToolsRow" style="display:none;gap:8px;margin:0 0 10px;">
+      <button id="setPricesBtn" onclick="refreshSetPrices()" class="figs-tool-btn" style="flex:1;">↻ Refresh prices</button>
+      <button id="mySetsExportBtn" onclick="exportSetsCSV()" class="figs-tool-btn" style="flex:1;">Export CSV</button>
     </div>
     <div id="mySetsGrid"></div>
   </div>
@@ -3232,12 +3248,10 @@
 
   function toggleListTools() {
     const body = document.getElementById('listToolsBody');
-    const arrow = document.getElementById('listToolsArrow');
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : 'flex';
-    arrow.textContent = open ? '▶' : '▼';
     const btn = document.querySelector('.list-tools-toggle');
-    if (btn) btn.setAttribute('aria-expanded', String(!open));
+    if (btn) btn.setAttribute('aria-expanded', String(!open));  // CSS rotates the caret
   }
 
   loadCatalogStatus();
@@ -3662,11 +3676,11 @@
         grid.innerHTML = data.results.map(item =>
           `<div style="padding:10px;background:var(--surface3);border-radius:8px;border:1px solid var(--border-bright);display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <div style="font-size:13px;color:#fff;">${item.list_name}</div>
+              <div style="font-size:13px;color:var(--text);">${item.list_name}</div>
               <div style="font-size:11px;color:var(--muted);">Qty: <span class="list-qty-${item.list_id}">${item.quantity}</span></div>
             </div>
             <div style="display:flex;gap:6px;">
-              <button onclick="quickAddPartToList(${item.list_id})" style="width:28px;height:28px;border:1px solid var(--border-bright);background:var(--surface3);color:#3B9EFF;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">+</button>
+              <button onclick="quickAddPartToList(${item.list_id})" style="width:28px;height:28px;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">+</button>
               <button onclick="quickRemovePartFromList(${item.list_id})" style="width:28px;height:28px;border:1px solid #f00;background:#3a1618;color:#ffb8bf;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">−</button>
             </div>
           </div>`
@@ -4676,9 +4690,9 @@
             <img src="${partImgUrl}" alt="${partName}" style="max-width:100%;max-height:100%;object-fit:contain;" onerror="this.parentElement.style.background='var(--surface3)'">
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:500;margin-bottom:4px;color:#fff;word-break:break-word;">${partName}</div>
+            <div style="font-size:12px;font-weight:500;margin-bottom:4px;color:var(--text);word-break:break-word;">${partName}</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">${partNum}</div>
-            <div style="font-size:11px;color:#3B9EFF;font-weight:500;">${colorName}</div>
+            <div style="font-size:11px;color:var(--yellow);font-weight:500;">${colorName}</div>
           </div>
         </div>`;
     }).join('');
@@ -4962,7 +4976,7 @@
             <span class="part-item-color-dot" style="background:#${rgb}"></span>
             <span>${colorName}</span>
             <span style="color:var(--muted);margin-left:4px;">•</span>
-            <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}" target="_blank" style="color:#3B9EFF;text-decoration:none;margin-left:4px;font-size:13px;">${partNum}</a>
+            <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}" target="_blank" style="color:var(--yellow);text-decoration:none;margin-left:4px;font-size:13px;">${partNum}</a>
           </div>
         </div>
         <div class="part-item-actions">
@@ -5296,7 +5310,7 @@
     formData.append('file', fileInput.files[0]);
     formData.append('list_id', listId);
 
-    statusDiv.innerHTML = '<span style="color:#3B9EFF;">Uploading and importing...</span>';
+    statusDiv.innerHTML = '<span style="color:var(--yellow);">Uploading and importing...</span>';
 
     try {
       const resp = await fetch('/api/import-csv', {
@@ -5523,14 +5537,14 @@
           <div style="display:flex;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:8px;align-items:flex-start;">
             ${img ? `<img src="${img}" alt="${item.part_num}" style="width:56px;height:56px;object-fit:contain;background:var(--surface3);border-radius:4px;flex-shrink:0;">` : `<div style="width:56px;height:56px;background:var(--surface3);border-radius:4px;flex-shrink:0;"></div>`}
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#3B9EFF;font-size:13px;">${item.part_num}</div>
+              <div style="font-weight:600;color:var(--yellow);font-size:13px;">${item.part_num}</div>
               <div style="font-size:12px;color:var(--muted);">
                 <span style="display:inline-block;width:12px;height:12px;background:#${getColorHex(item.color_name)};border-radius:2px;margin-right:6px;vertical-align:middle;"></span>
                 ${item.color_name}
               </div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
-              <div style="font-weight:600;color:#fff;font-size:16px;">${item.quantity}</div>
+              <div style="font-weight:600;color:var(--text);font-size:16px;">${item.quantity}</div>
               <div style="color:var(--muted);font-size:11px;">qty</div>
             </div>
             <button onclick="removeShoppingItem('${item.part_num}_${item.color_id}')"
@@ -5597,7 +5611,7 @@
     if (view === 'list') {
       listView.style.display = 'block';
       compView.style.display = 'none';
-      listBtn.style.background = '#3B9EFF';
+      listBtn.style.background = 'var(--yellow)';
       listBtn.style.color = 'var(--on-accent)';
       compBtn.style.background = 'var(--surface3)';
       compBtn.style.color = 'var(--muted)';
@@ -5606,7 +5620,7 @@
       compView.style.display = 'block';
       listBtn.style.background = 'var(--surface3)';
       listBtn.style.color = 'var(--muted)';
-      compBtn.style.background = '#3B9EFF';
+      compBtn.style.background = 'var(--yellow)';
       compBtn.style.color = 'var(--on-accent)';
       loadComparisonView();
     }
@@ -5739,7 +5753,7 @@
         return `
           <div style="display:flex;gap:12px;padding:12px;background:${bgColor};border:1px solid ${row.isFull ? '#1a5a1a' : '#5a1a1a'};border-radius:8px;align-items:center;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#3B9EFF;font-size:13px;">${row.item.part_num}</div>
+              <div style="font-weight:600;color:var(--yellow);font-size:13px;">${row.item.part_num}</div>
               <div style="font-size:12px;color:var(--muted);">
                 <span style="display:inline-block;width:10px;height:10px;background:#${getColorHex(row.item.color_name)};border-radius:2px;margin-right:6px;vertical-align:middle;"></span>
                 ${row.item.color_name}
@@ -5748,11 +5762,11 @@
             <div style="text-align:right;flex-shrink:0;display:grid;grid-template-columns:auto auto auto;gap:16px;align-items:center;">
               <div style="font-size:12px;">
                 <div style="color:var(--muted);font-size:11px;">Have</div>
-                <div style="color:#fff;font-weight:600;">${row.have}</div>
+                <div style="color:var(--text);font-weight:600;">${row.have}</div>
               </div>
               <div style="font-size:12px;">
                 <div style="color:var(--muted);font-size:11px;">Need</div>
-                <div style="color:#3B9EFF;font-weight:600;">${row.need}</div>
+                <div style="color:var(--yellow);font-weight:600;">${row.need}</div>
               </div>
               <div style="font-size:12px;">
                 <div style="color:var(--muted);font-size:11px;">Gap</div>
@@ -5945,8 +5959,8 @@
             onmouseout="this.style.background='transparent'">
             <img src="${imgUrl}" alt="${dataSetNum}" onerror="this.src='/static/brick.svg'" style="width:50px;height:50px;object-fit:contain;background:var(--bg);border-radius:4px;flex-shrink:0;">
             <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
-              <div style="font-weight:600;color:#3B9EFF;font-size:14px;margin-bottom:2px;">${dataSetNum}</div>
-              <div style="color:#fff;font-size:13px;margin-bottom:4px;word-break:break-word;">${dataSetName}</div>
+              <div style="font-weight:600;color:var(--yellow);font-size:14px;margin-bottom:2px;">${dataSetNum}</div>
+              <div style="color:var(--text);font-size:13px;margin-bottom:4px;word-break:break-word;">${dataSetName}</div>
               <div style="color:var(--muted);font-size:12px;">
                 ${displayYear}
                 ${displayParts}
@@ -6113,18 +6127,22 @@
   }
 
   // ── "My Sets" — the owned-set collection, shown on the Sets tab ──────────
-  let _mySetsCollapsed = false;
-  try { _mySetsCollapsed = localStorage.getItem('mySetsCollapsed') === '1'; } catch (e) {}
-  function _applyMySetsCollapsed() {
-    const grid = document.getElementById('mySetsGrid');
-    const chev = document.getElementById('mySetsChevron');
-    if (grid) grid.style.display = _mySetsCollapsed ? 'none' : '';
-    if (chev) chev.style.transform = _mySetsCollapsed ? 'rotate(-90deg)' : '';
+  // Debounced live catalog search (mirrors the scan tab: min 3 chars so the
+  // Render API fallback isn't hammered; Enter forces).
+  let _setsSearchTimer = null;
+  function onSetsSearchInput() {
+    clearTimeout(_setsSearchTimer);
+    const q = document.getElementById('setSearchInput').value.trim();
+    if (!q) { document.getElementById('setSearchResults').style.display = 'none'; return; }
+    if (q.length < 3) return;
+    _setsSearchTimer = setTimeout(searchSetsFromTop, 450);
   }
-  function toggleMySets() {
-    _mySetsCollapsed = !_mySetsCollapsed;
-    try { localStorage.setItem('mySetsCollapsed', _mySetsCollapsed ? '1' : '0'); } catch (e) {}
-    _applyMySetsCollapsed();
+  // ⋯ overflow on the My Sets toolbar (mirrors toggleFigsTools).
+  function toggleSetsTools() {
+    const row = document.getElementById('setsToolsRow');
+    const on = row.style.display === 'none';
+    row.style.display = on ? 'flex' : 'none';
+    document.getElementById('mySetsMoreBtn').style.color = on ? 'var(--text)' : 'var(--muted)';
   }
 
   // ── Collection sorting — shared by My Sets / My Minifigs, in both their
@@ -6198,7 +6216,6 @@
     const countEl = document.getElementById('mySetsCount');
     grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Loading your sets…</p>';
     countEl.textContent = '';
-    _applyMySetsCollapsed();  // keep the persisted collapsed state across loads
     const sortSel = document.getElementById('mySetsSort');
     if (sortSel) sortSel.value = _setsSortMode;
     return fetch('/api/owned_sets')
@@ -6763,7 +6780,7 @@
     if (!setNum) return;
 
     // Update tab styling
-    document.getElementById('tabParts').style.background = '#3B9EFF';
+    document.getElementById('tabParts').style.background = 'var(--yellow)';
     document.getElementById('tabParts').style.color = 'var(--on-accent)';
     document.getElementById('tabMinifigs').style.background = 'var(--surface3)';
     document.getElementById('tabMinifigs').style.color = 'var(--muted)';
@@ -6795,15 +6812,15 @@
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid var(--border-bright);align-items:flex-start;">
             <img data-src="${partImage}" alt="${partNum}" onclick="openImageModal('${partImage.replace(/'/g, "\\'")}', '${partNum.replace(/'/g, "\\'")}')" onerror="this.onerror=null;this.src='/static/brick.svg'" style="width:50px;height:50px;object-fit:contain;background:var(--surface3);border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#3B9EFF;font-size:13px;margin-bottom:2px;">${partNum}</div>
-              <div style="color:#fff;font-size:12px;margin-bottom:4px;word-break:break-word;">${partName}</div>
+              <div style="font-weight:600;color:var(--yellow);font-size:13px;margin-bottom:2px;">${partNum}</div>
+              <div style="color:var(--text);font-size:12px;margin-bottom:4px;word-break:break-word;">${partName}</div>
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
                 <span style="width:16px;height:16px;border-radius:3px;background:${colorHex};border:1px solid var(--border-bright);"></span>
                 <span style="color:var(--muted);">${colorName}</span>
               </div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
-              <div style="font-weight:600;color:#fff;font-size:14px;">${quantity}</div>
+              <div style="font-weight:600;color:var(--text);font-size:14px;">${quantity}</div>
               <div style="color:var(--muted);font-size:11px;">qty</div>
             </div>
           </div>
@@ -6825,7 +6842,7 @@
     // Update tab styling
     document.getElementById('tabParts').style.background = 'var(--surface3)';
     document.getElementById('tabParts').style.color = 'var(--muted)';
-    document.getElementById('tabMinifigs').style.background = '#3B9EFF';
+    document.getElementById('tabMinifigs').style.background = 'var(--yellow)';
     document.getElementById('tabMinifigs').style.color = 'var(--on-accent)';
 
     const contentDiv = document.getElementById('setDetailsContent');
@@ -6870,11 +6887,11 @@
           <div style="display:flex;gap:12px;padding:12px;border-bottom:1px solid var(--border-bright);align-items:flex-start;">
             <img data-src="${figImage}" alt="${figNum}" onclick="openImageModal('${figImage.replace(/'/g, "\\'")}', '${figNum.replace(/'/g, "\\'")}', 'M')" onerror="this.onerror=null;this.src='/static/minifig.png'" style="width:50px;height:50px;object-fit:contain;background:var(--surface3);border-radius:4px;flex-shrink:0;cursor:pointer;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#3B9EFF;font-size:13px;margin-bottom:2px;">${figNum}${ownedBadge}</div>
-              <div style="color:#fff;font-size:12px;word-break:break-word;">${figName}</div>
+              <div style="font-weight:600;color:var(--yellow);font-size:13px;margin-bottom:2px;">${figNum}${ownedBadge}</div>
+              <div style="color:var(--text);font-size:12px;word-break:break-word;">${figName}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
-              <div style="font-weight:600;color:#fff;font-size:14px;">${quantity}</div>
+              <div style="font-weight:600;color:var(--text);font-size:14px;">${quantity}</div>
               <div style="color:var(--muted);font-size:11px;">qty</div>
             </div>
           </div>

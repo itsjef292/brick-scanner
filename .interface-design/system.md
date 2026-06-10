@@ -55,7 +55,7 @@ white on the darker azure in light) and `--green-bg`/`--green-border`/`--green-t
 | `--muted` | `#9EAAB9` | secondary ink / labels |
 | `--muted2` | `#697686` | tertiary / placeholder |
 | `--yellow` (accent) | `#3B9EFF` | azure — the single accent |
-| `--copper` | `#C87941` | wordmark + collection headers (My Minifigs title/stats) only |
+| `--copper` | `#C87941` | wordmark + collection headers (`.collection-head`: My Minifigs / My Sets title+stats) only |
 | `--yellow-glow` | `rgba(59,158,255,0.12)` | accent tint |
 | `--green` | `#46C97E` | in-inventory / success (meaning only) |
 | `--red` | `#F0564B` | remove / destructive (meaning only) |
@@ -113,6 +113,15 @@ The stud is a real UI element, not decoration. It must appear in multiple places
 - **Inline config row** (`.list-pick-row`): label + pill select + one `⋯`
   icon-button that reveals an actions row beneath (`.list-actions-row`,
   `.figs-tool-btn`s) — never a cluster of standalone action buttons.
+- **Collection tab anatomy** (Figs & Sets share it exactly): centred copper
+  `.collection-head` (title + mono stats) → pill search (`.list-search-input`,
+  999-radius) → toolbar row (left filters · right `.toolbar-select` sort + `⋯`
+  `.figs-tool-btn`) → hidden tools row (refresh prices / export CSV) → grid.
+  No collapse chevrons — the grid is the screen. Selects in toolbars use
+  `.toolbar-select`; full-width pickers (Lists tab) are 999-radius pills.
+- **Expandable sections** (Manage list, catalog drawer): a quiet uppercase
+  toggle with a small azure SVG caret rotated 180° by `[aria-expanded]` CSS —
+  never `▶`/`▼` text glyphs swapped in JS.
 - **Tab bar** (`.mode-tabs`): 4 tabs (Scan / Figs / Sets / Part Lists), each an inline **monochrome SVG** (`.tab-ico` /
   `.tab-brick`, `fill: currentColor`) + label. NEVER emoji or `<img>` — currentColor
   makes them recolour for active state automatically. Active tab = solid azure pill
