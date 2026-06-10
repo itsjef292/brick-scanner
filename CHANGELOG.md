@@ -3,6 +3,25 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Trading-card identify screen (June 2026):**
+- The identify card is restyled as a trading card ("Pokémon card" feel): floating
+  card with a gradient azure holo frame + soft shadow, the name as a title bar on
+  top, and the catalog image as the hero — large and centred in an inset **art
+  window** with a radial spotlight. The user's scan photo shrinks from the old
+  50/50 split to a small corner chip over the art.
+- Pure presentation: all element ids (`partName`, `catalogImg`, `userThumb`,
+  banners, info rows) are unchanged, so the populate/JS flow is untouched. Only
+  behavioural tweak: minifig scans hide the full-width `photoBanner` (the chip
+  carries the photo; parts keep the banner for colour verification).
+- **Card-flip reveal:** the card turns over (back → front, .65s 3D rotateY) each
+  time the Identify screen shows, replacing the old sweep-in. Structure: a
+  `.identify-flip` perspective wrapper holds the card (front, backface hidden) +
+  a `.identify-card-back` (pre-rotated 180°, pointer-events none) styled as a
+  big scan socket in the same holo frame. `perspective()` is inside the keyframe
+  transform so no ancestor gains a perspective property and the animation ends
+  at `transform:none`. Honors `prefers-reduced-motion`.
+- Pattern documented in `.interface-design/system.md` ("Identify focal card").
+
 **Removed the CMF box-code scanner + native iOS shell (June 2026):**
 - Dropped the entire CMF (Collectible Minifigure) box-code feature — the **CMF**
   nav tab + `#screen-cmf`, all `_cmf*` frontend JS, the `/api/cmf/*` endpoints

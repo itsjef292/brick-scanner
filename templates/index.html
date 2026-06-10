@@ -478,45 +478,108 @@
       background: var(--surface2);
       display: block;
     }
+    /* Trading-card treatment: the focal card floats with a gradient "holo"
+       frame in the accent hue (gradient border-box under a surface padding-box)
+       and the one soft shadow the design system allows — it's the physical
+       card you're holding. */
     .identify-card {
-      background: var(--surface);
-      border-radius: 0;
+      border: 7px solid transparent;
+      border-radius: 20px;
       padding: 0 0 12px;
+      background:
+        linear-gradient(var(--surface), var(--surface)) padding-box,
+        linear-gradient(160deg,
+          rgba(59,158,255,0.65), rgba(59,158,255,0.14) 32%,
+          rgba(150,180,215,0.20) 55%, rgba(59,158,255,0.52)) border-box;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.45);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
     }
-    /* Focal card sweeps in from the right each time the Identify screen shows
-       (display:none → flex restarts the animation). Ends at the natural state —
-       no persistent transform, so nothing inside ever gets a stray containing block. */
-    .screen.active .identify-card {
-      animation: cardSweepIn .42s cubic-bezier(.22, .9, .32, 1) backwards;
+    /* Reveal: the card turns over (back → front) each time the Identify screen
+       shows (display:none → flex restarts the animation). perspective() lives
+       inside the keyframe transform so no ancestor needs a perspective property,
+       and the animation ends at transform:none — nothing inside ever gets a
+       stray containing block. The flipper carries the card (front, backface
+       hidden) and a pre-rotated card back. */
+    .identify-flip {
+      margin: 12px 12px 4px;
+      position: relative;
+      transform-style: preserve-3d;
     }
-    @keyframes cardSweepIn {
-      from { transform: translateX(100%); opacity: .55; }
-      to   { transform: none; opacity: 1; }
+    .screen.active .identify-flip {
+      animation: cardFlipIn .65s cubic-bezier(.32, .75, .34, 1) backwards;
+    }
+    @keyframes cardFlipIn {
+      from { transform: perspective(1300px) rotateY(180deg); }
+      to   { transform: perspective(1300px) rotateY(0deg); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .screen.active .identify-card { animation: none; }
+      .screen.active .identify-flip { animation: none; }
     }
+    /* Card back — a big scan socket (the app's signature mark): recessed radial
+       with a dashed azure drop ring, inside the same holo frame. Visible only
+       mid-flip; never interactive. */
+    .identify-card-back {
+      position: absolute; inset: 0;
+      border: 7px solid transparent;
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 50% 44%, var(--surface2), var(--socket) 80%) padding-box,
+        linear-gradient(160deg,
+          rgba(59,158,255,0.65), rgba(59,158,255,0.14) 32%,
+          rgba(150,180,215,0.20) 55%, rgba(59,158,255,0.52)) border-box;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.45);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transform: rotateY(180deg);
+      pointer-events: none;
+    }
+    .identify-card-back::after {
+      content: '';
+      position: absolute; inset: 0; margin: auto;
+      width: 132px; height: 132px;
+      border-radius: 50%;
+      border: 2px dashed rgba(59,158,255,0.55);
+      background: radial-gradient(circle at 50% 40%, rgba(59,158,255,0.10), rgba(59,158,255,0) 70%);
+    }
+    /* Art window: the catalog image is the hero, centred on a dark inset stage
+       with a soft spotlight (the fig is the colour; the stage stays neutral).
+       The user's scan photo shrinks to a corner chip over the art. */
     .dual-images {
-      display: flex;
-      gap: 0;
-      width: 100%;
-      height: 130px;
+      position: relative;
+      height: 224px;
+      margin: 0 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border-bright);
+      background:
+        radial-gradient(circle at 50% 40%, rgba(59,158,255,0.14), rgba(59,158,255,0) 68%),
+        linear-gradient(180deg, var(--surface2), var(--socket));
+      overflow: hidden;
     }
-    .dual-images img {
-      flex: 1;
-      width: 50%;
+    .dual-images #catalogImg {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
       object-fit: contain;
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
+      padding: 18px 22px;
     }
-    .dual-images img:first-child { border-right: 1px solid var(--border); }
+    .dual-images #userThumb {
+      position: absolute; top: 10px; left: 10px;
+      width: 56px; height: 56px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border-bright);
+      background: var(--surface2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+      z-index: 2;
+    }
 
-    .part-info { padding: 14px 14px 0; }
+    /* Title bar sits above the art, like a trading card's name line. */
+    .part-info { padding: 12px 16px 10px; }
     .part-info .part-name {
       font-family: var(--font-display);
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
-      line-height: 1.25;
+      line-height: 1.3;
       color: var(--text);
       letter-spacing: 0.3px;
     }
@@ -1689,22 +1752,23 @@
   <div style="position:absolute;top:4px;right:4px;display:none;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)" id="debugSwatch"></div>
   <div id="debugLabel" style="position:absolute;top:4px;left:4px;display:none;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;white-space:nowrap"></div>
 
+  <div class="identify-flip">
   <div class="identify-card">
+    <div class="part-info">
+      <div class="part-name" id="partName">—</div>
+    </div>
     <div class="dual-images">
       <img id="userThumb" src="" alt="">
       <img id="catalogImg" src="" alt="">
     </div>
-    <div class="part-info">
-      <div class="part-name" id="partName">—</div>
-    </div>
     <!-- Prominent "you already own this" banner for minifigs in My Minifigs -->
-    <div id="minifigOwnedBanner" style="display:none;align-items:center;gap:9px;margin-top:10px;padding:10px 13px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);">
+    <div id="minifigOwnedBanner" style="display:none;align-items:center;gap:9px;margin:10px 12px 0;padding:10px 13px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);">
       <span style="width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#7be0a6,var(--green) 75%);flex-shrink:0;"></span>
       <span style="color:var(--green);font-weight:700;font-size:14px;">Already in My Minifigs</span>
       <span id="minifigOwnedQty" style="margin-left:auto;font-family:var(--font-mono);font-weight:700;color:var(--green);"></span>
     </div>
     <!-- Red flag: no BrickLink id → can't fetch pricing -->
-    <div id="minifigNoBlBanner" style="display:none;align-items:center;gap:9px;margin-top:10px;padding:10px 13px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius-sm);">
+    <div id="minifigNoBlBanner" style="display:none;align-items:center;gap:9px;margin:10px 12px 0;padding:10px 13px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius-sm);">
       <span style="font-size:15px;flex-shrink:0;">⚠️</span>
       <span style="color:var(--red-text);font-weight:600;font-size:13px;line-height:1.35;">No BrickLink ID — pricing can’t be tracked. Scan it, or use the Search BrickLink link above to find its id.</span>
     </div>
@@ -1716,7 +1780,7 @@
       <span class="label">BrickLink ID</span>
       <span class="value" id="blValue">—</span>
     </div>
-    <div id="variantsRow" style="display:none;padding:12px 0 2px;">
+    <div id="variantsRow" style="display:none;padding:12px 14px 2px;">
       <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.6px;margin:0 2px 8px;">Variants on BrickLink</div>
       <div id="variantsValue" style="display:flex;flex-direction:column;gap:6px;"></div>
     </div>
@@ -1754,6 +1818,8 @@
       <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);margin-bottom:8px;margin-left:14px;text-transform:uppercase;letter-spacing:0.8px;">Found in:</div>
       <div id="partListsGrid" style="display:grid;grid-template-columns:1fr;gap:8px;padding:0 14px;"></div>
     </div>
+  </div>
+  <div class="identify-card-back" aria-hidden="true"></div>
   </div>
 
   <!-- Minifig price -->
@@ -3379,6 +3445,9 @@
       ownBar.style.display = '';
       qtyWrap.style.display = 'none';
       addPartsBtn.style.display = '';
+      // The scan photo lives in the card's corner chip now; the full-width
+      // banner above the card is redundant for minifigs (no colour step).
+      document.getElementById('photoBanner').style.display = 'none';
       renderInventoryStatus(0, 'hidden');
       // Flag a missing BrickLink id — it means this fig can't be priced.
       document.getElementById('minifigNoBlBanner').style.display = blId ? 'none' : 'flex';
@@ -4453,6 +4522,9 @@
     const selectedColor = currentPartColors.find(c => c.color_id === selectedColorId);
     if (selectedColor && selectedColor.num_sets) {
       label.textContent = `Appears in ${selectedColor.num_sets} sets`;
+      // Parts show only the count line — clear any set rows left in the shared
+      // container by a previous minifig scan (renderMinifigSets fills it).
+      document.getElementById('setsList').innerHTML = '';
       section.style.display = 'block';
     } else {
       section.style.display = 'none';

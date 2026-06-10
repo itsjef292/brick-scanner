@@ -90,8 +90,15 @@ The stud is a real UI element, not decoration. It must appear in multiple places
 - **List row** (`.part-item`): thumbnail on `--socket` inset · name · stud colour-dot +
   LEGO colour name + azure part# (mono) · `−` / `×N` (mono) / `+` steppers
   (`.list-adjust-btn` red/green).
-- **Identify focal card:** the one element allowed a soft shadow — it's the physical
-  brick you're holding.
+- **Identify focal card:** trading-card treatment — a floating card with a gradient
+  azure "holo" frame (gradient border-box under a surface padding-box, 7px border,
+  radius 20), title bar above a centred **art window** (catalog image on a dark
+  spotlight stage, the scan photo as a small corner chip), info rows below as the
+  card text. The one element allowed a soft shadow — it's the physical card you're
+  holding. Revealed with a 3D card-flip (`.identify-flip` + `cardFlipIn`): the back
+  face is a big scan socket (dashed azure drop ring) in the same holo frame;
+  `perspective()` lives inside the keyframe transform so the animation ends at
+  `transform:none` (no stray containing blocks). Reduced-motion disables it.
 - **Header:** logo mark + wordmark, 1px seam underline (NOT a heavy accent rule).
 
 ## Avoid (regressions to catch)
