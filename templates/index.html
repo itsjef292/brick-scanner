@@ -471,11 +471,16 @@
     }
 
     /* ── Screen 3: Identify ── */
+    /* Scan photo (parts mode) — floats like the other objects on the table:
+       card footprint margins + rounded, not full-bleed chrome. */
     .photo-banner {
-      width: 100%;
+      width: calc(100% - 24px);
+      margin: 12px 12px 0;
       max-height: 240px;
       object-fit: cover;
       background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
       display: block;
     }
     /* Trading-card treatment: the focal card floats with a gradient "holo"
@@ -724,18 +729,30 @@
       background: var(--stud-sheen); pointer-events: none;
     }
 
-    /* ── Minifig price ── */
-    .price-section {
-      background: var(--surface); margin-top: 6px; padding: 12px 14px;
+    /* ── Satellite panels (price / sets / parts / matches / actions) ──
+       The identify card is the collectible; these are the table it lies on:
+       same footprint as the card (12px margins, rounded), surface fill + seam
+       border — never the holo frame or shadow, which stay exclusive to the
+       focal card. */
+    .price-section, .sets-section, .parts-section, .alt-section, .action-area {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin: 10px 12px 0;
+      padding: 12px 14px;
     }
+
+    /* ── Minifig price ── */
     .price-label {
       font-family: var(--font-display); font-size: 11px; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
     }
     .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    /* Price chips sit on the socket-dark inset — the same stage the fig
+       stands on in the card's art window. */
     .price-card {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 10px 12px;
+      background: var(--socket); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
     }
     .price-card-title {
       font-family: var(--font-display); font-size: 10px; color: var(--muted);
@@ -749,7 +766,7 @@
     .price-sales { font-size: 11px; color: var(--muted2); margin-top: 1px; }
 
     /* ── Minifig sets ── */
-    .sets-section { background: var(--surface); margin-top: 6px; padding: 12px 14px 4px; }
+    .sets-section { padding-bottom: 4px; }
     .sets-label {
       font-family: var(--font-display); font-size: 11px; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;
@@ -762,36 +779,41 @@
     .set-row:last-child { border-bottom: none; }
     .set-thumb {
       width: 64px; height: 48px; object-fit: contain;
-      background: var(--surface2); border-radius: var(--radius-sm); flex-shrink: 0;
+      background: var(--socket); border: 1px solid var(--border);
+      border-radius: 9px; flex-shrink: 0;
     }
     .set-info { flex: 1; min-width: 0; }
     .set-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
     .set-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-    /* ── Alternatives ── */
-    .alt-section { background: var(--surface); margin-top: 6px; padding: 12px 14px; }
+    /* ── Alternatives — mini-cards: each match is "a different card you could
+       draw", so the tile echoes the big card in miniature (seam frame, thumb
+       on a socket-dark stage). Tapping one swaps the focal card. ── */
     .alt-label {
       font-family: var(--font-display); font-size: 11px; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
     }
     .alt-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
     .alt-card {
-      flex-shrink: 0; width: 92px;
-      background: var(--surface2); border: 1.5px solid transparent;
-      border-radius: var(--radius); padding: 8px;
+      flex-shrink: 0; width: 96px;
+      background: var(--surface2); border: 1px solid var(--border-bright);
+      border-radius: 10px; padding: 6px 6px 8px;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
       cursor: pointer; transition: border-color 0.15s;
     }
-    .alt-card.selected { border-color: var(--yellow); background: rgba(0,128,255,0.06); }
-    .alt-card img { width: 44px; height: 44px; object-fit: contain; }
+    .alt-card.selected { border-color: var(--yellow); background: var(--yellow-glow); }
+    .alt-card img {
+      width: 100%; height: 56px; object-fit: contain;
+      background: var(--socket); border-radius: 7px; padding: 4px;
+    }
     .alt-card .alt-name { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.3; }
     .alt-card .alt-score { font-family: var(--font-mono); font-size: 10px; color: var(--muted2); }
 
-    /* ── Action area ── */
+    /* ── Action area — sits directly under the card, before the info panels ── */
     .action-area {
-      background: var(--surface); margin-top: 6px; padding: 14px;
       display: flex; flex-direction: column; gap: 10px;
     }
+    #screen-identify { padding-bottom: 16px; }
     .qty-row {
       display: flex; align-items: center; gap: 12px;
     }
@@ -822,7 +844,7 @@
     .error-msg {
       background: var(--red-bg); border: 1px solid var(--red-border);
       border-radius: var(--radius); padding: 12px 14px;
-      color: var(--red-text); font-size: 13px; display: none; margin: 0 14px;
+      color: var(--red-text); font-size: 13px; display: none; margin: 0 12px;
     }
 
     /* ── Lists browser ── */
@@ -1821,6 +1843,59 @@
   </div>
   <div class="identify-card-back" aria-hidden="true"></div>
   </div>
+  <!-- Error -->
+  <div class="error-msg" id="identifyError" style="margin:8px 12px 0;"></div>
+
+  <!-- Actions -->
+  <div class="action-area">
+    <div class="qty-row" id="qtyRow" style="display:flex;align-items:flex-end;gap:12px;">
+      <div style="flex:1;" id="qtyControlsWrap">
+        <label>Quantity</label>
+        <div class="qty-controls">
+          <button onclick="adjustQty(-1)">−</button>
+          <input type="number" id="quantityInput" value="1" min="1" max="999">
+          <button onclick="adjustQty(1)">+</button>
+        </div>
+      </div>
+      <button class="btn green" id="addAllPartsBtn" onclick="showAddPartsListPicker()" style="display:none;margin-bottom:0;">Add Parts</button>
+    </div>
+
+    <!-- Minifig owned bar (My Minifigs): add button → stepper + condition/price, like set-details -->
+    <div id="minifigOwnBar" style="display:none;margin-bottom:12px;">
+      <button id="figOwnAddBtn" class="btn green" onclick="addMinifig()" style="margin-bottom:0;">Add to My Minifigs</button>
+      <div id="figOwnStepper" style="display:none;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;">
+        <span style="width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#6fd79b,var(--green) 75%);flex-shrink:0;"></span>
+        <span style="color:var(--green);font-weight:600;font-size:14px;">In My Minifigs</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+          <button class="list-adjust-btn remove" onclick="removeMinifigOne()" aria-label="Remove one">−</button>
+          <span id="figOwnQty" style="font-family:var(--font-mono);font-weight:700;color:var(--text);min-width:26px;text-align:center;">×1</span>
+          <button class="list-adjust-btn add" onclick="addMinifig()" aria-label="Add one">+</button>
+        </div>
+      </div>
+      <div id="figOwnMeta" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;margin-top:8px;flex-wrap:wrap;align-items:center;gap:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;">Condition</span>
+          <div style="display:flex;border:1px solid var(--border-bright);border-radius:8px;overflow:hidden;">
+            <button type="button" id="condFigUsedBtn" class="cond-pill" onclick="setOwnedMinifigCondition('used')">Used</button>
+            <button type="button" id="condFigNewBtn" class="cond-pill" onclick="setOwnedMinifigCondition('new')">New</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+          <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;">Paid</span>
+          <div style="display:flex;align-items:center;background:var(--socket);border:1px solid var(--border-bright);border-radius:8px;padding:0 10px;">
+            <span style="font-family:var(--font-mono);color:var(--muted2);font-size:14px;">$</span>
+            <input id="figPaidInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"
+                   onchange="saveOwnedMinifigMeta()"
+                   style="width:74px;background:transparent;border:none;color:var(--text);font-family:var(--font-mono);font-size:14px;padding:8px 4px;outline:none;">
+          </div>
+        </div>
+      </div>
+      <div id="figOwnMsg" style="display:none;font-size:12px;margin-top:6px;"></div>
+    </div>
+
+    <button class="btn green" id="addBtn" onclick="addItem()">Add to List</button>
+    <button class="btn secondary" id="retakeBtn" onclick="retakeOrBack()">Retake Photo</button>
+  </div>
 
   <!-- Minifig price -->
   <div class="price-section" id="priceSection" style="display:none">
@@ -1895,59 +1970,6 @@
     <div class="alt-row" id="altRow"></div>
   </div>
 
-  <!-- Error -->
-  <div class="error-msg" id="identifyError" style="margin:8px 14px 0;"></div>
-
-  <!-- Actions -->
-  <div class="action-area">
-    <div class="qty-row" id="qtyRow" style="display:flex;align-items:flex-end;gap:12px;">
-      <div style="flex:1;" id="qtyControlsWrap">
-        <label>Quantity</label>
-        <div class="qty-controls">
-          <button onclick="adjustQty(-1)">−</button>
-          <input type="number" id="quantityInput" value="1" min="1" max="999">
-          <button onclick="adjustQty(1)">+</button>
-        </div>
-      </div>
-      <button class="btn green" id="addAllPartsBtn" onclick="showAddPartsListPicker()" style="display:none;margin-bottom:0;">Add Parts</button>
-    </div>
-
-    <!-- Minifig owned bar (My Minifigs): add button → stepper + condition/price, like set-details -->
-    <div id="minifigOwnBar" style="display:none;margin-bottom:12px;">
-      <button id="figOwnAddBtn" class="btn green" onclick="addMinifig()" style="margin-bottom:0;">Add to My Minifigs</button>
-      <div id="figOwnStepper" style="display:none;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;">
-        <span style="width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#6fd79b,var(--green) 75%);flex-shrink:0;"></span>
-        <span style="color:var(--green);font-weight:600;font-size:14px;">In My Minifigs</span>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
-          <button class="list-adjust-btn remove" onclick="removeMinifigOne()" aria-label="Remove one">−</button>
-          <span id="figOwnQty" style="font-family:var(--font-mono);font-weight:700;color:var(--text);min-width:26px;text-align:center;">×1</span>
-          <button class="list-adjust-btn add" onclick="addMinifig()" aria-label="Add one">+</button>
-        </div>
-      </div>
-      <div id="figOwnMeta" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;margin-top:8px;flex-wrap:wrap;align-items:center;gap:12px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;">Condition</span>
-          <div style="display:flex;border:1px solid var(--border-bright);border-radius:8px;overflow:hidden;">
-            <button type="button" id="condFigUsedBtn" class="cond-pill" onclick="setOwnedMinifigCondition('used')">Used</button>
-            <button type="button" id="condFigNewBtn" class="cond-pill" onclick="setOwnedMinifigCondition('new')">New</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
-          <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;">Paid</span>
-          <div style="display:flex;align-items:center;background:var(--socket);border:1px solid var(--border-bright);border-radius:8px;padding:0 10px;">
-            <span style="font-family:var(--font-mono);color:var(--muted2);font-size:14px;">$</span>
-            <input id="figPaidInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"
-                   onchange="saveOwnedMinifigMeta()"
-                   style="width:74px;background:transparent;border:none;color:var(--text);font-family:var(--font-mono);font-size:14px;padding:8px 4px;outline:none;">
-          </div>
-        </div>
-      </div>
-      <div id="figOwnMsg" style="display:none;font-size:12px;margin-top:6px;"></div>
-    </div>
-
-    <button class="btn green" id="addBtn" onclick="addItem()">Add to List</button>
-    <button class="btn secondary" id="retakeBtn" onclick="retakeOrBack()">Retake Photo</button>
-  </div>
 </div>
 
 <!-- Screen 4: Success -->
@@ -4807,7 +4829,7 @@
       grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:24px 0">No matches for “${escapeHtml(q)}”.</p>`;
       return;
     }
-    _renderMinifigRows(figs, grid, _reloadMinifigListView);
+    _renderMinifigRows(figs, grid, _reloadMinifigListView, !!q);
   }
 
   function renderListParts(filterStr) {
@@ -6485,10 +6507,19 @@
     const m = bl.match(/^[a-z]+/);
     return (m && _MINIFIG_THEME_MAP[m[0]]) || 'Other';
   }
-  // Build the "grouped by theme" markup for the My-Minifigs grid: a theme header
-  // (label · total-copies count) followed by that theme's rows. Themes are
-  // ordered by size (most figs first), then alphabetically; "Other" sinks last.
-  function _groupedMinifigHtml(figs) {
+  // Per-theme collapsed state for the grouped view — persisted so it survives
+  // re-renders (search, steppers, refresh) and reloads.
+  let _collapsedThemes = new Set();
+  try { _collapsedThemes = new Set(JSON.parse(localStorage.getItem('myMinifigsCollapsedThemes') || '[]')); } catch (e) {}
+  function _saveCollapsedThemes() {
+    try { localStorage.setItem('myMinifigsCollapsedThemes', JSON.stringify([..._collapsedThemes])); } catch (e) {}
+  }
+  // Build the "grouped by theme" markup for the My-Minifigs grid: a tappable
+  // theme header (chevron · label · total-copies count) followed by that
+  // theme's rows in a collapsible group. Themes are ordered by size (most figs
+  // first), then alphabetically; "Other" sinks last. While a filter is active
+  // (`expandAll`), every group renders open so matches are never hidden.
+  function _groupedMinifigHtml(figs, expandAll) {
     const groups = new Map();
     figs.forEach(f => {
       const t = _minifigTheme(f);
@@ -6504,11 +6535,15 @@
     return order.map(t => {
       const arr = groups.get(t);
       const copies = arr.reduce((n, f) => n + (f.quantity || 1), 0);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:16px 4px 7px;">
+      const collapsed = !expandAll && _collapsedThemes.has(t);
+      return `<div class="theme-header" data-theme="${escapeHtml(t)}"
+          style="display:flex;align-items:center;gap:8px;padding:16px 4px 7px;cursor:pointer;user-select:none;">
+          <svg class="theme-chev" viewBox="0 0 24 24" style="width:12px;height:12px;fill:var(--muted);transition:transform .15s;flex-shrink:0;${collapsed ? 'transform:rotate(-90deg);' : ''}"><path d="M7 10l5 5 5-5z"/></svg>
           <span style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;white-space:nowrap;">${escapeHtml(t)}</span>
           <span style="flex:1;height:1px;background:var(--border);"></span>
           <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted2);">${copies}</span>
-        </div>${arr.map(_minifigRowHtml).join('')}`;
+        </div>
+        <div class="theme-group"${collapsed ? ' style="display:none;"' : ''}>${arr.map(_minifigRowHtml).join('')}</div>`;
     }).join('');
   }
   function _minifigRowHtml(f) {
@@ -6553,10 +6588,23 @@
       </div>
     </div>`;
   }
-  function _renderMinifigRows(figs, gridEl, reloadFn) {
+  function _renderMinifigRows(figs, gridEl, reloadFn, expandAll) {
     gridEl.innerHTML = (_minifigsSortMode === 'theme')
-      ? _groupedMinifigHtml(figs)
+      ? _groupedMinifigHtml(figs, expandAll)
       : figs.map(_minifigRowHtml).join('');
+    // Theme headers toggle their group in place (no re-render → scroll holds).
+    gridEl.querySelectorAll('.theme-header').forEach(h => {
+      h.addEventListener('click', () => {
+        const t = h.dataset.theme;
+        const collapse = !_collapsedThemes.has(t);
+        if (collapse) _collapsedThemes.add(t); else _collapsedThemes.delete(t);
+        _saveCollapsedThemes();
+        const group = h.nextElementSibling;
+        if (group) group.style.display = collapse ? 'none' : '';
+        const chev = h.querySelector('.theme-chev');
+        if (chev) chev.style.transform = collapse ? 'rotate(-90deg)' : '';
+      });
+    });
     gridEl.querySelectorAll('.my-fig-row').forEach(el => {
       el.addEventListener('click', () => {
         if (consumeSwipe(el)) return;
@@ -6665,7 +6713,7 @@
     countEl.textContent = (filtered
       ? `${figs.length} of ${_myMinifigsAll.length} fig entries`
       : `${_myMinifigsAll.length} fig ${_myMinifigsAll.length === 1 ? 'entry' : 'entries'} · ${totalCopies} Total`) + valTxt;
-    _renderMinifigRows(figs, grid, loadMyMinifigs);
+    _renderMinifigRows(figs, grid, loadMyMinifigs, filtered);
   }
 
   // Viewport-based lazy image loading. Native loading="lazy" is unreliable on

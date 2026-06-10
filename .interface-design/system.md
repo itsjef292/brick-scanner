@@ -99,6 +99,12 @@ The stud is a real UI element, not decoration. It must appear in multiple places
   face is a big scan socket (dashed azure drop ring) in the same holo frame;
   `perspective()` lives inside the keyframe transform so the animation ends at
   `transform:none` (no stray containing blocks). Reduced-motion disables it.
+- **Satellite panels** (identify screen below the card): price / sets / parts /
+  other-matches / actions are floating panels on the card's footprint — 12px side
+  margins, radius 16, `--surface` fill, 1px seam — **never** the holo frame or
+  shadow (focal card only). Section labels live inside the panels. The art-window
+  language repeats in miniature: set thumbs + price chips sit on `--socket` insets,
+  and each "other match" is a mini-card (seam frame, thumb on a socket stage).
 - **Header:** logo mark + wordmark, 1px seam underline (NOT a heavy accent rule).
 
 ## Avoid (regressions to catch)

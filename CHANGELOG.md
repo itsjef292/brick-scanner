@@ -3,6 +3,30 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Collapsible theme groups in My Minifigs (June 2026):**
+- In the theme-sorted view, each theme header is now tappable: chevron + group
+  collapse/expand in place (no re-render, scroll position holds). Collapsed
+  themes persist in `localStorage` (`myMinifigsCollapsedThemes`) across renders
+  and reloads, and apply in both the scan-screen section and the Lists-tab view.
+- While a search/dupes filter is active every group renders open, so matches are
+  never hidden inside a collapsed theme.
+
+**Satellite panels — identify screen lower half (June 2026):**
+- Everything below the trading card now matches its depth language: price guide,
+  sets, parts, other matches, and the action area become floating "satellite
+  panels" on the card's footprint (12px margins, radius 16, surface fill, seam
+  border) — no frame/shadow, which stay exclusive to the focal card. Section
+  labels moved inside the panels.
+- The art-window language repeats in miniature: set-row thumbnails and price
+  chips sit on `--socket`-dark insets; "Other matches" tiles became mini-cards
+  (seam frame, thumbnail on a socket stage — tapping one swaps the focal card).
+  Selected alt-card highlight now uses `--yellow-glow` (was raw rgba).
+- Parts-mode photo banner floats too (margins + radius, not full-bleed); the
+  owned-bar inner boxes moved to `--surface2` so they read against the panel.
+- CSS-only (plus two inline-style tweaks); no JS or markup-structure changes.
+- Actions moved up: the action panel (owned bar / quantity + add, Retake Photo)
+  now sits directly under the card, before the price/sets/matches panels.
+
 **Trading-card identify screen (June 2026):**
 - The identify card is restyled as a trading card ("Pokémon card" feel): floating
   card with a gradient azure holo frame + soft shadow, the name as a title bar on
