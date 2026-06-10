@@ -3,6 +3,24 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Figs tab cleanup (June 2026):**
+- **One search bar.** The separate catalog-search box is gone; the collection
+  filter input is the only search. Typing live-filters your figs
+  (`onFigsSearchInput`); Enter — or the "Search catalog for …" row appended to
+  filtered results (`.figs-catalog-cta`) — runs the same query against the
+  catalog (`searchMinifigsLocal`, re-pointed at `myMinifigsSearchInput`) to add
+  a new fig. Opening a catalog result no longer clears the input, so the grid
+  filter survives the identify round-trip. Dead `searchMinifigById` removed.
+- **Proper header.** Collapse chevron + `_myMinifigsCollapsed` machinery removed
+  (the grid IS the screen now); stats moved to their own mono sub-line with a
+  cleaner format (`317 entries · 369 figs · ≈$6,420`). Title + stats centered in
+  **copper** — the wordmark's `#C87941`, promoted to a `--copper` token (header
+  `h1` now uses it too instead of raw hex).
+- **Toolbar slimmed.** Owned 2+ and sort stay; Export CSV + the price-refresh
+  button moved into a `⋯` overflow row (`toggleFigsTools`/`#figsToolsRow`).
+  Shared `.figs-tool-btn` class replaces the repeated inline button styles;
+  `title=` tooltips dropped (iOS long-press never shows them).
+
 **Unified scanner + dedicated Figs tab (June 2026):**
 - The Parts/Figs scan modes merged into one **Scan** tab — `/api/identify` always
   returned typed candidates (part vs minifig) and the identify screen already

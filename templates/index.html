@@ -25,6 +25,8 @@
       --yellow-dim: #2C82E6;
       --yellow-glow: rgba(59,158,255,0.12);
       --yellow-glow-md: rgba(59,158,255,0.22);
+      /* Copper — the wordmark's warm metal; collection headers only. */
+      --copper: #C87941;
       /* Bluish-gray elevation — LEGO's real structural neutral, in the azure
          hue family. baseplate → brick-1 → brick-2 → raised. */
       --bg: #0A0E12;
@@ -100,7 +102,7 @@
       font-family: var(--font-display);
       font-size: 22px;
       font-weight: 700;
-      color: #C87941;
+      color: var(--copper);
       letter-spacing: 1px;
       text-transform: uppercase;
     }
@@ -1174,6 +1176,24 @@
       font-family: var(--font-display); font-size: 11px; font-weight: 600;
       letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted2);
     }
+    /* Figs-tab toolbar buttons (Owned 2+, ⋯ overflow, refresh/export) */
+    .figs-tool-btn {
+      flex-shrink: 0; -webkit-appearance: none; appearance: none; cursor: pointer;
+      padding: 6px 12px; font-family: var(--font-display); font-size: 11px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+      color: var(--muted); background: var(--surface3);
+      border: 1px solid var(--border-bright); border-radius: var(--radius-sm);
+    }
+    .figs-tool-btn:disabled { opacity: 0.5; cursor: default; }
+    /* "Search catalog for …" escape hatch appended to filtered My Minifigs results */
+    .figs-catalog-cta {
+      display: block; width: 100%; margin-top: 10px; padding: 11px 12px;
+      -webkit-appearance: none; appearance: none; cursor: pointer;
+      background: var(--surface3); border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm); color: var(--yellow);
+      font-family: var(--font-display); font-size: 13px; font-weight: 600;
+      text-align: center;
+    }
 
     /* Offline-catalog footer on the scan screen */
     .catalog-footer {
@@ -1365,47 +1385,39 @@
   </div>
 </div>
 
-<!-- Screen: Figs (owned-minifig collection + minifig search) -->
+<!-- Screen: Figs — owned-minifig collection with a single search bar that
+     filters the collection live; Enter (or the "Search catalog" row appended
+     to the results) runs the catalog search to add a new fig. -->
 <div class="screen" id="screen-figs">
-  <!-- Minifig search box -->
-  <div id="minifigSearchSection" class="search-section">
-    <label>Search minifigs by name or ID</label>
-    <div class="search-row">
-      <input id="minifigSearchInput" type="text" placeholder="e.g., Darth Vader or sw0001a"
-        onkeydown="if(event.key==='Enter')searchMinifigsLocal()">
-      <button class="search-btn" onclick="searchMinifigsLocal()">Search</button>
-    </div>
-    <div id="minifigSearchError" style="display:none;"></div>
-    <div id="minifigSearchResults" class="local-results" style="display:none;"></div>
-  </div>
-
-  <!-- My Minifigs (owned-minifig collection) -->
   <div id="myMinifigsSection" style="padding:0 0 24px;">
-    <div onclick="toggleMyMinifigs()" style="display:flex;align-items:center;gap:8px;margin:18px 0 12px;cursor:pointer;user-select:none;">
-      <svg id="myMinifigsChevron" viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--muted);transition:transform .15s;flex-shrink:0;"><path d="M7 10l5 5 5-5z"/></svg>
-      <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Minifigs</div>
-      <div id="myMinifigsCount" style="margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--muted2);"></div>
-      <button id="minifigPricesBtn" onclick="event.stopPropagation(); refreshMinifigPrices();" title="Refresh BrickLink prices"
-        style="flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">↻</button>
+    <div style="margin:18px 0 12px;text-align:center;">
+      <div style="font-family:var(--font-display);font-size:11px;color:var(--copper);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Minifigs</div>
+      <div id="myMinifigsCount" style="margin-top:4px;font-family:var(--font-mono);font-size:12px;color:var(--copper);"></div>
     </div>
     <input id="myMinifigsSearchInput" type="text" class="list-search-input" style="margin:0 0 10px;"
-      placeholder="Search your minifigs — name, theme, or BrickLink id"
+      placeholder="Search your figs — Enter searches the catalog"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-      onclick="event.stopPropagation()" oninput="renderMyMinifigsGrid()">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;">
-      <button id="myMinifigsDupesBtn" onclick="event.stopPropagation(); toggleMinifigDupes()" title="Show only figs you own 2 or more of"
-        style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Owned 2+</button>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <button id="myMinifigsExportBtn" onclick="event.stopPropagation(); exportMinifigsCSV()"
-          style="flex-shrink:0;-webkit-appearance:none;appearance:none;cursor:pointer;padding:6px 12px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);background:var(--surface3);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">Export CSV</button>
-        <select id="myMinifigsSort" onclick="event.stopPropagation()" onchange="_onMinifigsSortChange(this.value)"
+      oninput="onFigsSearchInput()"
+      onkeydown="if(event.key==='Enter'){searchMinifigsLocal();this.blur();}">
+    <div id="minifigSearchError" style="display:none;"></div>
+    <div id="minifigSearchResults" class="local-results" style="display:none;margin:0 0 10px;"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
+      <button id="myMinifigsDupesBtn" onclick="toggleMinifigDupes()" class="figs-tool-btn">Owned 2+</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+        <select id="myMinifigsSort" onchange="_onMinifigsSortChange(this.value)"
           style="flex-shrink:0;width:auto;-webkit-appearance:none;appearance:none;padding:6px 26px 6px 10px;font-family:var(--font-display);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;background-color:var(--surface3);background-position:right 8px center;background-size:9px;color:var(--muted);border:1px solid var(--border-bright);border-radius:var(--radius-sm);">
           <option value="name">Name A–Z</option>
           <option value="theme">Theme</option>
           <option value="price_desc">Price: High → Low</option>
           <option value="price_asc">Price: Low → High</option>
         </select>
+        <button id="myMinifigsMoreBtn" onclick="toggleFigsTools()" class="figs-tool-btn" aria-label="More actions"
+          style="padding:6px 10px;font-size:14px;line-height:1;">⋯</button>
       </div>
+    </div>
+    <div id="figsToolsRow" style="display:none;gap:8px;margin:0 0 10px;">
+      <button id="minifigPricesBtn" onclick="refreshMinifigPrices()" class="figs-tool-btn" style="flex:1;">↻ Refresh prices</button>
+      <button id="myMinifigsExportBtn" onclick="exportMinifigsCSV()" class="figs-tool-btn" style="flex:1;">Export CSV</button>
     </div>
     <div id="myMinifigsGrid"></div>
   </div>
@@ -2720,51 +2732,6 @@
     }
   }
 
-  async function searchMinifigById() {
-    const minifigId = document.getElementById('minifigSearchInput').value.trim();
-    const errorDiv = document.getElementById('minifigSearchError');
-    errorDiv.style.display = 'none';
-
-    if (!minifigId) {
-      errorDiv.textContent = 'Please enter a minifig ID';
-      errorDiv.style.display = 'block';
-      return;
-    }
-
-    try {
-      errorDiv.textContent = 'Searching...';
-      errorDiv.style.display = 'block';
-      errorDiv.style.color = 'var(--muted)';
-
-      // Fetch minifig data via backend
-      const resp = await fetch(`/api/minifig/${minifigId}`);
-
-      if (!resp.ok) {
-        throw new Error('Minifig not found');
-      }
-      const minifigData = await resp.json();
-
-      // Format as identify screen data structure
-      const item = {
-        type: 'minifig',
-        id: minifigData.fig_num || minifigId,
-        name: minifigData.name,
-        img_url: minifigData.fig_img_url || minifigData.set_img_url,
-        bl_id: minifigData.external_id
-      };
-
-      errorDiv.style.display = 'none';
-      document.getElementById('minifigSearchInput').value = '';
-
-      // Show as single result
-      showIdentifyScreen({ items: [item] });
-    } catch (err) {
-      errorDiv.textContent = `Error: ${err.message}`;
-      errorDiv.style.color = 'var(--red)';
-      errorDiv.style.display = 'block';
-    }
-  }
-
   // ── Offline catalog search (parts / minifigs) ──────────────────────────
   // Searches the local SQLite DB (no Rebrickable quota). Results feed into the
   // existing identify screen, so view + add-to-list work the same as scanning.
@@ -2797,7 +2764,21 @@
     }
   }
 
-  function searchMinifigsLocal() { searchLocal('minifig', 'minifigSearchInput', 'minifigSearchError', 'minifigSearchResults'); }
+  // Catalog search on the Figs tab — fed by the SAME input that live-filters the
+  // collection (one search bar); triggered by Enter or the "Search catalog" row.
+  function searchMinifigsLocal() { searchLocal('minifig', 'myMinifigsSearchInput', 'minifigSearchError', 'minifigSearchResults'); }
+  // Typing re-filters the collection and invalidates any open catalog results.
+  function onFigsSearchInput() {
+    document.getElementById('minifigSearchResults').style.display = 'none';
+    document.getElementById('minifigSearchError').style.display = 'none';
+    renderMyMinifigsGrid();
+  }
+  function toggleFigsTools() {
+    const row = document.getElementById('figsToolsRow');
+    const on = row.style.display === 'none';
+    row.style.display = on ? 'flex' : 'none';
+    document.getElementById('myMinifigsMoreBtn').style.color = on ? 'var(--text)' : 'var(--muted)';
+  }
 
   // Combined scan-tab search: queries parts AND minifigs in parallel and shows
   // both groups, each rendered via renderLocalResults so result clicks and the
@@ -3002,7 +2983,6 @@
       item.bl_only = true;
     }
     if (blIdOverride) item.bl_id = blIdOverride;   // preserve the picked variant
-    document.getElementById('minifigSearchInput').value = '';
     showIdentifyScreen({ items: [item] });
   }
 
@@ -3015,7 +2995,6 @@
   function openMinifigFromBlOnly(blId, name, img) {
     clearCapturedPhoto();
     const item = { type: 'minifig', id: blId, name: name, img_url: img || '', bl_id: blId, bl_only: true };
-    document.getElementById('minifigSearchInput').value = '';
     showIdentifyScreen({ items: [item] });
   }
 
@@ -6281,14 +6260,6 @@
   // ── "My Minifigs" — the owned-minifig collection, shown in minifig mode ──
   // Mirrors My Sets; tapping a row opens the minifig in the identify screen
   // (its "details"), where condition/price + the owned stepper can be edited.
-  let _myMinifigsCollapsed = false;
-  try { _myMinifigsCollapsed = localStorage.getItem('myMinifigsCollapsed') === '1'; } catch (e) {}
-  function _applyMyMinifigsCollapsed() {
-    const grid = document.getElementById('myMinifigsGrid');
-    const chev = document.getElementById('myMinifigsChevron');
-    if (grid) grid.style.display = _myMinifigsCollapsed ? 'none' : '';
-    if (chev) chev.style.transform = _myMinifigsCollapsed ? 'rotate(-90deg)' : '';
-  }
   // Manually trigger a BrickLink price refresh for the collection, then poll the
   // server's status (the refresh runs in a background thread) and reload when done.
   function refreshMinifigPrices() {
@@ -6314,11 +6285,6 @@
         else finish('Prices updated');
       })
       .catch(() => finish(''));
-  }
-  function toggleMyMinifigs() {
-    _myMinifigsCollapsed = !_myMinifigsCollapsed;
-    try { localStorage.setItem('myMinifigsCollapsed', _myMinifigsCollapsed ? '1' : '0'); } catch (e) {}
-    _applyMyMinifigsCollapsed();
   }
   // Manual BrickLink price refresh for My Sets — mirrors refreshMinifigPrices/
   // _pollMinifigPrices above (the daily 05:30 launchd job calls
@@ -6683,7 +6649,6 @@
     if (!grid) return;
     grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">Loading your minifigs…</p>';
     countEl.textContent = '';
-    _applyMyMinifigsCollapsed();
     const sortSel = document.getElementById('myMinifigsSort');
     if (sortSel) sortSel.value = _minifigsSortMode;
     _syncMinifigDupesBtn();
@@ -6755,20 +6720,24 @@
     if (_minifigsDupesOnly) figs = figs.filter(f => (f.quantity || 1) > 1);
     const filtered = !!q || _minifigsDupesOnly;
     figs = _sortCollection(figs, _minifigsSortMode, _figMarketPrice);
+    // Escape hatch under filtered results: run the same query against the
+    // catalog to add a fig the collection doesn't have (one search bar).
+    const cta = q ? `<button class="figs-catalog-cta" onclick="searchMinifigsLocal()">Search catalog for “${escapeHtml(q)}”</button>` : '';
     if (!figs.length) {
-      const emptyMsg = q ? `No matches for “${escapeHtml(q)}”.`
+      const emptyMsg = q ? `None of your figs match “${escapeHtml(q)}”.`
         : (_minifigsDupesOnly ? 'No figs owned more than once.' : 'No minifigs yet.');
-      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:18px 0;font-size:13px;">${emptyMsg}</p>`;
-      countEl.textContent = `0 of ${_myMinifigsAll.length} fig entries`;
+      grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:18px 0 6px;font-size:13px;">${emptyMsg}</p>` + cta;
+      countEl.textContent = `0 of ${_myMinifigsAll.length} entries`;
       return;
     }
     const totalCopies = _myMinifigsAll.reduce((n, f) => n + (f.quantity || 1), 0);
     const value = _minifigCollectionValue(figs);
-    const valTxt = value > 0 ? ` · ≈$${Math.round(value)}` : '';
+    const valTxt = value > 0 ? ` · ≈$${Math.round(value).toLocaleString()}` : '';
     countEl.textContent = (filtered
-      ? `${figs.length} of ${_myMinifigsAll.length} fig entries`
-      : `${_myMinifigsAll.length} fig ${_myMinifigsAll.length === 1 ? 'entry' : 'entries'} · ${totalCopies} Total`) + valTxt;
+      ? `${figs.length} of ${_myMinifigsAll.length} entries`
+      : `${_myMinifigsAll.length} ${_myMinifigsAll.length === 1 ? 'entry' : 'entries'} · ${totalCopies} figs`) + valTxt;
     _renderMinifigRows(figs, grid, loadMyMinifigs, filtered);
+    if (cta) grid.insertAdjacentHTML('beforeend', cta);
   }
 
   // Viewport-based lazy image loading. Native loading="lazy" is unreliable on

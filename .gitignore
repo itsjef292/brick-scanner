@@ -36,3 +36,4 @@ minifig_prices.launchd.log
 # Daily set price-refresh logs (local dev only)
 set_prices.log
 set_prices.launchd.log
+.playwright-mcp/

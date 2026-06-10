@@ -79,7 +79,7 @@ The stud is a real UI element, not decoration. It must appear in multiple places
 
 ## Component patterns
 
-- **Tab bar** (`.mode-tabs`): 5 tabs, each an inline **monochrome SVG** (`.tab-ico` /
+- **Tab bar** (`.mode-tabs`): 4 tabs (Scan / Figs / Sets / Part Lists), each an inline **monochrome SVG** (`.tab-ico` /
   `.tab-brick`, `fill: currentColor`) + label. NEVER emoji or `<img>` — currentColor
   makes them recolour for active state automatically. Active tab = solid azure pill
   (`.mode-tab.active`), white icon+label.
