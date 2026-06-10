@@ -363,20 +363,20 @@
     @media (prefers-reduced-motion: reduce) {
       .scan-socket::after, .scan-reticle { animation: none; }
     }
-    /* Status chip on the camera feed — the feed is photographic, so the dark
-       scrim is deliberately theme-independent (like a native camera UI). */
-    #liveScanning {
-      position: absolute; top: 12px; left: 12px; z-index: 3;
+    /* Status chip used on photographic surfaces (live feed, loading photo) —
+       the dark scrim is deliberately theme-independent (like a native camera UI). */
+    .scrim-chip {
       display: flex; align-items: center; gap: 8px;
       padding: 5px 12px; border-radius: 999px;
       background: rgba(6,9,13,0.62); border: 1px solid rgba(150,180,215,0.18);
       font-family: var(--font-display); font-size: 11px; font-weight: 600;
       letter-spacing: 0.8px; text-transform: uppercase; color: #FFFFFF;
     }
-    #liveScanning .live-dot {
+    .scrim-chip .live-dot {
       width: 8px; height: 8px; border-radius: 50%; background: #3B9EFF;
       box-shadow: 0 0 0 0 rgba(59,158,255,0.6); animation: livePulse 1.2s ease-out infinite;
     }
+    #liveScanning { position: absolute; top: 12px; left: 12px; z-index: 3; }
     /* Bottom control rail: shutter centred, live-scan toggle beside it.
        Overlaid on the feed when live, on the card when idle. */
     .scan-controls {
@@ -499,55 +499,30 @@
       min-height: 60vh;
     }
 
-    .scanner-frame {
-      width: 180px;
-      height: 180px;
+    /* The captured shot fills a stage matching the scan card (continuity:
+       the viewfinder "freezes" into your photo) while the beam sweeps it. */
+    .loading-stage {
       position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .scanner-frame::before,
-    .scanner-frame::after {
-      content: '';
-      position: absolute;
-      width: 32px;
-      height: 32px;
-      border-color: var(--yellow);
-      border-style: solid;
-    }
-    .scanner-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
-    .scanner-frame::after  { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
-    .scanner-frame .c-br::before {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0;
-      width: 32px; height: 32px;
-      border-width: 0 0 3px 3px;
-      border-color: var(--yellow);
-      border-style: solid;
-    }
-    .scanner-frame .c-tr::before {
-      content: '';
-      position: absolute;
-      top: 0; right: 0;
-      width: 32px; height: 32px;
-      border-width: 3px 3px 0 0;
-      border-color: var(--yellow);
-      border-style: solid;
-    }
-    .scanner-inner {
-      position: absolute;
-      inset: 4px;
+      width: 100%;
+      height: clamp(300px, 44vh, 400px);
+      border-radius: var(--radius);
       overflow: hidden;
+      background: var(--socket);
+      border: 1px solid var(--border);
     }
-    .scanner-beam {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent 0%, var(--yellow) 20%, rgba(255,215,0,0.8) 50%, var(--yellow) 80%, transparent 100%);
-      box-shadow: 0 0 8px 2px rgba(0,128,255,0.5), 0 0 20px 4px rgba(0,128,255,0.2);
-      animation: scan-beam 2s ease-in-out infinite;
+    .loading-stage img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    /* Beam colours are fixed, not tokens — it sweeps the photo, not a themed
+       surface (same exception as the scrim chip). */
+    .loading-sweep {
+      position: absolute; left: 0; right: 0; top: 0; height: 2px; z-index: 2;
+      background: linear-gradient(90deg,
+        transparent, var(--yellow) 25%, rgba(255,255,255,0.9) 50%,
+        var(--yellow) 75%, transparent);
+      box-shadow: 0 0 12px 3px rgba(59,158,255,0.45), 0 0 30px 8px rgba(59,158,255,0.18);
+      animation: scan-beam 1.8s ease-in-out infinite;
     }
     @keyframes scan-beam {
       0%   { top: 0; opacity: 0; }
@@ -555,42 +530,19 @@
       92%  { opacity: 1; }
       100% { top: 100%; opacity: 0; }
     }
-    .scanner-lego-icon {
-      z-index: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    @media (prefers-reduced-motion: reduce) {
+      .loading-sweep { animation: none; top: 50%; }
     }
-    .brick-svg {
-      width: 150px;
-      height: auto;
-      filter: drop-shadow(0 6px 16px rgba(0,80,200,0.55));
+    .loading-chip {
+      position: absolute; bottom: 14px; left: 50%;
+      transform: translateX(-50%); z-index: 3;
+      white-space: nowrap;
     }
-
-    /* Hidden SVG for JS compat — keep in DOM */
-    .magnifying-glass { display: none; }
-
-    #loadingText {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--yellow);
-      animation: pulse-text 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse-text {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .loading-pct {
+    #loadingPct {
       font-family: var(--font-mono);
-      font-size: 30px;
-      font-weight: 700;
-      color: var(--text);
-      margin-top: 8px;
-      min-height: 36px;
-      letter-spacing: 1px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.75);
+      min-width: 34px;
     }
 
     /* ── Screen 3: Identify ── */
@@ -1455,7 +1407,7 @@
     <div class="scan-socket" id="scanSocket"></div>
     <video id="liveVideo" playsinline muted style="display:none;"></video>
     <span class="scan-reticle" id="scanReticle" style="display:none;"></span>
-    <div id="liveScanning" style="display:none;"><span class="live-dot"></span>Scanning</div>
+    <div id="liveScanning" class="scrim-chip" style="display:none;"><span class="live-dot"></span>Scanning</div>
     <p id="scanHint">Point the camera at a part or minifig.</p>
     <div class="scan-controls">
       <button class="scan-ctl" id="liveScanBtn" onclick="toggleLiveScan()" aria-label="Start live scan" style="display:none;">
@@ -1789,151 +1741,16 @@
 
 <!-- Screen 2: Loading -->
 <div class="screen" id="screen-loading">
-  <div class="scanner-frame">
-    <span class="c-br"></span>
-    <span class="c-tr"></span>
-    <div class="scanner-inner">
-      <div class="scanner-beam"></div>
-    </div>
-    <div class="scanner-lego-icon" id="scannerModeIcon">
-      <!--
-        2×4 LEGO brick — 3/4 view from front-left-above (matching reference photo)
-        Faces visible: LEFT side (dark), FRONT (medium), TOP (light)
-        Depth direction: (-20, -24) for 2 studs  |  1-stud unit: (-10, -12)
-        Front face: (36,68)→(164,68)→(164,98)→(36,98)  w=128 h=30
-        Left face:  (36,68)→(16,44)→(16,74)→(36,98)
-        Top face:   (36,68)→(164,68)→(144,44)→(16,44)
-        Stud cols (pitch 32px): cx = 52,84,116,148 → offset by row depth
-        Front row (d=0.5): cx offset -5 → 47,79,111,143  base_y=62  top_y=50
-        Back  row (d=1.5): cx offset -15 → 37,69,101,133  base_y=50  top_y=38
-        Stud rx=11, ry=4(perspective), h=12
-      -->
-      <svg class="brick-svg" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <!-- Top face: lit from above, slightly lighter -->
-          <linearGradient id="bTopGrad" x1="1" y1="1" x2="0" y2="0">
-            <stop offset="0%" stop-color="#006CE0"/>
-            <stop offset="100%" stop-color="#0086FF"/>
-          </linearGradient>
-          <!-- Front face: medium, lit from front -->
-          <linearGradient id="bFrontGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#0062D8"/>
-            <stop offset="100%" stop-color="#0052B8"/>
-          </linearGradient>
-          <!-- Stud tops: radial highlight simulating domed plastic -->
-          <radialGradient id="bStudGrad" cx="38%" cy="30%" r="62%">
-            <stop offset="0%"   stop-color="#70C4FF"/>
-            <stop offset="50%"  stop-color="#0088FF"/>
-            <stop offset="100%" stop-color="#0050C0"/>
-          </radialGradient>
-        </defs>
-
-        <!-- ── Left side face (darkest) ── -->
-        <polygon points="36,68 16,44 16,74 36,98" fill="#003AA0"/>
-
-        <!-- ── Front face ── -->
-        <rect x="36" y="68" width="128" height="30" rx="1" fill="url(#bFrontGrad)"/>
-
-        <!-- ── Top face ── -->
-        <polygon points="36,68 164,68 144,44 16,44" fill="url(#bTopGrad)"/>
-
-        <!-- ── Back row studs (farther — draw first) ──
-             cx: 37 69 101 133  |  top_y=38  base_y=50  -->
-
-        <!-- back stud 0 -->
-        <polygon points="26,38 21,32 21,44 26,50" fill="#003290"/>
-        <rect x="26" y="38" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="37" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="37" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- back stud 1 -->
-        <polygon points="58,38 53,32 53,44 58,50" fill="#003290"/>
-        <rect x="58" y="38" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="69" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="69" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- back stud 2 -->
-        <polygon points="90,38 85,32 85,44 90,50" fill="#003290"/>
-        <rect x="90" y="38" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="101" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="101" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- back stud 3 -->
-        <polygon points="122,38 117,32 117,44 122,50" fill="#003290"/>
-        <rect x="122" y="38" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="133" cy="38" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="133" cy="38" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- ── Front row studs (closer — draw on top) ──
-             cx: 47 79 111 143  |  top_y=50  base_y=62  -->
-
-        <!-- front stud 0 -->
-        <polygon points="36,50 31,44 31,56 36,62" fill="#003290"/>
-        <rect x="36" y="50" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="47"  cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="47"  cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- front stud 1 -->
-        <polygon points="68,50 63,44 63,56 68,62" fill="#003290"/>
-        <rect x="68" y="50" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="79"  cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="79"  cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- front stud 2 -->
-        <polygon points="100,50 95,44 95,56 100,62" fill="#003290"/>
-        <rect x="100" y="50" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="111" cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="111" cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- front stud 3 -->
-        <polygon points="132,50 127,44 127,56 132,62" fill="#003290"/>
-        <rect x="132" y="50" width="22" height="12" fill="#004CB5"/>
-        <ellipse cx="143" cy="50" rx="11" ry="4" fill="url(#bStudGrad)"/>
-        <ellipse cx="143" cy="50" rx="5"  ry="2" fill="none" stroke="#003090" stroke-width="1.1"/>
-
-        <!-- ── Edge highlights (lit corners) ── -->
-        <polyline points="36,68 16,44 144,44 164,68"
-                  fill="none" stroke="#88CCFF" stroke-width="1" opacity="0.65"/>
-        <line x1="16"  y1="44" x2="16"  y2="74" stroke="#70BCFF" stroke-width="0.9" opacity="0.45"/>
-        <line x1="36"  y1="68" x2="36"  y2="98" stroke="#70BCFF" stroke-width="0.7" opacity="0.30"/>
-        <line x1="36"  y1="98" x2="164" y2="98" stroke="#50AAFF" stroke-width="0.7" opacity="0.20"/>
-        <line x1="164" y1="68" x2="164" y2="98" stroke="#50AAFF" stroke-width="0.7" opacity="0.20"/>
-      </svg>
+  <div class="loading-stage">
+    <img id="loadingPhoto" alt="" src="">
+    <span class="scan-reticle"></span>
+    <div class="loading-sweep"></div>
+    <div class="scrim-chip loading-chip">
+      <span class="live-dot"></span>
+      <span id="loadingText">Identifying</span>
+      <span id="loadingPct"></span>
     </div>
   </div>
-  <!-- Hidden SVG kept in DOM for JS animation compat -->
-  <svg class="magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <clipPath id="lensClip"><circle cx="20" cy="20" r="14"/></clipPath>
-      <filter id="scanGlow">
-        <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <g id="brick-content">
-      <rect x="8" y="14" width="24" height="12" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.6"/>
-      <circle cx="11" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-      <circle cx="14" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-      <circle cx="17" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-      <circle cx="20" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-      <circle cx="23" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-      <circle cx="26" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-      <circle cx="29" cy="12" r="1.2" fill="#3B9EFF" opacity="0.6"/>
-    </g>
-    <g id="minifig-content" style="display:none;">
-      <rect x="10" y="12" width="20" height="12" rx="1" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.6"/>
-      <circle cx="14" cy="10" r="1.5" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.6"/>
-      <circle cx="20" cy="10" r="1.5" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.6"/>
-      <circle cx="26" cy="10" r="1.5" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.6"/>
-    </g>
-    <g id="magnifyingGlassGroup" transform="translate(25, 20)">
-      <circle id="glassLens" cx="0" cy="-12" r="6" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.8"/>
-      <line id="glassHandle" x1="4" y1="-8" x2="8" y2="-4" stroke="#3B9EFF" stroke-width="1.2" opacity="0.8"/>
-      <circle cx="0" cy="-12" r="5.5" fill="none" stroke="var(--green)" stroke-width="0.8" opacity="0.6" filter="url(#scanGlow)"/>
-    </g>
-  </svg>
-  <p id="loadingText">Identifying...</p>
-  <div id="loadingPct" class="loading-pct"></div>
 </div>
 
 <!-- Screen 3: Identify -->
@@ -2463,11 +2280,21 @@
     if (!file) return;
     if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
     capturedObjectUrl = URL.createObjectURL(file);
-    animateTypewriter(document.querySelector('#screen-loading p'), 'Identifying...');
-    goTo('screen-loading');
+    showLoadingScreen();
     identifyPart(file);
     this.value = '';
   });
+
+  // The loading screen scans the user's own shot — same stage dimensions as
+  // the scan card, so the viewfinder appears to freeze into the captured photo.
+  function showLoadingScreen() {
+    const img = document.getElementById('loadingPhoto');
+    if (img) {
+      img.src = capturedObjectUrl || '';
+      img.style.display = capturedObjectUrl ? '' : 'none';
+    }
+    goTo('screen-loading');
+  }
 
   // Simulated progress for the identify screen. /api/identify is one opaque
   // request (no progress events), so we ease toward ~90% during the wait and
@@ -2570,8 +2397,7 @@
       if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
       capturedObjectUrl = URL.createObjectURL(blob);
       stopLiveScan();   // release the camera before presenting
-      animateTypewriter(document.querySelector('#screen-loading p'), 'Identifying...');
-      goTo('screen-loading');
+      showLoadingScreen();
       identifyPart(new File([blob], 'live.jpg', { type: 'image/jpeg' }));
     }, 'image/jpeg', 0.85);
   }
@@ -4195,20 +4021,6 @@
     }).join('');
   }
 
-  function animateTypewriter(element, text, speed = 80) {
-    element.textContent = '';
-    let index = 0;
-
-    function typeNextLetter() {
-      if (index < text.length) {
-        element.textContent += text[index];
-        index++;
-        setTimeout(typeNextLetter, speed);
-      }
-    }
-
-    typeNextLetter();
-  }
 
   function adjustQty(delta) {
     const inp = document.getElementById('quantityInput');
@@ -6053,60 +5865,6 @@
       return false;
     });
   }
-
-  // ── Animate magnifying glass circling brick ─────────────────────────
-  (function animateScan() {
-    const glassGroup = document.getElementById('magnifyingGlassGroup');
-    const brickContent = document.getElementById('brick-content');
-    const minifigContent = document.getElementById('minifig-content');
-
-    if (!glassGroup) return;
-
-    let startTime = null;
-    const duration = 2000; // 2 seconds for a full rotation
-
-    function animate(currentTime) {
-      // Only animate if loading screen is visible
-      if (!document.getElementById('screen-loading').classList.contains('active')) {
-        requestAnimationFrame(animate);
-        return;
-      }
-
-      if (!startTime) startTime = currentTime;
-      const elapsed = (currentTime - startTime) % duration;
-      const progress = elapsed / duration;
-
-      // Rotate magnifying glass around center (360 degrees)
-      const rotation = progress * 360;
-      glassGroup.setAttribute('transform', `translate(25, 20) rotate(${rotation})`);
-
-      // Pulse opacity for subtle effect
-      const opacity = (0.7 + 0.3 * Math.sin(progress * Math.PI * 2)).toFixed(2);
-      glassGroup.setAttribute('opacity', opacity);
-
-      // Highlight brick elements with pulsing effect
-      const brickOpacity = (0.6 + 0.4 * Math.sin(progress * Math.PI * 2)).toFixed(2);
-      if (brickContent.style.display !== 'none') {
-        const brickRect = brickContent.querySelector('rect');
-        if (brickRect) brickRect.setAttribute('opacity', brickOpacity);
-
-        brickContent.querySelectorAll('circle').forEach(stud => {
-          stud.setAttribute('opacity', brickOpacity);
-        });
-      }
-
-      // Highlight minifigure elements with pulsing effect
-      if (minifigContent.style.display !== 'none') {
-        minifigContent.querySelectorAll('line, circle, rect').forEach(el => {
-          el.setAttribute('opacity', brickOpacity);
-        });
-      }
-
-      requestAnimationFrame(animate);
-    }
-
-    requestAnimationFrame(animate);
-  })();
 
   // ── Image Modal ─────────────────────────────────────────────────────
   function openImageModal(src, partNum, linkType) {

@@ -149,8 +149,9 @@ Notable subsystems (names given for grep — see code/CHANGELOG for detail):
 - **PWA** — `manifest.webmanifest` + root-scoped `/sw.js`. SW: navigations
   network-first, `/static/` stale-while-revalidate, **`/api/` + cross-origin never
   cached**. Secure-context only.
-- **Loading screen** — `animateScan()` beam + simulated `#loadingPct` (identify is
-  one opaque request).
+- **Loading screen** — the captured photo fills a stage matching the scan card
+  (`showLoadingScreen`/`.loading-stage`), swept by a beam, with a scrim chip
+  showing simulated `#loadingPct` progress (identify is one opaque request).
 
 ---
 

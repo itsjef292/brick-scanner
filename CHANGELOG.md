@@ -3,6 +3,21 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Identify loading screen: scan your own photo (June 2026):**
+- The hand-drawn 3D brick + corner-tick frame + typewriter "IDENTIFYING..." +
+  giant percent counter are gone. The loading screen now shows **the captured
+  photo itself** in a stage with the scan card's exact dimensions
+  (`.loading-stage`, set by `showLoadingScreen`) — the viewfinder appears to
+  freeze into your shot — with the azure beam (`.loading-sweep`, fixed colours:
+  it sweeps the photo, same theme-independence exception as the scrim chip)
+  and the breathing reticle over it, plus a bottom `.scrim-chip` reading
+  "Identifying · NN%" (`#loadingPct` simulation unchanged). The live-scan chip
+  styling was promoted from `#liveScanning` to the shared `.scrim-chip` class.
+- Removed dead weight: the hidden magnifying-glass SVG and its **permanently
+  running `animateScan()` rAF loop** (it animated a `display:none` element on
+  every frame forever), `animateTypewriter`, and the old gold-tinted beam
+  gradient. Net −242 lines.
+
 **Camera-first Scan tab redesign (June 2026):**
 - **Hero scan stage.** One fixed-height card (`.scan-area`, `clamp(300px,44vh,400px)`)
   for both states so nothing jumps. Idle: socket + one-line hint. Live: the

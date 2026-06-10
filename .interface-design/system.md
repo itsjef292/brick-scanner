@@ -102,7 +102,10 @@ The stud is a real UI element, not decoration. It must appear in multiple places
   live-scan toggle). **Exception to the token rule:** chips/controls overlaid on
   the camera feed (`#liveScanning`, live-mode `.scan-ctl`, live shutter ring) use
   a fixed dark scrim + white ink — the feed is photographic, not a themed
-  surface, like a native camera UI.
+  surface, like a native camera UI. The identify **loading screen** reuses this
+  language: the captured photo fills a `.loading-stage` with the scan card's
+  dimensions, swept by the azure beam, reticle + `.scrim-chip` ("Identifying ·
+  NN%") over it.
 - **Search pill** (`.search-pill`): the scan tab's only search chrome — a single
   999-radius pill on the page background (no card, no label, no button): leading
   search glyph, mono input, trailing mic icon-button. Live search on a debounce;
