@@ -30,6 +30,18 @@ Tokens live in `:root`. Names are historical (`--yellow` is the azure accent —
 NOT rename, it's referenced everywhere). Always use `var(--token)`, never raw hex —
 in CSS *and* in JS-generated inline styles.
 
+**Theming:** dark is the default; light mode is a full token override on
+`html[data-theme="light"]` (same bluish-gray family, elevation inverted — raised =
+whiter; accent darkened to `#1B7FE0` for ink contrast). Toggle = header button
+(`.theme-toggle`, sun/moon SVG pair shown/hidden by the attribute), persisted in
+`localStorage('theme')` and applied pre-paint by a `<head>` script; `toggleTheme()`
+also syncs `<meta name="theme-color">`. **A new colour must work in both themes** —
+if it's theme-dependent it must be a token, never a literal. Theme-dependent depth
+lives in tokens too: `--shadow-card`, `--shadow-pop`, `--socket-inset`, `--grid-dot`,
+plus `--on-accent` (ink on solid-azure fills: dark ink on bright azure in dark mode,
+white on the darker azure in light) and `--green-bg`/`--green-border`/`--green-text`
+(in-inventory rows / add-steppers).
+
 | Token | Value | Role |
 |---|---|---|
 | `--bg` | `#0C1014` | page / baseplate |
@@ -43,6 +55,7 @@ in CSS *and* in JS-generated inline styles.
 | `--muted` | `#9EAAB9` | secondary ink / labels |
 | `--muted2` | `#697686` | tertiary / placeholder |
 | `--yellow` (accent) | `#3B9EFF` | azure — the single accent |
+| `--copper` | `#C87941` | wordmark + collection headers (My Minifigs title/stats) only |
 | `--yellow-glow` | `rgba(59,158,255,0.12)` | accent tint |
 | `--green` | `#46C97E` | in-inventory / success (meaning only) |
 | `--red` | `#F0564B` | remove / destructive (meaning only) |
