@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
 import os
 import re
 import io
@@ -731,7 +731,11 @@ def _app_version():
 
 @app.route("/")
 def index():
-    return render_template("index.html", app_version=_app_version())
+    resp = make_response(render_template("index.html", app_version=_app_version()))
+    # The HTML shell is the app — never let a browser/proxy serve a stale copy.
+    # JS/CSS are inline here, so a cached document = a cached app. Force revalidation.
+    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
 
 
 @app.route("/api/version")

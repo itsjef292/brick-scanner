@@ -4,7 +4,8 @@
 // stale-while-revalidate; API calls and cross-origin requests (Brickognize,
 // Rebrickable/BrickLink images, Google Fonts) are never touched — they must be
 // live. Bump CACHE to invalidate old caches on a breaking change.
-const CACHE = 'brick-scanner-v1';
+const CACHE = 'brick-scanner-v2';
+const NAV_TIMEOUT = 3000;  // ms before a stalled navigation falls back to the cached shell
 const SHELL = [
   '/',
   '/static/favicon.svg',
@@ -37,17 +38,26 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/')) return;               // live data — never cache
   if (url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest') return;
 
-  // App shell (page loads): network-first, fall back to cached '/'
+  // App shell (page loads): network-first with a timeout, fall back to cached '/'.
+  // The timeout matters on mobile/Tailscale: a stalled (not failed) request would
+  // otherwise hang instead of serving the cached shell, and a slow-but-alive tunnel
+  // must not keep us pinned to a months-old cache — abort and fall back, but only
+  // cache responses that actually arrived from the network.
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((resp) => {
-          const copy = resp.clone();
-          caches.open(CACHE).then((c) => c.put('/', copy)).catch(() => {});
-          return resp;
-        })
-        .catch(() => caches.match('/').then((r) => r || caches.match(req)))
-    );
+    e.respondWith((async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), NAV_TIMEOUT);
+      try {
+        const resp = await fetch(req, { signal: ctrl.signal });
+        const copy = resp.clone();
+        caches.open(CACHE).then((c) => c.put('/', copy)).catch(() => {});
+        return resp;
+      } catch (err) {
+        return (await caches.match('/')) || (await caches.match(req)) || Response.error();
+      } finally {
+        clearTimeout(timer);
+      }
+    })());
     return;
   }
 
