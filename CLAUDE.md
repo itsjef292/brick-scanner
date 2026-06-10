@@ -109,10 +109,14 @@ Endpoints (grep `@app.route` for the full list; notable ones):
 Price refreshes are threaded (`POST …/refresh` + `…/status` poll) and run daily via
 launchd (minifigs 05:00, sets 05:30, catalog local). LOCAL-ONLY.
 
-### Frontend (`templates/index.html`) — 5 screens + 2 modes
+### Frontend (`templates/index.html`) — 4 tabs, type-agnostic scanner
 
-Screens: **Scan → Loading → Identify → Lists → Success**. Modes: **Parts** vs
-**Minifigs** (changes list endpoints + copy). Pure vanilla JS; no frameworks.
+Tabs (`mode`: `'scan'|'figs'|'sets'|'lists'`, `switchMode`): **Scan** (camera +
+combined parts/minifigs search, `searchScanLocal`), **Figs** (`screen-figs`:
+minifig search + My Minifigs grid), **Sets**, **Part Lists**. One scanner for
+both types — `/api/identify` returns typed candidates and the identify screen
+branches on `item.type` (`part`/`minifig`); Back/Retake returns to the
+originating tab (`_identifyReturn`). Pure vanilla JS; no frameworks.
 
 Notable subsystems (names given for grep — see code/CHANGELOG for detail):
 

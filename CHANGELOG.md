@@ -3,6 +3,22 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Unified scanner + dedicated Figs tab (June 2026):**
+- The Parts/Figs scan modes merged into one **Scan** tab — `/api/identify` always
+  returned typed candidates (part vs minifig) and the identify screen already
+  branched per item, so the tabs only ever swapped chrome. The scan screen now
+  carries a neutral hint, an always-visible "Add to parts list" selector, and a
+  **combined search** (`searchScanLocal`) that queries parts + minifigs in
+  parallel and renders both groups (each via `renderLocalResults`, so bl_match /
+  click behavior is unchanged).
+- **Figs** became a browse tab (`screen-figs`, like Sets): minifig search + the
+  My Minifigs collection grid moved there from the scan screen. Pull-to-refresh
+  wired; mode values renamed to `'scan'|'figs'|'sets'|'lists'`.
+- Identify Back/Retake now returns to the tab that opened it (`_identifyReturn`,
+  captured in `showIdentifyScreen`; loading/success map to scan) with a matching
+  button label, and `goTo()` syncs the tab bar + `mode` when jumping straight to
+  a tab screen. Loading screen always uses the brick animation + "Identifying...".
+
 **Collapsible theme groups in My Minifigs (June 2026):**
 - In the theme-sorted view, each theme header is now tappable: chevron + group
   collapse/expand in place (no re-render, scroll position holds). Collapsed

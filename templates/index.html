@@ -1168,6 +1168,12 @@
       position: sticky; top: 0; background: var(--surface2); z-index: 1;
     }
     .src-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    /* Group headers in the combined scan-tab search (Parts / Minifigs) */
+    .search-group-label {
+      margin-top: 12px;
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted2);
+    }
 
     /* Offline-catalog footer on the scan screen */
     .catalog-footer {
@@ -1256,10 +1262,10 @@
 </header>
 
 <div class="mode-tabs">
-  <button class="mode-tab active" data-mode="parts" onclick="switchMode('parts')">
-    <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="10" rx="2"/><rect x="7" y="5.5" width="4" height="4" rx="1"/><rect x="13" y="5.5" width="4" height="4" rx="1"/></svg><span>Parts</span>
+  <button class="mode-tab active" data-mode="scan" onclick="switchMode('scan')">
+    <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8v2.6H5.6V8H3zm13-5h2.5A2.5 2.5 0 0 1 21 5.5V8h-2.6V5.6H16V3zM3 16h2.6v2.4H8V21H5.5A2.5 2.5 0 0 1 3 18.5V16zm15.4 0H21v2.5A2.5 2.5 0 0 1 18.5 21H16v-2.6h2.4V16z"/><rect x="7" y="10" width="10" height="6" rx="1.2"/><rect x="9" y="7.8" width="2.4" height="2.4" rx="0.7"/><rect x="12.6" y="7.8" width="2.4" height="2.4" rx="0.7"/></svg><span>Scan</span>
   </button>
-  <button class="mode-tab" data-mode="minifigs" onclick="switchMode('minifigs')">
+  <button class="mode-tab" data-mode="figs" onclick="switchMode('figs')">
     <svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.5"/><rect x="6" y="13.5" width="12" height="7" rx="3"/></svg><span>Figs</span>
   </button>
   <button class="mode-tab" data-mode="sets" onclick="switchMode('sets')">
@@ -1295,35 +1301,28 @@
     <div class="scan-socket" id="scanSocket"></div>
     <video id="liveVideo" playsinline muted style="display:none;"></video>
     <div id="liveScanning" style="display:none;"><span class="live-dot"></span>Scanning…</div>
-    <p id="scanHint">Take a photo of a LEGO part to identify it and add it to your parts list.</p>
+    <p id="scanHint">Take a photo of a LEGO part or minifig to identify it and add it to your collection.</p>
     <button class="btn" id="liveScanBtn" onclick="toggleLiveScan()" style="display:none;">Start Live Scan</button>
     <button class="btn" id="takePhotoBtn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
     <input type="file" id="cameraInput" accept="image/*" capture="environment">
   </div>
 
-  <!-- Parts search box -->
+  <!-- Combined parts + minifigs search box -->
   <div id="partsSearchSection" class="search-section">
-    <label>Search parts by name or number</label>
+    <label>Search parts &amp; minifigs by name or number</label>
     <div class="search-row">
-      <input id="partSearchInput" type="text" placeholder="e.g., 3710 or plate 1 x 2"
-        onkeydown="if(event.key==='Enter')searchPartsLocal()">
-      <button class="search-btn" onclick="searchPartsLocal()">Search</button>
+      <input id="partSearchInput" type="text" placeholder="e.g., 3710, plate 1 x 2, sw0001a"
+        onkeydown="if(event.key==='Enter')searchScanLocal()">
+      <button class="search-btn" onclick="searchScanLocal()">Search</button>
     </div>
     <div id="partSearchError" style="display:none;"></div>
-    <div id="partSearchResults" class="local-results" style="display:none;"></div>
-    <button class="voice-add-btn" onclick="openVoiceAdd()">🎤 Add by voice</button>
-  </div>
-
-  <!-- Minifig search box -->
-  <div id="minifigSearchSection" class="search-section" style="display:none;">
-    <label>Search minifigs by name or ID</label>
-    <div class="search-row">
-      <input id="minifigSearchInput" type="text" placeholder="e.g., Darth Vader or fig-000001"
-        onkeydown="if(event.key==='Enter')searchMinifigsLocal()">
-      <button class="search-btn" onclick="searchMinifigsLocal()">Search</button>
+    <div id="partSearchResults" style="display:none;">
+      <div id="scanPartsHdr" class="search-group-label" style="display:none;">Parts</div>
+      <div id="scanPartsResults" class="local-results" style="display:none;"></div>
+      <div id="scanFigsHdr" class="search-group-label" style="display:none;">Minifigs</div>
+      <div id="scanFigsResults" class="local-results" style="display:none;"></div>
     </div>
-    <div id="minifigSearchError" style="display:none;"></div>
-    <div id="minifigSearchResults" class="local-results" style="display:none;"></div>
+    <button class="voice-add-btn" onclick="openVoiceAdd()">🎤 Add by voice</button>
   </div>
 
   <!-- Parts list selector -->
@@ -1345,15 +1344,43 @@
     </div>
   </div>
 
-  <!-- Minifig note -->
-  <div id="minifigListRow" style="padding:0 0 8px;display:none;">
-    <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.4;">
-      Scan or search a minifig to add it to your minifig collection.
-    </p>
+  <!-- Offline catalog footer: last-updated + manual refresh (local dev only) -->
+  <div id="catalogFooter" class="catalog-footer" style="display:none;">
+    <div class="catalog-info">
+      <span class="catalog-label">Offline catalog</span>
+      <span id="catalogUpdated" class="catalog-updated">—</span>
+      <span id="catalogChecked" class="catalog-checked"></span>
+    </div>
+    <button id="catalogRefreshBtn" class="catalog-refresh-btn" onclick="refreshCatalog()">
+      Check for updates
+    </button>
+    <div id="catalogMsg" class="catalog-msg"></div>
+    <div id="catalogChanges" class="catalog-changes" style="display:none;">
+      <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()">
+        <span id="catalogChangesArrow">▶</span>
+        <span id="catalogChangesSummary"></span>
+      </button>
+      <div id="catalogChangesBody" class="catalog-changes-body" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Screen: Figs (owned-minifig collection + minifig search) -->
+<div class="screen" id="screen-figs">
+  <!-- Minifig search box -->
+  <div id="minifigSearchSection" class="search-section">
+    <label>Search minifigs by name or ID</label>
+    <div class="search-row">
+      <input id="minifigSearchInput" type="text" placeholder="e.g., Darth Vader or sw0001a"
+        onkeydown="if(event.key==='Enter')searchMinifigsLocal()">
+      <button class="search-btn" onclick="searchMinifigsLocal()">Search</button>
+    </div>
+    <div id="minifigSearchError" style="display:none;"></div>
+    <div id="minifigSearchResults" class="local-results" style="display:none;"></div>
   </div>
 
-  <!-- My Minifigs (owned-minifig collection; minifig mode only) -->
-  <div id="myMinifigsSection" style="padding:0 0 24px;display:none;">
+  <!-- My Minifigs (owned-minifig collection) -->
+  <div id="myMinifigsSection" style="padding:0 0 24px;">
     <div onclick="toggleMyMinifigs()" style="display:flex;align-items:center;gap:8px;margin:18px 0 12px;cursor:pointer;user-select:none;">
       <svg id="myMinifigsChevron" viewBox="0 0 24 24" style="width:14px;height:14px;fill:var(--muted);transition:transform .15s;flex-shrink:0;"><path d="M7 10l5 5 5-5z"/></svg>
       <div style="font-family:var(--font-display);font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">My Minifigs</div>
@@ -1381,26 +1408,6 @@
       </div>
     </div>
     <div id="myMinifigsGrid"></div>
-  </div>
-
-  <!-- Offline catalog footer: last-updated + manual refresh (local dev only) -->
-  <div id="catalogFooter" class="catalog-footer" style="display:none;">
-    <div class="catalog-info">
-      <span class="catalog-label">Offline catalog</span>
-      <span id="catalogUpdated" class="catalog-updated">—</span>
-      <span id="catalogChecked" class="catalog-checked"></span>
-    </div>
-    <button id="catalogRefreshBtn" class="catalog-refresh-btn" onclick="refreshCatalog()">
-      Check for updates
-    </button>
-    <div id="catalogMsg" class="catalog-msg"></div>
-    <div id="catalogChanges" class="catalog-changes" style="display:none;">
-      <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()">
-        <span id="catalogChangesArrow">▶</span>
-        <span id="catalogChangesSummary"></span>
-      </button>
-      <div id="catalogChangesBody" class="catalog-changes-body" style="display:none;"></div>
-    </div>
   </div>
 </div>
 
@@ -1992,7 +1999,7 @@
   let inventoryCheckToken = 0;
   let _scanSeq = 0;
   let capturedObjectUrl = null;
-  let mode = 'parts'; // 'parts' | 'minifigs'
+  let mode = 'scan'; // 'scan' | 'figs' | 'sets' | 'lists'
 
   // ── Utility functions ──────────────────────────────────────────────────
   function decodeHtmlEntities(text) {
@@ -2014,60 +2021,33 @@
   }
 
   // ── Mode switching ──────────────────────────────────────────────────
+  const MODE_SCREENS = {
+    scan: 'screen-scan', figs: 'screen-figs', sets: 'screen-sets', lists: 'screen-lists',
+  };
   function switchMode(m) {
     mode = m;
     document.querySelectorAll('.mode-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.mode === m);
     });
-    document.getElementById('partsSearchSection').style.display = m === 'parts' ? '' : 'none';
-    document.getElementById('minifigSearchSection').style.display = m === 'minifigs' ? '' : 'none';
-    document.getElementById('partListRow').style.display = m === 'parts' ? '' : 'none';
-    document.getElementById('minifigListRow').style.display = m === 'minifigs' ? '' : 'none';
-    document.getElementById('myMinifigsSection').style.display = m === 'minifigs' ? '' : 'none';
-    if (m === 'minifigs') loadMyMinifigs();
-    document.getElementById('scanHint').textContent = m === 'parts'
-      ? 'Take a photo of a LEGO part to identify it and add it to your parts list.'
-      : 'Take a photo of a LEGO minifigure to identify it and add it to your minifig list.';
 
-    // Show/hide loading screen content based on mode
-    document.getElementById('brick-content').style.display = m === 'parts' ? '' : 'none';
-    document.getElementById('minifig-content').style.display = m === 'minifigs' ? '' : 'none';
+    // Leaving the identify / set-details overlays for a tab hides them.
+    document.getElementById('screen-identify').classList.remove('active');
+    if (m !== 'sets') document.getElementById('screen-set-details').classList.remove('active');
 
-    // If we're on the identify screen and switching modes, go back to scan (unless going to lists/sets)
-    if (document.getElementById('screen-identify').classList.contains('active')) {
-      if (m === 'lists' || m === 'sets') {
-        // Going to a browse/scan tab, hide identify screen
-        document.getElementById('screen-identify').classList.remove('active');
-      } else {
-        // Switching parts/minifigs, go back to scan
-        goTo('screen-scan');
-      }
-    }
+    Object.values(MODE_SCREENS).forEach(id => {
+      document.getElementById(id).classList.toggle('active', id === MODE_SCREENS[m]);
+    });
 
-    // If we're on set-details and switching to a different mode, go back to sets
-    if (document.getElementById('screen-set-details').classList.contains('active') && m !== 'sets') {
-      document.getElementById('screen-set-details').classList.remove('active');
-    }
-
-    // Switch between scan screen, lists browser, and sets browser
-    if (m === 'lists') {
-      document.getElementById('screen-scan').classList.remove('active');
-      document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-lists').classList.add('active');
-      populateListsViewSelect();
-    } else if (m === 'sets') {
-      document.getElementById('screen-scan').classList.remove('active');
-      document.getElementById('screen-lists').classList.remove('active');
-      document.getElementById('screen-sets').classList.add('active');
-      loadMySets();
-    } else {
-      // parts or minifigs
-      document.getElementById('screen-lists').classList.remove('active');
-      document.getElementById('screen-sets').classList.remove('active');
-      document.getElementById('screen-scan').classList.add('active');
+    if (m === 'scan') {
       // Pick up lists created elsewhere since the page loaded (dropdown is
       // otherwise only populated once at startup).
       if (typeof refreshPartlistDropdown === 'function') refreshPartlistDropdown();
+    } else if (m === 'figs') {
+      loadMyMinifigs();
+    } else if (m === 'sets') {
+      loadMySets();
+    } else if (m === 'lists') {
+      populateListsViewSelect();
     }
     if (typeof syncLiveScan === 'function') syncLiveScan();
   }
@@ -2293,8 +2273,7 @@
     if (!file) return;
     if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
     capturedObjectUrl = URL.createObjectURL(file);
-    const loadingText = mode === 'minifigs' ? 'Identifying minifig...' : 'Identifying part...';
-    animateTypewriter(document.querySelector('#screen-loading p'), loadingText);
+    animateTypewriter(document.querySelector('#screen-loading p'), 'Identifying...');
     goTo('screen-loading');
     identifyPart(file);
     this.value = '';
@@ -2457,7 +2436,7 @@
     // Never grab the camera while an overlay owns it.
     if (typeof _overlayOpen === 'function' && _overlayOpen()) { stopLiveScan(); return; }
     const onScan = document.getElementById('screen-scan').classList.contains('active')
-      && (mode === 'parts' || mode === 'minifigs');
+      && mode === 'scan';
     if (!(onScan && _liveEnabled && liveSupported())) {
       stopLiveScan();
       if (onScan) { const b = document.getElementById('liveScanBtn'); if (b) b.style.display = liveSupported() ? '' : 'none'; }
@@ -2467,7 +2446,7 @@
     _queryCamPerm().then(state => {
       // Re-check after the async gap — the user may have navigated away.
       const still = document.getElementById('screen-scan').classList.contains('active')
-        && (mode === 'parts' || mode === 'minifigs') && _liveEnabled && !_liveRunning;
+        && mode === 'scan' && _liveEnabled && !_liveRunning;
       if (!still) return;
       if (state === 'granted') startLiveScan();   // already allowed → no prompt
       else _setLiveUI(false);                     // show "Start Live Scan"; tap → prompt
@@ -2554,9 +2533,9 @@
   // (which carry the swipe-LEFT-to-delete rows) are intentionally excluded, so
   // there's no conflict with that gesture.
   const BACK_TARGETS = {
-    'screen-identify': () => retakeOrBack(),                       // → scan
+    'screen-identify': () => retakeOrBack(),                       // → originating tab
     'screen-set-details': () => { goTo('screen-sets'); loadMySets(); },
-    'screen-success': () => retakeOrBack(),                        // → scan
+    'screen-success': () => retakeOrBack(),                        // → originating tab
   };
   function _overlayOpen() {
     if (document.querySelector('#imageModal.active, #voiceModal.active, #blExportModal.active, #compareModal.active, #setSubtractModal.active')) return true;
@@ -2630,7 +2609,7 @@
         return window.currentSetNum
           ? () => loadSetDetails(window.currentSetNum, (document.getElementById('setDetailTitle') || {}).textContent || '')
           : null;
-      case 'screen-scan': return mode === 'minifigs' ? () => loadMyMinifigs() : null;
+      case 'screen-figs': return () => loadMyMinifigs();
       default: return null;   // identify / success / loading aren't refreshable
     }
   }
@@ -2818,8 +2797,63 @@
     }
   }
 
-  function searchPartsLocal() { searchLocal('part', 'partSearchInput', 'partSearchError', 'partSearchResults'); }
   function searchMinifigsLocal() { searchLocal('minifig', 'minifigSearchInput', 'minifigSearchError', 'minifigSearchResults'); }
+
+  // Combined scan-tab search: queries parts AND minifigs in parallel and shows
+  // both groups, each rendered via renderLocalResults so result clicks and the
+  // BrickLink-id escape hatch behave exactly like the single-type searches.
+  let _scanSearchSeq = 0;
+  async function searchScanLocal() {
+    const q = document.getElementById('partSearchInput').value.trim();
+    const err = document.getElementById('partSearchError');
+    const wrap = document.getElementById('partSearchResults');
+    const partsHdr = document.getElementById('scanPartsHdr'), partsEl = document.getElementById('scanPartsResults');
+    const figsHdr = document.getElementById('scanFigsHdr'), figsEl = document.getElementById('scanFigsResults');
+    err.style.display = 'none';
+    if (!q) { wrap.style.display = 'none'; return; }
+    const seq = ++_scanSearchSeq;
+    wrap.style.display = 'none';
+    [partsHdr, partsEl, figsHdr, figsEl].forEach(el => { el.style.display = 'none'; });
+    err.textContent = 'Searching…';
+    err.style.color = 'var(--muted)';
+    err.style.display = 'block';
+    const fetchKind = kind => fetch(`/api/local/search?type=${kind}s&q=${encodeURIComponent(q)}`)
+      .then(r => r.ok ? r.json() : null).catch(() => null);
+    const [parts, figs] = await Promise.all([fetchKind('part'), fetchKind('minifig')]);
+    if (seq !== _scanSearchSeq) return;   // superseded by a newer search
+    err.style.display = 'none';
+    if (!parts && !figs) {
+      err.textContent = 'Search failed. Please try again.';
+      err.style.color = 'var(--red)';
+      err.style.display = 'block';
+      return;
+    }
+    const partResults = (parts && parts.results) || [];
+    const figResults = (figs && figs.results) || [];
+    const blMatch = (figs && figs.bl_match) || null;
+    wrap.style.display = 'block';
+    if (!partResults.length && !figResults.length && !blMatch) {
+      // One shared empty state (renderLocalResults' own message, no group headers)
+      renderLocalResults('scanPartsResults', [], 'part', (parts || figs).source);
+      return;
+    }
+    if (partResults.length) {
+      partsHdr.style.display = '';
+      renderLocalResults('scanPartsResults', partResults, 'part', parts.source);
+    }
+    if (figResults.length || blMatch) {
+      figsHdr.style.display = '';
+      renderLocalResults('scanFigsResults', figResults, 'minifig', figs.source, blMatch);
+    }
+  }
+  // Picking any result collapses the whole combined dropdown (renderLocalResults
+  // only hides its own group's container).
+  document.getElementById('partSearchResults').addEventListener('click', (e) => {
+    if (e.target.closest('.local-result')) {
+      document.getElementById('partSearchResults').style.display = 'none';
+      document.getElementById('partSearchInput').value = '';
+    }
+  });
 
   // Badge showing which data source served the results.
   // Green = local offline DB (no API quota); amber = live Rebrickable API.
@@ -3639,8 +3673,17 @@
     }
   }
 
+  // Which screen Back/Retake on identify returns to — set from whatever screen
+  // opened it (camera capture comes through screen-loading → scan).
+  let _identifyReturn = 'screen-scan';
+
   async function showIdentifyScreen(data) {
     const scanSeq = ++_scanSeq;
+    const prev = document.querySelector('.screen.active');
+    if (prev && prev.id !== 'screen-identify') {
+      _identifyReturn = (prev.id === 'screen-loading' || prev.id === 'screen-success')
+        ? 'screen-scan' : prev.id;
+    }
     // Reset quantity FIRST, before anything else
     const qtyInput = document.getElementById('quantityInput');
     qtyInput.type = 'text';
@@ -3658,8 +3701,12 @@
     banner.style.display = hasPhoto ? '' : 'none';
     userThumb.src = capturedObjectUrl || '';
     userThumb.style.display = hasPhoto ? '' : 'none';
-    // Label the back button to match how we got here (scan vs. manual search).
-    document.getElementById('retakeBtn').textContent = hasPhoto ? 'Retake Photo' : 'Back to Scan';
+    // Label the back button to match how we got here (scan photo vs. opened
+    // from a search box / the Figs collection / a list view).
+    const backLabel = {
+      'screen-figs': 'Back to Figs', 'screen-lists': 'Back to Lists', 'screen-sets': 'Back to Sets',
+    }[_identifyReturn] || 'Back to Scan';
+    document.getElementById('retakeBtn').textContent = hasPhoto ? 'Retake Photo' : backLabel;
     const errEl = document.getElementById('identifyError');
     errEl.style.display = 'none';
 
@@ -4535,8 +4582,8 @@
     const section = document.getElementById('setsSection');
     const label = document.getElementById('setsLabel');
 
-    // Only show for parts mode with a color selected
-    if (mode !== 'parts' || !selectedColorId && selectedColorId !== 0) {
+    // Only show for a part (not a minifig) with a color selected
+    if (!selectedPart || selectedPart.type === 'minifig' || !selectedColorId && selectedColorId !== 0) {
       section.style.display = 'none';
       return;
     }
@@ -4632,6 +4679,13 @@
     // Clear any residual back-swipe transform so the screen never shows shifted.
     el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
     el.classList.add('active');
+    // Keep the tab bar + mode in sync when navigating straight to a tab screen
+    // (back-swipe, Scan Another, retakeOrBack) without going through switchMode.
+    const tabMode = Object.keys(MODE_SCREENS).find(k => MODE_SCREENS[k] === id);
+    if (tabMode && tabMode !== mode) {
+      mode = tabMode;
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === tabMode));
+    }
     if (typeof syncLiveScan === 'function') syncLiveScan();
     // If an app update was detected while on a busy screen, apply it now that
     // we've navigated (no-op unless pending + the new screen is safe).
@@ -6615,11 +6669,12 @@
     lazyLoadImages(gridEl);
   }
 
-  // Back/Retake from the identify screen — refresh My Minifigs if we're in
-  // minifig mode so collection edits made on identify show up on the scan screen.
+  // Back/Retake from the identify screen — return to whichever tab opened it
+  // (scan capture/search, the Figs collection, or a list view) and refresh the
+  // figs grid so collection edits made on identify show up.
   function retakeOrBack() {
-    goTo('screen-scan');
-    if (mode === 'minifigs') loadMyMinifigs();
+    goTo(_identifyReturn);
+    if (_identifyReturn === 'screen-figs') loadMyMinifigs();
   }
   let _myMinifigsAll = [];   // full My-Minifigs collection held in memory for live search
   function loadMyMinifigs() {
