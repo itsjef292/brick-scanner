@@ -84,6 +84,9 @@ The stud is a real UI element, not decoration. It must appear in multiple places
 1. **Scan target = baseplate socket** (`.scan-socket`): a recessed radial-gradient
    circle with a dashed azure "drop ring" (`::after`) over a subtle stud-grid
    texture (`.scan-grid`) + azure corner registration ticks. NOT a magnifying glass.
+   In live-scan mode the same drop ring floats over the viewfinder as the reticle
+   (`.scan-reticle`). Both rings idle with a slow `ringBreathe` opacity pulse
+   (disabled under `prefers-reduced-motion`).
 2. **Colour swatches = glossy stud-top chips.** Every colour dot/swatch
    (`.color-dot`, `.swatch-btn .dot`, `.color-swatch`, `.part-item-color-dot`) gets
    the ABS sheen via a shared `::after` overlay using `--stud-sheen` (works over the
@@ -92,6 +95,21 @@ The stud is a real UI element, not decoration. It must appear in multiple places
 
 ## Component patterns
 
+- **Scan stage** (`.scan-area`, camera-first): one fixed-height card for both
+  states. Idle = socket + one-line hint; live = viewfinder fills the card with
+  the reticle, a "Scanning" chip, and a bottom control rail (centred shutter
+  `.shutter-btn` — accent core in a `--text` ring — plus a round `.scan-ctl`
+  live-scan toggle). **Exception to the token rule:** chips/controls overlaid on
+  the camera feed (`#liveScanning`, live-mode `.scan-ctl`, live shutter ring) use
+  a fixed dark scrim + white ink — the feed is photographic, not a themed
+  surface, like a native camera UI.
+- **Search pill** (`.search-pill`): the scan tab's only search chrome — a single
+  999-radius pill on the page background (no card, no label, no button): leading
+  search glyph, mono input, trailing mic icon-button. Live search on a debounce;
+  Enter forces.
+- **Inline config row** (`.list-pick-row`): label + pill select + one `⋯`
+  icon-button that reveals an actions row beneath (`.list-actions-row`,
+  `.figs-tool-btn`s) — never a cluster of standalone action buttons.
 - **Tab bar** (`.mode-tabs`): 4 tabs (Scan / Figs / Sets / Part Lists), each an inline **monochrome SVG** (`.tab-ico` /
   `.tab-brick`, `fill: currentColor`) + label. NEVER emoji or `<img>` — currentColor
   makes them recolour for active state automatically. Active tab = solid azure pill

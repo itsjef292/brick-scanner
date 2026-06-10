@@ -120,9 +120,12 @@ originating tab (`_identifyReturn`). Pure vanilla JS; no frameworks.
 
 Notable subsystems (names given for grep — see code/CHANGELOG for detail):
 
-- **Live auto-scan** — viewfinder captures every ~1.5s → `/api/identify`
-  (`startLiveScan`/`liveTick`/`syncLiveScan`). Secure-context only (HTTPS/localhost),
-  else falls back to "Take Photo". Auto-starts only if camera permission is already
+- **Live auto-scan** — camera-first stage: the viewfinder fills the scan card
+  and captures every ~1.5s → `/api/identify` (`startLiveScan`/`liveTick`/
+  `syncLiveScan`). The shutter (`shutterTap`) grabs the current frame mid-scan
+  (`captureLiveFrame`) or opens native photo capture when idle. Secure-context
+  only (HTTPS/localhost) — over plain HTTP the live toggle hides and the shutter
+  is photo-capture only. Auto-starts only if camera permission is already
   `granted` (`_queryCamPerm`) — never an unsolicited prompt.
 - **Color detection/matching** — LAB sampling from bbox (center-40% fallback).
   `findClosestLegoColor(..., preferredIds, trustShortlist)`: **exactly one predicted

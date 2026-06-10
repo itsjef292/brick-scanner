@@ -3,6 +3,33 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Camera-first Scan tab redesign (June 2026):**
+- **Hero scan stage.** One fixed-height card (`.scan-area`, `clamp(300px,44vh,400px)`)
+  for both states so nothing jumps. Idle: socket + one-line hint. Live: the
+  viewfinder fills the card edge-to-edge (`#liveVideo` absolute, cover), with a
+  dashed **reticle** (`.scan-reticle`), a "Scanning" **scrim chip**
+  (`#liveScanning`, deliberately theme-independent — it sits on the camera feed),
+  and a bottom control rail. The stacked Start-Live-Scan/Take-Photo buttons are
+  gone: a **shutter** (`shutterTap`) captures the current frame mid-scan
+  (`captureLiveFrame`, no confidence gate) or opens the native camera when idle,
+  and a side toggle (`.scan-ctl`, video/stop SVGs) starts/stops live scan.
+- **Search pill.** Card + label + Search button + "🎤 Add by voice" row replaced
+  by one pill (`.search-pill`): leading search glyph, debounced live search
+  (`onScanSearchInput`, 450 ms, min 3 chars — short queries skipped so the
+  Render API fallback isn't hammered), Enter forces, trailing **mic SVG** opens
+  voice-add. Voice modal's 🎤/⏹ emoji also replaced with SVGs swapped by the
+  existing `.listening` class.
+- **Slim list selector.** "Adding to" label + pill select + one `⋯` button
+  (`toggleListActions`) revealing New list / Delete list — the two round
+  emoji buttons (and their forbidden `title=` tooltips) are gone.
+- **Catalog footer → one tappable mono line** ("Catalog · Updated …", caret) that
+  expands a drawer (`toggleCatalogDetails`) holding last-checked + DB size,
+  the refresh button, and the changes list; auto-opens while a rebuild runs.
+- **Token hygiene.** All `#06121F` on-accent inks → `var(--on-accent)` (was wrong
+  in light mode), `#22C55E` → `var(--green)`, JS `background:#3B9EFF` →
+  `var(--yellow)`. Drop ring/reticle get a reduced-motion-gated `ringBreathe`
+  idle animation; `#screen-scan` bottom padding is safe-area aware.
+
 **Figs tab cleanup (June 2026):**
 - **One search bar.** The separate catalog-search box is gone; the collection
   filter input is the only search. Typing live-filters your figs

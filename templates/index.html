@@ -219,72 +219,69 @@
     .screen.active { display: flex; }
 
     /* ── Screen 1: Scan ── */
-    #screen-scan { padding: 20px 16px; gap: 16px; }
+    #screen-scan { padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px)); gap: 16px; }
 
-    .search-section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-    }
-    .search-section label {
-      display: block;
-      font-family: var(--font-display);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .search-row {
+    /* Scan-tab search: a single pill on the page background — no card, no
+       button. Live search fires on a debounce; Enter forces it. The trailing
+       mic glyph opens the voice-add sheet. */
+    .search-section { position: relative; }
+    .search-pill {
       display: flex;
-      gap: 8px;
-    }
-    .search-row input {
-      flex: 1;
-      padding: 10px 12px;
+      align-items: center;
       background: var(--surface3);
       border: 1px solid var(--border-bright);
-      border-radius: var(--radius-sm);
+      border-radius: 999px;
+      padding: 3px 3px 3px 14px;
+    }
+    .search-pill:focus-within { border-color: var(--yellow); }
+    .search-pill .search-ico { width: 17px; height: 17px; fill: var(--muted2); flex-shrink: 0; }
+    .search-pill input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 4px 10px 9px;
+      background: none;
+      border: none;
       font-family: var(--font-mono);
       font-size: 14px;
       color: var(--text);
     }
-    .search-row input:focus { outline: none; border-color: var(--yellow); }
-    .search-row input::placeholder { color: var(--muted2); }
-    .search-row .search-btn {
-      padding: 10px 14px;
-      background: var(--yellow);
-      color: var(--on-accent);
-      border: none;
-      border-radius: var(--radius-sm);
-      font-family: var(--font-display);
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      cursor: pointer;
+    .search-pill input:focus { outline: none; }
+    .search-pill input::placeholder { color: var(--muted2); }
+    .mic-btn {
+      flex-shrink: 0;
+      width: 38px; height: 38px; border-radius: 50%;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
     }
-    .search-row .search-btn:active { opacity: 0.8; }
+    .mic-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .mic-btn:active { background: var(--surface2); color: var(--text); }
     #partSearchError, #minifigSearchError {
       color: var(--red);
       font-size: 12px;
       margin-top: 6px;
     }
 
-    /* ── Scan area ── */
+    /* ── Scan area — camera-first stage ──
+       One fixed-height card for both states so nothing jumps: empty state shows
+       the baseplate socket + a one-line hint; live state fills the whole card
+       with the viewfinder (reticle + status chip + shutter overlaid on it). */
     .scan-area {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 32px 20px;
+      height: clamp(300px, 44vh, 400px);
+      padding: 24px 20px 96px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 14px;
       position: relative;
+      overflow: hidden;
     }
+    .scan-area.live { background: var(--socket); }
+    .scan-area.live .scan-grid { display: none; }
     .scan-area::before,
     .scan-area::after {
       content: '';
@@ -336,6 +333,7 @@
     .scan-socket::after {
       content: ''; position: absolute; inset: 28px; border-radius: 50%;
       border: 1.5px dashed rgba(59,158,255,0.55);
+      animation: ringBreathe 2.8s ease-in-out infinite;
     }
     .scan-area p {
       color: var(--muted);
@@ -344,23 +342,70 @@
       line-height: 1.5;
       position: relative; z-index: 1;
     }
-    .scan-area .btn { position: relative; z-index: 1; }
     #cameraInput { display: none; }
-    /* Live viewfinder (hands-free auto-scan) */
+    /* Live viewfinder fills the stage edge-to-edge */
     #liveVideo {
-      width: 100%; max-height: 320px; border-radius: var(--radius);
-      object-fit: cover; background: var(--socket); position: relative; z-index: 1;
-      border: 1px solid var(--border-bright);
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; background: var(--socket); z-index: 1;
     }
+    /* The drop ring floats over the feed as a reticle */
+    .scan-reticle {
+      position: absolute; left: 50%; top: 42%; z-index: 2;
+      width: 150px; height: 150px; margin: -75px 0 0 -75px;
+      border-radius: 50%; border: 1.5px dashed rgba(59,158,255,0.6);
+      pointer-events: none;
+      animation: ringBreathe 2.8s ease-in-out infinite;
+    }
+    @keyframes ringBreathe {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .scan-socket::after, .scan-reticle { animation: none; }
+    }
+    /* Status chip on the camera feed — the feed is photographic, so the dark
+       scrim is deliberately theme-independent (like a native camera UI). */
     #liveScanning {
-      display: flex; align-items: center; gap: 8px; position: relative; z-index: 1;
-      font-family: var(--font-display); font-size: 12px; font-weight: 600;
-      letter-spacing: 0.8px; text-transform: uppercase; color: var(--yellow);
+      position: absolute; top: 12px; left: 12px; z-index: 3;
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 12px; border-radius: 999px;
+      background: rgba(6,9,13,0.62); border: 1px solid rgba(150,180,215,0.18);
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase; color: #FFFFFF;
     }
     #liveScanning .live-dot {
-      width: 9px; height: 9px; border-radius: 50%; background: var(--yellow);
+      width: 8px; height: 8px; border-radius: 50%; background: #3B9EFF;
       box-shadow: 0 0 0 0 rgba(59,158,255,0.6); animation: livePulse 1.2s ease-out infinite;
     }
+    /* Bottom control rail: shutter centred, live-scan toggle beside it.
+       Overlaid on the feed when live, on the card when idle. */
+    .scan-controls {
+      position: absolute; bottom: 16px; left: 0; right: 0; z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .shutter-btn {
+      width: 62px; height: 62px; border-radius: 50%; cursor: pointer;
+      border: 3px solid var(--text); background: none; padding: 4px;
+      display: flex; transition: transform 0.12s;
+    }
+    .shutter-btn .shutter-core { flex: 1; border-radius: 50%; background: var(--yellow); }
+    .shutter-btn:active { transform: scale(0.9); }
+    .scan-area.live .shutter-btn { border-color: #FFFFFF; }  /* on the feed, not a themed surface */
+    .scan-ctl {
+      position: absolute; right: calc(50% + 60px); top: 50%; transform: translateY(-50%);
+      width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+      background: var(--surface3); border: 1px solid var(--border-bright);
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scan-ctl svg { width: 20px; height: 20px; fill: currentColor; }
+    .scan-ctl:active { background: var(--surface2); color: var(--text); }
+    .scan-area.live .scan-ctl {
+      background: rgba(6,9,13,0.62); border-color: rgba(150,180,215,0.18); color: #FFFFFF;
+    }
+    .scan-ctl .ico-stop { display: none; }
+    .scan-area.live .scan-ctl .ico-cam { display: none; }
+    .scan-area.live .scan-ctl .ico-stop { display: block; }
     @keyframes livePulse {
       0% { box-shadow: 0 0 0 0 rgba(59,158,255,0.55); }
       70% { box-shadow: 0 0 0 9px rgba(59,158,255,0); }
@@ -404,19 +449,29 @@
       color: var(--muted);
       font-size: 15px;
     }
-    .btn.green { background: var(--yellow); color: #06121F; }
+    .btn.green { background: var(--yellow); color: var(--on-accent); }
 
-    /* ── List selector ── */
-    .list-selector label {
-      font-family: var(--font-display);
-      font-size: 11px;
-      color: var(--muted);
-      margin-bottom: 6px;
-      display: block;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+    /* ── List selector — one slim row: label · pill select · ⋯ actions ── */
+    .list-pick-row { display: flex; align-items: center; gap: 10px; }
+    .list-pick-label {
+      flex-shrink: 0;
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
     }
+    .list-pick-row select {
+      flex: 1; width: auto; min-width: 0;
+      padding: 9px 34px 9px 14px; border-radius: 999px; font-size: 14px;
+    }
+    .list-more-btn {
+      flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+      background: var(--surface3); border: 1px solid var(--border-bright);
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .list-more-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .list-more-btn:active { background: var(--surface2); }
+    .list-actions-row { display: flex; gap: 8px; margin-top: 10px; }
+    .figs-tool-btn.danger { color: var(--red); border-color: var(--red-border); }
     select {
       width: 100%;
       padding: 11px 14px;
@@ -970,7 +1025,7 @@
       padding: 7px 14px; cursor: pointer; transition: background .12s, color .12s;
     }
     .cond-pill + .cond-pill { border-left: 1px solid var(--border-bright); }
-    .cond-pill.active { background: var(--yellow); color: #06121F; }
+    .cond-pill.active { background: var(--yellow); color: var(--on-accent); }
     .list-msg {
       display: none; margin: 0 14px 10px;
       padding: 10px 12px; border-radius: var(--radius);
@@ -1011,14 +1066,6 @@
     .modal-close-btn:active { background: rgba(255,255,255,0.3); }
 
     /* ── Voice add ── */
-    .voice-add-btn {
-      width: 100%; margin-top: 10px; padding: 11px;
-      background: var(--surface3); color: var(--text);
-      border: 1px solid var(--border-bright); border-radius: var(--radius);
-      font-family: var(--font-display); font-size: 14px; font-weight: 600;
-      letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
-    }
-    .voice-add-btn:active { background: var(--surface2); }
     .voice-modal {
       display: none; position: fixed; inset: 0; z-index: 1100;
       background: rgba(0,0,0,0.8); align-items: center; justify-content: center; padding: 20px;
@@ -1038,10 +1085,15 @@
 
     .voice-mic {
       width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
-      background: var(--yellow); color: #06121F; font-size: 34px;
+      background: var(--yellow); color: var(--on-accent);
       display: flex; align-items: center; justify-content: center;
       transition: transform 0.15s, box-shadow 0.15s;
     }
+    .voice-mic svg { width: 36px; height: 36px; fill: currentColor; }
+    .voice-mic .ico-vstop { display: none; }
+    .voice-mic.listening { color: #FFFFFF; }
+    .voice-mic.listening .ico-mic { display: none; }
+    .voice-mic.listening .ico-vstop { display: block; }
     .voice-mic.listening {
       background: #EF4444; box-shadow: 0 0 0 0 rgba(239,68,68,0.6);
       animation: voicePulse 1.4s infinite;
@@ -1064,7 +1116,7 @@
       text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid var(--border-bright);
     }
     .voice-cancel { background: var(--surface3); color: var(--muted); }
-    .voice-go { background: var(--yellow); color: #06121F; border-color: var(--yellow); }
+    .voice-go { background: var(--yellow); color: var(--on-accent); border-color: var(--yellow); }
     .voice-error { font-size: 13px; color: #FCA5A5; text-align: center; }
     .voice-quick {
       display: flex; align-items: center; gap: 8px; width: 100%;
@@ -1132,7 +1184,7 @@
     }
     .file-input-row .action-btn { flex: 1; }
     .action-btn {
-      padding: 8px 14px; background: var(--yellow); color: #06121F;
+      padding: 8px 14px; background: var(--yellow); color: var(--on-accent);
       border: none; border-radius: var(--radius-sm);
       font-family: var(--font-display); font-size: 13px; font-weight: 700;
       letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer;
@@ -1185,7 +1237,7 @@
       font-family: var(--font-display); font-size: 13px; font-weight: 700;
       letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer;
     }
-    .shopping-tab.active { background: var(--yellow); color: #06121F; }
+    .shopping-tab.active { background: var(--yellow); color: var(--on-accent); }
     .shopping-tab:not(.active) { background: var(--surface3); color: var(--muted); }
 
     /* Set detail tabs */
@@ -1199,7 +1251,7 @@
       font-family: var(--font-display); font-size: 13px; font-weight: 700;
       letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer;
     }
-    .set-tab.active { background: var(--yellow); color: #06121F; }
+    .set-tab.active { background: var(--yellow); color: var(--on-accent); }
     .set-tab:not(.active) { background: var(--surface3); color: var(--muted); }
     .back-btn {
       padding: 8px 12px; background: var(--surface3); color: var(--text);
@@ -1261,18 +1313,28 @@
       text-align: center;
     }
 
-    /* Offline-catalog footer on the scan screen */
+    /* Offline-catalog footer — one tappable mono line; details in a drawer */
     .catalog-footer {
-      margin-top: 22px; padding-top: 16px;
+      margin-top: 14px;
       border-top: 1px solid var(--border);
-      display: flex; flex-direction: column; gap: 10px;
+      display: flex; flex-direction: column;
     }
-    .catalog-info { display: flex; flex-direction: column; gap: 2px; }
+    .catalog-line {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 12px 0 2px;
+      background: none; border: none; cursor: pointer;
+    }
     .catalog-label {
       font-family: var(--font-display); font-size: 11px; font-weight: 600;
       letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
     }
-    .catalog-updated { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+    .catalog-updated {
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted2);
+      min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .catalog-caret { width: 10px; height: 10px; fill: var(--muted2); flex-shrink: 0; transition: transform 0.15s; }
+    .catalog-line[aria-expanded="true"] .catalog-caret { transform: rotate(180deg); }
+    .catalog-details { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
     .catalog-checked { font-family: var(--font-mono); font-size: 11px; color: var(--muted2); }
     .catalog-refresh-btn {
       align-self: flex-start;
@@ -1286,7 +1348,7 @@
     .catalog-refresh-btn:hover:not(:disabled) { background: var(--border-bright); }
     .catalog-refresh-btn:disabled { opacity: 0.55; cursor: default; }
     .catalog-msg { font-size: 12px; color: var(--muted); min-height: 0; }
-    .catalog-msg.ok { color: #22C55E; }
+    .catalog-msg.ok { color: var(--green); }
     .catalog-msg.err { color: var(--red); }
 
     /* Collapsible "what changed in the last update" list */
@@ -1316,7 +1378,7 @@
       padding: 1px 0;
     }
     .cc-sign { font-family: var(--font-mono); width: 12px; flex-shrink: 0; }
-    .cc-sign.add { color: #22C55E; }
+    .cc-sign.add { color: var(--green); }
     .cc-sign.rem { color: var(--red); }
     .cc-sign.ren { color: var(--yellow); }
     .cc-num { font-family: var(--font-mono); color: var(--yellow); flex-shrink: 0; }
@@ -1383,27 +1445,39 @@
 
 <!-- Screen 1: Scan -->
 <div class="screen active" id="screen-scan">
-  <!-- Scan area (live scan / take photo) — the primary action, kept at the top -->
-  <div class="scan-area">
+  <!-- Scan stage (camera-first): live viewfinder fills the card; the shutter
+       captures the current frame mid-scan, or opens the native camera when the
+       viewfinder is off. The side toggle starts/stops the live scan. -->
+  <div class="scan-area" id="scanStage">
     <span class="scan-grid"></span>
     <span class="corner-br"></span>
     <span class="corner-tr"></span>
     <div class="scan-socket" id="scanSocket"></div>
     <video id="liveVideo" playsinline muted style="display:none;"></video>
-    <div id="liveScanning" style="display:none;"><span class="live-dot"></span>Scanning…</div>
-    <p id="scanHint">Take a photo of a LEGO part or minifig to identify it and add it to your collection.</p>
-    <button class="btn" id="liveScanBtn" onclick="toggleLiveScan()" style="display:none;">Start Live Scan</button>
-    <button class="btn" id="takePhotoBtn" onclick="document.getElementById('cameraInput').click()">Take Photo</button>
+    <span class="scan-reticle" id="scanReticle" style="display:none;"></span>
+    <div id="liveScanning" style="display:none;"><span class="live-dot"></span>Scanning</div>
+    <p id="scanHint">Point the camera at a part or minifig.</p>
+    <div class="scan-controls">
+      <button class="scan-ctl" id="liveScanBtn" onclick="toggleLiveScan()" aria-label="Start live scan" style="display:none;">
+        <svg class="ico-cam" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8zm14.5 2.2 4-2.7a1 1 0 0 1 1.5.84v7.32a1 1 0 0 1-1.5.84l-4-2.7v-3.6z"/></svg>
+        <svg class="ico-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+      <button class="shutter-btn" id="shutterBtn" onclick="shutterTap()" aria-label="Take photo"><span class="shutter-core"></span></button>
+    </div>
     <input type="file" id="cameraInput" accept="image/*" capture="environment">
   </div>
 
-  <!-- Combined parts + minifigs search box -->
+  <!-- Combined parts + minifigs search: one pill, live results -->
   <div id="partsSearchSection" class="search-section">
-    <label>Search parts &amp; minifigs by name or number</label>
-    <div class="search-row">
-      <input id="partSearchInput" type="text" placeholder="e.g., 3710, plate 1 x 2, sw0001a"
-        onkeydown="if(event.key==='Enter')searchScanLocal()">
-      <button class="search-btn" onclick="searchScanLocal()">Search</button>
+    <div class="search-pill">
+      <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.25 4.25 1.41-1.42-4.25-4.24A7.5 7.5 0 0 0 10.5 3zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z"/></svg>
+      <input id="partSearchInput" type="text" placeholder="Search parts &amp; minifigs" enterkeyhint="search"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        oninput="onScanSearchInput()"
+        onkeydown="if(event.key==='Enter'){clearTimeout(_scanSearchTimer);searchScanLocal();this.blur();}">
+      <button class="mic-btn" onclick="openVoiceAdd()" aria-label="Add by voice">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14.5a3 3 0 0 0 3-3v-6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.5-3a5.5 5.5 0 0 1-11 0H4.4a7.6 7.6 0 0 0 6.6 7.43V22h2v-3.07a7.6 7.6 0 0 0 6.6-7.43h-2.1z"/></svg>
+      </button>
     </div>
     <div id="partSearchError" style="display:none;"></div>
     <div id="partSearchResults" style="display:none;">
@@ -1412,45 +1486,50 @@
       <div id="scanFigsHdr" class="search-group-label" style="display:none;">Minifigs</div>
       <div id="scanFigsResults" class="local-results" style="display:none;"></div>
     </div>
-    <button class="voice-add-btn" onclick="openVoiceAdd()">🎤 Add by voice</button>
   </div>
 
-  <!-- Parts list selector -->
-  <div id="partListRow" class="list-selector" style="padding:0 0 8px;">
-    <label>Add to parts list</label>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <select id="listSelect" style="flex:1" onchange="checkInventoryStatus()"><option value="">Loading...</option></select>
-      <button onclick="deleteList()" title="Delete selected list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--surface3);color:var(--text);font-size:18px;line-height:1;cursor:pointer;border:1px solid var(--border-bright);">🗑</button>
-      <button onclick="toggleNewList()" title="Create new list"
-        style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:var(--yellow);color:#06121F;font-size:22px;font-weight:700;line-height:1;cursor:pointer;">+</button>
+  <!-- Parts list selector: configuration, not an action — one slim row -->
+  <div id="partListRow" class="list-selector">
+    <div class="list-pick-row">
+      <span class="list-pick-label" id="listPickLabel">Adding to</span>
+      <select id="listSelect" onchange="checkInventoryStatus()" aria-labelledby="listPickLabel"><option value="">Loading...</option></select>
+      <button class="list-more-btn" id="listMoreBtn" onclick="toggleListActions()" aria-label="List actions" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </button>
+    </div>
+    <div id="listActionsRow" class="list-actions-row" style="display:none;">
+      <button class="figs-tool-btn" style="flex:1;" onclick="toggleNewList()">New list</button>
+      <button class="figs-tool-btn danger" style="flex:1;" onclick="deleteList()">Delete list</button>
     </div>
     <div id="newListRow" style="display:none;margin-top:10px;gap:8px;align-items:center;">
       <input id="newListName" type="text" placeholder="List name…"
-        style="flex:1;padding:8px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:15px;background:var(--surface3);color:var(--text);"
+        style="flex:1;min-width:0;padding:8px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:15px;background:var(--surface3);color:var(--text);"
         onkeydown="if(event.key==='Enter')createList()">
       <button onclick="createList()"
-        style="padding:8px 14px;background:var(--yellow);color:#06121F;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;cursor:pointer;">Create</button>
+        style="padding:8px 14px;background:var(--yellow);color:var(--on-accent);border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;cursor:pointer;">Create</button>
     </div>
   </div>
 
-  <!-- Offline catalog footer: last-updated + manual refresh (local dev only) -->
+  <!-- Offline catalog footer: one tappable line; details + refresh in the drawer (local dev only) -->
   <div id="catalogFooter" class="catalog-footer" style="display:none;">
-    <div class="catalog-info">
-      <span class="catalog-label">Offline catalog</span>
+    <button class="catalog-line" id="catalogLine" onclick="toggleCatalogDetails()" aria-expanded="false">
+      <span class="catalog-label">Catalog</span>
       <span id="catalogUpdated" class="catalog-updated">—</span>
-      <span id="catalogChecked" class="catalog-checked"></span>
-    </div>
-    <button id="catalogRefreshBtn" class="catalog-refresh-btn" onclick="refreshCatalog()">
-      Check for updates
+      <svg class="catalog-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.3 6 8.1l3.8-3.8z"/></svg>
     </button>
-    <div id="catalogMsg" class="catalog-msg"></div>
-    <div id="catalogChanges" class="catalog-changes" style="display:none;">
-      <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()">
-        <span id="catalogChangesArrow">▶</span>
-        <span id="catalogChangesSummary"></span>
+    <div id="catalogDetails" class="catalog-details" style="display:none;">
+      <span id="catalogChecked" class="catalog-checked"></span>
+      <button id="catalogRefreshBtn" class="catalog-refresh-btn" onclick="refreshCatalog()">
+        Check for updates
       </button>
-      <div id="catalogChangesBody" class="catalog-changes-body" style="display:none;"></div>
+      <div id="catalogMsg" class="catalog-msg"></div>
+      <div id="catalogChanges" class="catalog-changes" style="display:none;">
+        <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()">
+          <span id="catalogChangesArrow">▶</span>
+          <span id="catalogChangesSummary"></span>
+        </button>
+        <div id="catalogChangesBody" class="catalog-changes-body" style="display:none;"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1850,7 +1929,7 @@
     <g id="magnifyingGlassGroup" transform="translate(25, 20)">
       <circle id="glassLens" cx="0" cy="-12" r="6" fill="none" stroke="#3B9EFF" stroke-width="1.5" opacity="0.8"/>
       <line id="glassHandle" x1="4" y1="-8" x2="8" y2="-4" stroke="#3B9EFF" stroke-width="1.2" opacity="0.8"/>
-      <circle cx="0" cy="-12" r="5.5" fill="none" stroke="#22C55E" stroke-width="0.8" opacity="0.6" filter="url(#scanGlow)"/>
+      <circle cx="0" cy="-12" r="5.5" fill="none" stroke="var(--green)" stroke-width="0.8" opacity="0.6" filter="url(#scanGlow)"/>
     </g>
   </svg>
   <p id="loadingText">Identifying...</p>
@@ -2022,7 +2101,7 @@
           style="width:100%;padding:9px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:14px;background:var(--surface3);color:var(--text);margin-bottom:8px;"
           onkeydown="if(event.key==='Enter')createPartListFromModal()">
         <button onclick="createPartListFromModal()"
-          style="width:100%;padding:9px;background:var(--yellow);color:#06121F;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
+          style="width:100%;padding:9px;background:var(--yellow);color:var(--on-accent);border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn secondary" onclick="document.getElementById('selectPartListModal').style.display='none'" style="margin:0;">Cancel</button>
@@ -2044,7 +2123,7 @@
           style="width:100%;padding:9px 12px;border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:14px;background:var(--surface3);color:var(--text);margin-bottom:8px;"
           onkeydown="if(event.key==='Enter')createMinifigPartListFromModal()">
         <button onclick="createMinifigPartListFromModal()"
-          style="width:100%;padding:9px;background:var(--yellow);color:#06121F;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
+          style="width:100%;padding:9px;background:var(--yellow);color:var(--on-accent);border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;">Create</button>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn secondary" onclick="document.getElementById('addPartsListModal').style.display='none'" style="margin:0;">Cancel</button>
@@ -2190,6 +2269,17 @@
     if (!sel) return;
     const cur = parseInt(sel.value, 10);
     return loadPartlists(Number.isNaN(cur) ? undefined : cur);
+  }
+
+  // ⋯ button on the "Adding to" row — reveals New list / Delete list.
+  function toggleListActions() {
+    const row = document.getElementById('listActionsRow');
+    const on = row.style.display === 'none';
+    row.style.display = on ? 'flex' : 'none';
+    const btn = document.getElementById('listMoreBtn');
+    btn.setAttribute('aria-expanded', String(on));
+    btn.style.color = on ? 'var(--text)' : 'var(--muted)';
+    if (!on) document.getElementById('newListRow').style.display = 'none';
   }
 
   function toggleNewList() {
@@ -2446,12 +2536,44 @@
   }
 
   function _setLiveUI(on) {
-    const ids = { liveVideo: on, liveScanning: on };
-    const off = { scanSocket: on, scanHint: on, takePhotoBtn: on };
+    const stage = document.getElementById('scanStage');
+    if (stage) stage.classList.toggle('live', on);
+    const ids = { liveVideo: on, liveScanning: on, scanReticle: on };
+    const off = { scanSocket: on, scanHint: on };
     Object.entries(ids).forEach(([id, show]) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; });
     Object.entries(off).forEach(([id, hide]) => { const el = document.getElementById(id); if (el) el.style.display = hide ? 'none' : ''; });
     const btn = document.getElementById('liveScanBtn');
-    if (btn) { btn.style.display = liveSupported() ? '' : 'none'; btn.textContent = on ? 'Stop Live Scan' : 'Start Live Scan'; }
+    if (btn) {
+      btn.style.display = liveSupported() ? '' : 'none';
+      btn.setAttribute('aria-label', on ? 'Stop live scan' : 'Start live scan');
+    }
+    const shutter = document.getElementById('shutterBtn');
+    if (shutter) shutter.setAttribute('aria-label', on ? 'Capture this frame' : 'Take photo');
+  }
+
+  // Shutter: mid live-scan it grabs the current frame immediately (no
+  // confidence gate — the user is saying "this one"); with the viewfinder off
+  // it falls back to the native camera capture input.
+  function shutterTap() {
+    if (_liveRunning) { captureLiveFrame(); return; }
+    document.getElementById('cameraInput').click();
+  }
+  function captureLiveFrame() {
+    const video = document.getElementById('liveVideo');
+    if (!video || video.readyState < 2 || !video.videoWidth) return;
+    const scale = Math.min(1, 1024 / video.videoWidth);
+    const w = Math.round(video.videoWidth * scale), h = Math.round(video.videoHeight * scale);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(video, 0, 0, w, h);
+    c.toBlob((blob) => {
+      if (!blob || !_liveRunning) return;
+      if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
+      capturedObjectUrl = URL.createObjectURL(blob);
+      stopLiveScan();   // release the camera before presenting
+      animateTypewriter(document.querySelector('#screen-loading p'), 'Identifying...');
+      goTo('screen-loading');
+      identifyPart(new File([blob], 'live.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
   }
 
   async function startLiveScan() {
@@ -2872,6 +2994,22 @@
   // both groups, each rendered via renderLocalResults so result clicks and the
   // BrickLink-id escape hatch behave exactly like the single-type searches.
   let _scanSearchSeq = 0;
+  // Live search on a debounce. Short queries are skipped (on Render the
+  // offline DB is absent and this falls back to live Rebrickable calls, so
+  // don't fire on 1-2 chars) — Enter always forces a search.
+  let _scanSearchTimer = null;
+  function onScanSearchInput() {
+    clearTimeout(_scanSearchTimer);
+    const q = document.getElementById('partSearchInput').value.trim();
+    if (!q) {
+      _scanSearchSeq++;   // invalidate any in-flight search
+      document.getElementById('partSearchResults').style.display = 'none';
+      document.getElementById('partSearchError').style.display = 'none';
+      return;
+    }
+    if (q.length < 3) return;
+    _scanSearchTimer = setTimeout(searchScanLocal, 450);
+  }
   async function searchScanLocal() {
     const q = document.getElementById('partSearchInput').value.trim();
     const err = document.getElementById('partSearchError');
@@ -2928,7 +3066,7 @@
   // Green = local offline DB (no API quota); amber = live Rebrickable API.
   function sourceBadge(source, count) {
     const offline = source !== 'api';
-    const color = offline ? '#22C55E' : '#F5A623';
+    const color = offline ? 'var(--green)' : '#F5A623';
     const label = offline ? 'Offline catalog' : 'Rebrickable API';
     const plural = count === 1 ? 'result' : 'results';
     return `<div class="source-badge">
@@ -3091,15 +3229,14 @@
 
   function _fmtCatalog(info) {
     const el = document.getElementById('catalogUpdated');
-    if (info.present && info.last_updated_human) {
-      let txt = 'Updated ' + info.last_updated_human;
-      if (info.db_size_mb) txt += ' · ' + info.db_size_mb + ' MB';
-      el.textContent = txt;
-    } else {
-      el.textContent = info.present ? 'Present' : 'Not built yet';
-    }
-    const chk = document.getElementById('catalogChecked');
-    chk.textContent = info.last_checked_human ? 'Last checked ' + info.last_checked_human : '';
+    el.textContent = (info.present && info.last_updated_human)
+      ? 'Updated ' + info.last_updated_human
+      : (info.present ? 'Present' : 'Not built yet');
+    // Size + last-checked live in the drawer, keeping the footer one line.
+    const bits = [];
+    if (info.last_checked_human) bits.push('Last checked ' + info.last_checked_human);
+    if (info.present && info.db_size_mb) bits.push(info.db_size_mb + ' MB');
+    document.getElementById('catalogChecked').textContent = bits.join(' · ');
   }
 
   function _showCatalogResult(res) {
@@ -3140,6 +3277,9 @@
       if (info.running) {
         btn.disabled = true; btn.textContent = 'Updating…';
         document.getElementById('catalogMsg').textContent = 'Checking Rebrickable and rebuilding…';
+        // A rebuild is in flight — open the drawer so the progress is visible.
+        document.getElementById('catalogDetails').style.display = 'flex';
+        document.getElementById('catalogLine').setAttribute('aria-expanded', 'true');
         _pollCatalog();
       } else {
         btn.disabled = false; btn.textContent = 'Check for updates';
@@ -3245,6 +3385,15 @@
       html += '</div>';
     }
     document.getElementById('catalogChangesBody').innerHTML = html;
+  }
+
+  // The one-line footer expands into the details drawer (last-checked,
+  // refresh button, change list).
+  function toggleCatalogDetails() {
+    const d = document.getElementById('catalogDetails');
+    const open = d.style.display !== 'none';
+    d.style.display = open ? 'none' : 'flex';
+    document.getElementById('catalogLine').setAttribute('aria-expanded', String(!open));
   }
 
   function toggleCatalogChanges() {
@@ -5637,7 +5786,7 @@
       listView.style.display = 'block';
       compView.style.display = 'none';
       listBtn.style.background = '#3B9EFF';
-      listBtn.style.color = '#06121F';
+      listBtn.style.color = 'var(--on-accent)';
       compBtn.style.background = 'var(--surface3)';
       compBtn.style.color = 'var(--muted)';
     } else {
@@ -5646,7 +5795,7 @@
       listBtn.style.background = 'var(--surface3)';
       listBtn.style.color = 'var(--muted)';
       compBtn.style.background = '#3B9EFF';
-      compBtn.style.color = '#06121F';
+      compBtn.style.color = 'var(--on-accent)';
       loadComparisonView();
     }
   }
@@ -5690,7 +5839,7 @@
         // Check for rate limit (429 Too Many Requests)
         if (partlistsResp.status === 429) {
           comparisonGrid.innerHTML =
-            '<p style="color:var(--red);text-align:center;padding:24px 0;">⚠️ Rebrickable API rate limited. Please wait 1-2 hours and try again. <button onclick="loadComparisonView(true)" style="margin-top:12px;padding:8px 16px;background:#3B9EFF;color:#06121F;border:none;border-radius:4px;cursor:pointer;">Retry</button></p>';
+            '<p style="color:var(--red);text-align:center;padding:24px 0;">⚠️ Rebrickable API rate limited. Please wait 1-2 hours and try again. <button onclick="loadComparisonView(true)" style="margin-top:12px;padding:8px 16px;background:var(--yellow);color:var(--on-accent);border:none;border-radius:4px;cursor:pointer;">Retry</button></p>';
           return;
         }
 
@@ -5812,7 +5961,7 @@
             <div style="color:var(--muted);font-size:13px;">
               Inventory data: <span style="color:var(--green);">${cacheText}</span> (cached for 30 min)
             </div>
-            <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:#3B9EFF;color:#06121F;border:none;border-radius:4px;font-size:12px;cursor:pointer;">
+            <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:var(--yellow);color:var(--on-accent);border:none;border-radius:4px;font-size:12px;cursor:pointer;">
               🔄 Refresh Now
             </button>
           </div>
@@ -6857,7 +7006,7 @@
 
     // Update tab styling
     document.getElementById('tabParts').style.background = '#3B9EFF';
-    document.getElementById('tabParts').style.color = '#06121F';
+    document.getElementById('tabParts').style.color = 'var(--on-accent)';
     document.getElementById('tabMinifigs').style.background = 'var(--surface3)';
     document.getElementById('tabMinifigs').style.color = 'var(--muted)';
 
@@ -6919,7 +7068,7 @@
     document.getElementById('tabParts').style.background = 'var(--surface3)';
     document.getElementById('tabParts').style.color = 'var(--muted)';
     document.getElementById('tabMinifigs').style.background = '#3B9EFF';
-    document.getElementById('tabMinifigs').style.color = '#06121F';
+    document.getElementById('tabMinifigs').style.color = 'var(--on-accent)';
 
     const contentDiv = document.getElementById('setDetailsContent');
     contentDiv.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">Loading minifigs...</p>';
@@ -7090,13 +7239,13 @@
     try { _recognition.start(); } catch (e) { return; }
     _voiceListening = true;
     document.getElementById('voiceMicBtn').classList.add('listening');
-    document.getElementById('voiceMicIcon').textContent = '⏹';
+    document.getElementById('voiceMicBtn').setAttribute('aria-label', 'Stop listening');
     setVoiceStatus('Listening…');
   }
   function stopVoiceListen() {
     _voiceListening = false;
     document.getElementById('voiceMicBtn').classList.remove('listening');
-    document.getElementById('voiceMicIcon').textContent = '🎤';
+    document.getElementById('voiceMicBtn').setAttribute('aria-label', 'Start listening');
     try { _recognition && _recognition.stop(); } catch (e) {}
   }
 
@@ -7260,8 +7409,9 @@
   <div class="voice-sheet">
     <div class="voice-title">Add by voice</div>
     <div class="voice-hint">Say a part number, color, then quantity — e.g. <em>"3068b dark green 2"</em></div>
-    <button id="voiceMicBtn" class="voice-mic" onclick="toggleVoiceListen()" style="display:none;">
-      <span id="voiceMicIcon">🎤</span>
+    <button id="voiceMicBtn" class="voice-mic" onclick="toggleVoiceListen()" style="display:none;" aria-label="Start listening">
+      <svg class="ico-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14.5a3 3 0 0 0 3-3v-6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.5-3a5.5 5.5 0 0 1-11 0H4.4a7.6 7.6 0 0 0 6.6 7.43V22h2v-3.07a7.6 7.6 0 0 0 6.6-7.43h-2.1z"/></svg>
+      <svg class="ico-vstop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
     </button>
     <div id="voiceStatus" class="voice-status"></div>
     <input id="voiceText" type="text" class="voice-input"
