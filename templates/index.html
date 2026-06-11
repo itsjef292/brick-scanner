@@ -1047,6 +1047,21 @@
     .part-item-sub {
       font-size: 11px; color: var(--muted);
       display: flex; align-items: center; gap: 5px; margin-top: 2px;
+      flex-wrap: wrap;
+    }
+    /* Sorting-bin location chip on list rows: tap to edit (inline input swap) */
+    .bin-chip {
+      font-family: var(--font-mono); font-size: 10px; line-height: 1;
+      padding: 3px 6px; border-radius: 6px; flex-shrink: 0; cursor: pointer;
+      background: var(--surface3); border: 1px solid var(--border);
+      color: var(--text); appearance: none; -webkit-appearance: none;
+    }
+    .bin-chip.empty { background: transparent; border-style: dashed; color: var(--muted2); }
+    .bin-chip-input {
+      font-family: var(--font-mono); font-size: 16px; /* <16px zooms iOS Safari */
+      width: 88px; padding: 2px 6px; border-radius: 6px;
+      background: var(--surface3); border: 1px solid var(--yellow);
+      color: var(--text); outline: none;
     }
     .part-item-color-dot {
       width: 9px; height: 9px; border-radius: 50%;
@@ -5399,6 +5414,7 @@
 
   // ── Lists browser ──────────────────────────────────────────────────────
   let _listAllParts = [];      // full parts list held in memory for live search
+  let _partBins = {};          // part_num → sorting-bin label (.part_bins.json)
   let _listAllMinifigs = [];   // My Minifigs collection when viewed in the Lists tab
   let _listAllSets = [];       // My Sets collection when viewed in the Lists tab
   let _listMode = 'parts';     // 'parts' | 'minifigs' | 'sets' — Lists view contents
@@ -5455,14 +5471,17 @@
     grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">Loading…</p>';
     // Pull the whole list once (lightweight bulk endpoint) so search can filter
     // it instantly in memory. Thumbnails are lazy-loaded as rows scroll in.
-    return fetch(`/api/partlists/${listId}/parts_all`)
-      .then(r => r.json())
-      .then(data => {
+    return Promise.all([
+      fetch(`/api/partlists/${listId}/parts_all`).then(r => r.json()),
+      fetch('/api/part_bins').then(r => r.json()).catch(() => null),
+    ])
+      .then(([data, binData]) => {
         if (seq !== _listLoadSeq) return;  // a newer selection superseded this
         if (data.error) {
           grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>';
           return;
         }
+        if (binData && binData.bins) _partBins = binData.bins;
         _listAllParts = data.results || [];
         wrap.style.display = _listAllParts.length ? 'block' : 'none';
         renderListParts('');
@@ -5607,7 +5626,8 @@
       parts = parts.filter(p =>
         (p.part_num || '').toLowerCase().includes(q) ||
         (p.name || '').toLowerCase().includes(q) ||
-        (p.color_name || '').toLowerCase().includes(q)
+        (p.color_name || '').toLowerCase().includes(q) ||
+        (_partBins[p.part_num] || '').toLowerCase().includes(q)
       );
     }
 
@@ -5640,6 +5660,7 @@
             <span>${colorName}</span>
             <span style="color:var(--muted);margin-left:4px;">•</span>
             <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${partNum}" target="_blank" style="color:var(--yellow);text-decoration:none;margin-left:4px;font-size:13px;">${partNum}</a>
+            ${_binChipHtml(partNum)}
           </div>
         </div>
         <div class="part-item-actions">
@@ -5663,6 +5684,52 @@
       });
     });
     lazyLoadImages(grid);
+  }
+
+  // ── Sorting bins (where the part physically lives; keyed by part_num) ──
+  function _binChipHtml(partNum) {
+    const bin = _partBins[partNum];
+    const esc = partNum.replace(/'/g, "\\'");
+    return bin
+      ? `<button class="bin-chip" aria-label="Edit bin for ${partNum}" onclick="editPartBin(event,'${esc}')">${escapeHtml(bin)}</button>`
+      : `<button class="bin-chip empty" aria-label="Set bin for ${partNum}" onclick="editPartBin(event,'${esc}')">+ Bin</button>`;
+  }
+
+  // Tap the chip → swap it for an inline input; Enter/blur saves, Esc cancels.
+  // Empty label clears the bin. The map is global, so every row of the same
+  // part (in any list) shows the new bin on its next render.
+  function editPartBin(ev, partNum) {
+    ev.stopPropagation();
+    const chip = ev.currentTarget;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'bin-chip-input';
+    input.maxLength = 40;
+    input.placeholder = 'Bin…';
+    input.autocapitalize = 'characters';
+    input.value = _partBins[partNum] || '';
+    chip.replaceWith(input);
+    input.focus();
+    input.select();
+    let cancelled = false;
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.blur();
+      else if (e.key === 'Escape') { cancelled = true; input.blur(); }
+    });
+    input.addEventListener('blur', () => {
+      const label = cancelled ? (_partBins[partNum] || '') : input.value.trim();
+      const prev = _partBins[partNum] || '';
+      if (label) _partBins[partNum] = label; else delete _partBins[partNum];
+      const tmp = document.createElement('span');
+      tmp.innerHTML = _binChipHtml(partNum);
+      input.replaceWith(tmp.firstElementChild);
+      if (label === prev) return;
+      fetch(`/api/part_bins/${encodeURIComponent(partNum)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bin: label }),
+      }).catch(() => {});
+    });
   }
 
   // ── List Compare ──

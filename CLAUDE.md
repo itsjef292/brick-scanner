@@ -76,6 +76,10 @@ Endpoints (grep `@app.route` for the full list; notable ones):
   `GET …/<id>/parts/<part>/<color>` (in-list check), `GET /api/part_in_lists/…`
   (all lists holding a part), `POST /api/add_part`, `POST /api/remove_part_one`,
   `GET …/<id>/bricklink_wanted` (Wanted-List XML via `bl_aliases`/`bl_colors`).
+  **Sorting bins:** `GET /api/part_bins` + `POST /api/part_bins/<part_num>` —
+  physical bin label per part (`.part_bins.json`, keyed by part_num only —
+  colour-agnostic); shown as a tap-to-edit chip on list rows (`_binChipHtml`/
+  `editPartBin`), matched by list live-search.
 - **Minifig info:** `GET /api/minifig_sets/<set_num>`,
   `GET /api/minifig_variants/<bl_id>` (variants sharing the id's numeric base, e.g.
   sw0574→sw0574a; probes BrickLink — no variant API — and caches

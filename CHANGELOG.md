@@ -3,6 +3,19 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Sorting-bin locations on parts lists (June 2026):**
+- Each row on the Part Lists screen gets a tappable mono **bin chip** after the
+  part number (`.bin-chip`; dashed "+ Bin" when unset) recording where the part
+  physically lives in the sorting bins. Tap → inline input swap (16px font so
+  iOS Safari doesn't zoom), Enter/blur saves, Esc cancels, empty clears.
+- Stored in **`.part_bins.json`** keyed by **part number only** (a mould lives
+  in one bin regardless of colour or which list references it), so the same bin
+  shows on every colour-row of the part across all lists. `GET /api/part_bins`
+  (full map, joined client-side at list load) + `POST /api/part_bins/<part_num>`.
+  Same `_load_meta`/`_save_meta` machinery as set meta; effectively LOCAL-ONLY
+  (ephemeral on Render). The list live-search also matches bin labels, so typing
+  "A3" filters to that bin's contents.
+
 **Retiring-sets section (June 2026):**
 - New **"Retiring Soon"** button on the Sets toolbar → `screen-retirement`:
   LEGO retirement dates from the **Brick Tap community sheet** (data sourced

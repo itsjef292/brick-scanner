@@ -54,6 +54,10 @@ CATALOG_LAST_CHECKED_PATH = os.path.join(_HERE, ".catalog_last_checked")
 #                           sets), so the collection can't live there.
 SET_META_PATH = os.path.join(_HERE, ".set_meta.json")
 MINIFIG_COLLECTION_PATH = os.path.join(_HERE, ".minifig_collection.json")
+#   PART_BINS_PATH        — physical sorting-bin location per part ({part_num:
+#                           "A3"}). Keyed by part number only: a mould lives in
+#                           one bin regardless of colour or which list holds it.
+PART_BINS_PATH = os.path.join(_HERE, ".part_bins.json")
 _meta_lock = threading.Lock()
 
 
@@ -1967,6 +1971,26 @@ def get_part_in_lists(part_num, color_id):
     except Exception as e:
         print(f"Error fetching part in lists: {e}")
         return jsonify({"error": str(e), "results": []}), 500
+
+
+@app.route("/api/part_bins")
+def get_part_bins():
+    """Full part→bin map (.part_bins.json); the client joins it onto list rows."""
+    return jsonify({"bins": _load_meta(PART_BINS_PATH)})
+
+
+@app.route("/api/part_bins/<path:part_num>", methods=["POST"])
+def set_part_bin(part_num):
+    """Set (or clear, with an empty label) the sorting-bin location of a part."""
+    label = str((request.json or {}).get("bin") or "").strip()[:40]
+    with _meta_lock:
+        bins = _load_meta(PART_BINS_PATH)
+        if label:
+            bins[part_num] = label
+        else:
+            bins.pop(part_num, None)
+        _save_meta(PART_BINS_PATH, bins)
+    return jsonify({"part_num": part_num, "bin": label or None})
 
 
 @app.route("/api/add_part", methods=["POST"])
