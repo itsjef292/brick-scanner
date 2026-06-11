@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bin Stickers — Brick Scanner</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="/static/qrcode.min.js"></script>
+  <style>
+    /* Print page: always light — stickers go on white label paper. */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px; background: #E9EEF5; color: #18222E;
+      font-family: 'Inter', sans-serif;
+    }
+    .controls {
+      max-width: 720px; margin: 0 auto 20px;
+      background: #F7F9FC; border: 1px solid rgba(40,70,110,0.14);
+      border-radius: 12px; padding: 16px;
+    }
+    .controls h1 { margin: 0 0 4px; font-size: 18px; }
+    .controls p { margin: 0 0 12px; font-size: 13px; color: #54637A; }
+    .controls .row { display: flex; gap: 8px; }
+    .controls input {
+      flex: 1; padding: 10px 12px; font-family: 'Space Mono', monospace; font-size: 14px;
+      border: 1px solid rgba(40,70,110,0.28); border-radius: 8px; background: #fff; color: #18222E;
+    }
+    .controls button {
+      padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer;
+      background: #1B7FE0; color: #fff; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+    }
+    .sheet {
+      max-width: 720px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+    }
+    .sticker {
+      background: #fff; border: 1px dashed rgba(40,70,110,0.35); border-radius: 8px;
+      padding: 12px; display: flex; gap: 12px; align-items: center;
+      break-inside: avoid; page-break-inside: avoid;
+    }
+    .sticker img { width: 84px; height: 84px; image-rendering: pixelated; flex-shrink: 0; }
+    .sticker .meta { min-width: 0; }
+    .sticker .label {
+      font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700; line-height: 1.1;
+      word-break: break-word;
+    }
+    .sticker .parts { margin-top: 6px; font-size: 10px; color: #54637A; }
+    .sticker .parts .pn { font-family: 'Space Mono', monospace; color: #18222E; }
+    .empty { max-width: 720px; margin: 40px auto; text-align: center; color: #54637A; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .controls { display: none; }
+      .sheet { max-width: none; gap: 8px; }
+      .sticker { border-color: #bbb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <h1>Bin Stickers</h1>
+    <p>Each QR opens that bin in Brick Scanner. Set the base URL to the address your
+       <strong>phone</strong> uses (e.g. the Tailscale URL), then print — the dashed
+       outlines are cut guides.</p>
+    <div class="row">
+      <input id="baseUrl" type="url" spellcheck="false">
+      <button onclick="window.print()">Print</button>
+    </div>
+  </div>
+
+  {% if labels %}
+  <div class="sheet">
+    {% for label in labels %}
+    <div class="sticker" data-label="{{ label }}">
+      <img alt="QR for bin {{ label }}">
+      <div class="meta">
+        <div class="label">{{ label }}</div>
+        <div class="parts">
+          {% for p in by_label[label][:4] %}
+          <div><span class="pn">{{ p.part_num }}</span>{% if p.name %} · {{ p.name|truncate(34) }}{% endif %}</div>
+          {% endfor %}
+          {% if by_label[label]|length > 4 %}<div>+ {{ by_label[label]|length - 4 }} more</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No bins yet — assign bins to parts on the Part Lists screen first.</div>
+  {% endif %}
+
+  <script>
+    const input = document.getElementById('baseUrl');
+    input.value = localStorage.getItem('binStickerBase') || window.location.origin;
+    input.addEventListener('input', render);
+
+    function render() {
+      const base = input.value.replace(/\/+$/, '');
+      try { localStorage.setItem('binStickerBase', base); } catch (e) {}
+      document.querySelectorAll('.sticker').forEach(card => {
+        const label = card.dataset.label;
+        const qr = qrcode(0, 'M');
+        qr.addData(`${base}/?bin=${encodeURIComponent(label)}`);
+        qr.make();
+        card.querySelector('img').src = qr.createDataURL(4, 8);
+      });
+    }
+    render();
+  </script>
+</body>
+</html>

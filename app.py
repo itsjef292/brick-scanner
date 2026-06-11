@@ -1993,6 +1993,33 @@ def set_part_bin(part_num):
     return jsonify({"part_num": part_num, "bin": label or None})
 
 
+@app.route("/bins/print")
+def bin_stickers():
+    """Printable QR sticker sheet — one card per distinct bin label. Each QR
+    encodes <base>/?bin=<label> (base editable on the page, since stickers must
+    point at the host the PHONE uses — Tailscale — not where they're printed)."""
+    bins = _load_meta(PART_BINS_PATH)
+    by_label = {}
+    for part_num, label in sorted(bins.items()):
+        by_label.setdefault(label, []).append({"part_num": part_num, "name": None})
+    conn = local_db()
+    if conn is not None:
+        try:
+            for parts in by_label.values():
+                for p in parts:
+                    row = conn.execute(
+                        "SELECT name FROM parts WHERE part_num = ?", (p["part_num"],)
+                    ).fetchone()
+                    if row:
+                        p["name"] = row["name"]
+        except sqlite3.OperationalError:
+            pass
+        finally:
+            conn.close()
+    labels = sorted(by_label.keys(), key=lambda s: (len(s), s.lower()))
+    return render_template("bin_stickers.html", labels=labels, by_label=by_label)
+
+
 @app.route("/api/add_part", methods=["POST"])
 def add_part():
     data = request.json

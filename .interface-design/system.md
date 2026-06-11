@@ -55,7 +55,7 @@ white on the darker azure in light) and `--green-bg`/`--green-border`/`--green-t
 | `--muted` | `#9EAAB9` | secondary ink / labels |
 | `--muted2` | `#697686` | tertiary / placeholder |
 | `--yellow` (accent) | `#3B9EFF` | azure — the single accent |
-| `--copper` | `#C87941` | wordmark + collection headers (`.collection-head`: My Minifigs / My Sets title+stats) only |
+| `--copper` | `#C87941` | wordmark + collection headers (`.collection-head`: My Minifigs / My Sets title+stats) + sorting-bin chips (`.bin-chip`, with `--copper-border`) — "your physical world" warm accent, never general decoration |
 | `--yellow-glow` | `rgba(59,158,255,0.12)` | accent tint |
 | `--green` | `#46C97E` | in-inventory / success (meaning only) |
 | `--red` | `#F0564B` | remove / destructive (meaning only) |

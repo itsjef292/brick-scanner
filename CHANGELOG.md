@@ -3,6 +3,29 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Bin QR stickers — scan a bin, take a piece out (June 2026):**
+- **Printable sticker sheet** at `GET /bins/print` (standalone light-themed
+  `templates/bin_stickers.html`, linked from Manage list → "Print Bin QR
+  Stickers"): one dashed-outline card per distinct bin (QR + big mono label +
+  part numbers/names from the local catalog). The QR encodes
+  `<base>/?bin=<label>`; the base URL is an editable field (persisted in
+  `localStorage('binStickerBase')`) since stickers must point at the host the
+  *phone* uses (Tailscale), not where they're printed. QRs drawn client-side by
+  vendored `static/qrcode.min.js` (kazuhikoarase qrcode-generator, MIT).
+- **Two scan paths to `screen-bin`:** the iPhone camera app opens the deep link
+  `/?bin=<label>` (handled at boot, then `history.replaceState` so reload won't
+  re-open), and the live viewfinder decodes QRs mid-scan via vendored
+  `static/jsQR.js` (MIT, lazy-loaded on live-scan start; `_binFromCanvas` checks
+  each tick + shutter frame before the Brickognize upload and jumps straight to
+  the bin).
+- **Bin screen** (`openBinScreen`/`renderBinRows`/`binAdjust`): aggregates
+  every part filed under the label across ALL parts lists (parts_all per list,
+  filtered client-side), one row per part+color+list with one-tap red **"− 1"**
+  / green **"+ 1"** pills (`/api/remove_part_one` / `/api/add_part`) flanking
+  the quantity + toast with the resulting count.
+  Deliberately **no auto-remove on scan** — a reload or double-scan must never
+  silently double-decrement. Back-swipe → Scan tab.
+
 **Sorting-bin locations on parts lists (June 2026):**
 - Each row on the Part Lists screen gets a tappable mono **bin chip** after the
   part number (`.bin-chip`; dashed "+ Bin" when unset) recording where the part

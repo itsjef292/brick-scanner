@@ -78,8 +78,13 @@ Endpoints (grep `@app.route` for the full list; notable ones):
   `GET …/<id>/bricklink_wanted` (Wanted-List XML via `bl_aliases`/`bl_colors`).
   **Sorting bins:** `GET /api/part_bins` + `POST /api/part_bins/<part_num>` —
   physical bin label per part (`.part_bins.json`, keyed by part_num only —
-  colour-agnostic); shown as a tap-to-edit chip on list rows (`_binChipHtml`/
-  `editPartBin`), matched by list live-search.
+  colour-agnostic); shown as a tap-to-edit copper chip on list rows
+  (`_binChipHtml`/`editPartBin`), matched by list live-search. `GET /bins/print`
+  → printable QR sticker sheet (`bin_stickers.html`; QR = `<base>/?bin=<label>`,
+  base editable — must be the PHONE's host). Scanning a sticker (camera-app
+  deep link `/?bin=` or live-viewfinder jsQR) opens `screen-bin`
+  (`openBinScreen`): bin contents across all lists, one-tap "− 1"/"+ 1" stepper
+  per row (`binAdjust` → remove_part_one/add_part) — never auto-removes on scan.
 - **Minifig info:** `GET /api/minifig_sets/<set_num>`,
   `GET /api/minifig_variants/<bl_id>` (variants sharing the id's numeric base, e.g.
   sw0574→sw0574a; probes BrickLink — no variant API — and caches
@@ -233,7 +238,8 @@ Render/Tailscale/keys/cost detail: **`SETUP.md`**.
 - **templates/index.html** — 5500+ lines: HTML + CSS + vanilla JS + canvas color detection.
 - **.interface-design/system.md** — design system; read before UI work.
 - **build_brick_db.py** — builds `brick_parts.db` from the `Brick Parts/` CSV dump.
-- **static/** — minifig PNG, header SVG, PWA assets (`manifest.webmanifest`, `sw.js`, icons).
+- **static/** — minifig PNG, header SVG, PWA assets (`manifest.webmanifest`, `sw.js`, icons),
+  vendored QR libs (`qrcode.min.js` encoder for `/bins/print`, `jsQR.js` decoder lazy-loaded by live scan).
 - **SETUP.md** — new-machine setup, Tailscale, Render keys/cost.
 - **CHANGELOG.md** — full history of notable changes.
 - **install_agents.sh** + `com.brickscanner.*.plist` / `refresh_*.sh|py` — launchd

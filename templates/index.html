@@ -30,8 +30,9 @@
       --yellow-dim: #2C82E6;
       --yellow-glow: rgba(59,158,255,0.12);
       --yellow-glow-md: rgba(59,158,255,0.22);
-      /* Copper — the wordmark's warm metal; collection headers only. */
+      /* Copper — the wordmark's warm metal; collection headers + bin chips. */
       --copper: #C87941;
+      --copper-border: rgba(200,121,65,0.40);
       /* Bluish-gray elevation — LEGO's real structural neutral, in the azure
          hue family. baseplate → brick-1 → brick-2 → raised. */
       --bg: #0A0E12;
@@ -83,6 +84,7 @@
       --yellow-glow: rgba(27,127,224,0.10);
       --yellow-glow-md: rgba(27,127,224,0.22);
       --copper: #A8602A;
+      --copper-border: rgba(168,96,42,0.45);
       --bg: #E9EEF5;
       --surface: #F7F9FC;
       --surface2: #FFFFFF;
@@ -1053,16 +1055,25 @@
     .bin-chip {
       font-family: var(--font-mono); font-size: 10px; line-height: 1;
       padding: 3px 6px; border-radius: 6px; flex-shrink: 0; cursor: pointer;
-      background: var(--surface3); border: 1px solid var(--border);
-      color: var(--text); appearance: none; -webkit-appearance: none;
+      background: var(--surface3); border: 1px solid var(--copper-border);
+      color: var(--copper); appearance: none; -webkit-appearance: none;
     }
-    .bin-chip.empty { background: transparent; border-style: dashed; color: var(--muted2); }
+    .bin-chip.empty { background: transparent; border: 1px dashed var(--border); color: var(--muted2); }
     .bin-chip-input {
       font-family: var(--font-mono); font-size: 16px; /* <16px zooms iOS Safari */
       width: 88px; padding: 2px 6px; border-radius: 6px;
       background: var(--surface3); border: 1px solid var(--yellow);
       color: var(--text); outline: none;
     }
+    /* Bin screen (QR sticker target): one-tap take-out / put-back stepper */
+    .bin-take-btn {
+      background: var(--red-bg); border: 1px solid var(--red-border);
+      color: var(--red-text); border-radius: 999px; padding: 10px 13px;
+      font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .bin-take-btn.add { background: var(--green-bg); border-color: var(--green-border); color: var(--green-text); }
+    .bin-take-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .part-item-color-dot {
       width: 9px; height: 9px; border-radius: 50%;
       flex-shrink: 0; border: 1px solid rgba(255,255,255,.12);
@@ -1731,6 +1742,12 @@
       </div>
 
       <div class="list-tool-group">
+        <div class="sub-label">Sorting Bins</div>
+        <button class="action-btn" onclick="window.open('/bins/print', '_blank')">Print Bin QR Stickers</button>
+        <div class="status-text">Scan a sticker (camera app or live scan) to open that bin and remove parts.</div>
+      </div>
+
+      <div class="list-tool-group">
         <div class="sub-label">Compare Lists</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
           <select id="compareListA" style="flex:1;min-width:100px;padding:8px 10px;background:var(--surface3);color:var(--text);border:1px solid var(--border-bright);border-radius:var(--radius-sm);font-size:13px;">
@@ -1855,6 +1872,18 @@
   </div>
   <div id="retireMeta" style="font-size:11px;color:var(--muted2);margin:0 0 6px;"></div>
   <div id="retireList"></div>
+</div>
+
+<!-- Screen: Bin — opened by scanning a bin QR sticker (?bin=A3 deep link or
+     the live viewfinder). Shows everything filed under that bin across all
+     parts lists; each row has a one-tap "− 1" to log taking a piece out. -->
+<div class="screen" id="screen-bin">
+  <button class="back-btn" onclick="goTo('screen-scan')">← Back to Scan</button>
+  <div class="bulk-review-head">
+    <h2>Bin <span id="binLabel" style="font-family:var(--font-mono);color:var(--copper);"></span></h2>
+    <span class="bulk-count" id="binCount"></span>
+  </div>
+  <div id="binRows"></div>
 </div>
 
 <!-- Screen: Set Details -->
@@ -2588,6 +2617,8 @@
     const w = Math.round(video.videoWidth * scale), h = Math.round(video.videoHeight * scale);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     c.getContext('2d').drawImage(video, 0, 0, w, h);
+    const shutterBin = _binFromCanvas(c);
+    if (shutterBin) { stopLiveScan(); openBinScreen(shutterBin); return; }
     c.toBlob((blob) => {
       if (!blob || !_liveRunning) return;
       stopLiveScan();   // release the camera before presenting
@@ -2616,6 +2647,7 @@
     video.muted = true; video.setAttribute('playsinline', '');
     try { await video.play(); } catch (e) {}
     _setLiveUI(true);
+    _ensureJsQR().catch(() => {});   // bin-QR detection; ticks skip it until loaded
     _liveTimer = setInterval(liveTick, LIVE_INTERVAL);
   }
 
@@ -2637,6 +2669,10 @@
     const w = Math.round(video.videoWidth * scale), h = Math.round(video.videoHeight * scale);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     c.getContext('2d').drawImage(video, 0, 0, w, h);
+    // A bin QR sticker in frame beats a part hit — jump straight to the bin
+    // screen (and skip the pointless Brickognize round-trip).
+    const qrBin = _binFromCanvas(c);
+    if (qrBin) { stopLiveScan(); openBinScreen(qrBin); return; }
     c.toBlob((blob) => {
       if (!blob || !_liveRunning) { _liveBusy = false; return; }
       const form = new FormData();
@@ -3276,6 +3312,7 @@
     'screen-success': () => retakeOrBack(),                        // → originating tab
     'screen-bulk-review': () => goTo('screen-scan'),
     'screen-retirement': () => goTo('screen-sets'),
+    'screen-bin': () => goTo('screen-scan'),
   };
   function _overlayOpen() {
     if (document.querySelector('#imageModal.active, #voiceModal.active, #blExportModal.active, #compareModal.active, #setSubtractModal.active')) return true;
@@ -5731,6 +5768,167 @@
       }).catch(() => {});
     });
   }
+
+  // ── Bin screen — the QR sticker's landing place ──────────────────────────
+  // A sticker QR encodes <host>/?bin=<label> (printable sheet at /bins/print).
+  // Two ways in: the iPhone camera app opens the URL (deep link below), or the
+  // live viewfinder spots the QR mid-scan (jsQR hook in liveTick). The screen
+  // lists every part filed under the bin across all lists; "− 1" logs taking a
+  // piece out via the normal remove-one endpoint. Deliberately NO auto-remove
+  // on scan — a reload or double-scan must never silently double-decrement.
+  let _binEntries = [];   // rows on screen: {listId, listName, ...parts_all row}
+  let _binSeq = 0;        // invalidates in-flight loads when a newer scan lands
+
+  async function openBinScreen(label) {
+    const seq = ++_binSeq;
+    goTo('screen-bin');
+    document.getElementById('binLabel').textContent = label;
+    document.getElementById('binCount').textContent = '';
+    const rowsEl = document.getElementById('binRows');
+    rowsEl.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">Loading…</p>';
+    try {
+      const bins = ((await fetch('/api/part_bins').then(r => r.json())).bins) || {};
+      _partBins = bins;
+      const want = label.toLowerCase();
+      const partSet = new Set(Object.keys(bins).filter(p => (bins[p] || '').toLowerCase() === want));
+      if (!partSet.size) {
+        if (seq === _binSeq) rowsEl.innerHTML =
+          `<p style="color:var(--muted);text-align:center;padding:24px 0">No parts are assigned to bin “${escapeHtml(label)}” — set bins on the Part Lists screen.</p>`;
+        return;
+      }
+      const lists = ((await fetch('/api/partlists').then(r => r.json())).results) || [];
+      const found = [];
+      await Promise.all(lists.map(l =>
+        fetch(`/api/partlists/${l.id}/parts_all`).then(r => r.json())
+          .then(d => (d.results || []).forEach(p => {
+            if (partSet.has(p.part_num)) found.push({ listId: l.id, listName: l.name, ...p });
+          }))
+          .catch(() => {})
+      ));
+      if (seq !== _binSeq) return;
+      found.sort((a, b) => a.part_num.localeCompare(b.part_num) || (a.color_name || '').localeCompare(b.color_name || ''));
+      _binEntries = found;
+      renderBinRows();
+    } catch (e) {
+      if (seq === _binSeq) rowsEl.innerHTML =
+        '<p style="color:var(--red);text-align:center;padding:24px 0">Couldn’t load bin contents.</p>';
+    }
+  }
+
+  function renderBinRows() {
+    const rowsEl = document.getElementById('binRows');
+    const total = _binEntries.reduce((s, e) => s + (e.quantity || 0), 0);
+    document.getElementById('binCount').textContent = _binEntries.length
+      ? `${_binEntries.length} entr${_binEntries.length === 1 ? 'y' : 'ies'} · ${total} pieces` : '';
+    if (!_binEntries.length) {
+      rowsEl.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px 0">This bin is empty — every piece has been taken out.</p>';
+      return;
+    }
+    rowsEl.innerHTML = _binEntries.map((e, i) => {
+      const img = e.img_url || '';
+      return `<div class="part-item">
+        ${img ? `<img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'">` :
+                `<div style="width:52px;height:52px;border-radius:var(--radius-sm);background:var(--surface3);flex-shrink:0"></div>`}
+        <div class="part-item-info">
+          <div class="part-item-name">${e.name || e.part_num}</div>
+          <div class="part-item-sub">
+            <span class="part-item-color-dot" style="background:#${e.rgb || 'ccc'}"></span>
+            <span>${e.color_name || ''}</span>
+            <span style="color:var(--muted);margin-left:4px;">•</span>
+            <span style="font-family:var(--font-mono);color:var(--yellow);margin-left:4px;">${e.part_num}</span>
+            <span style="color:var(--muted2);">· ${escapeHtml(e.listName)}</span>
+          </div>
+        </div>
+        <button class="bin-take-btn" aria-label="Remove one ${(e.name || e.part_num).replace(/"/g, '&quot;')}"
+          onclick="binAdjust(${i}, -1, this)">− 1</button>
+        <div class="part-item-qty">×${e.quantity || 0}</div>
+        <button class="bin-take-btn add" aria-label="Add one ${(e.name || e.part_num).replace(/"/g, '&quot;')}"
+          onclick="binAdjust(${i}, 1, this)">+ 1</button>
+      </div>`;
+    }).join('');
+    lazyLoadImages(rowsEl);
+  }
+
+  // Take a piece out (−1) or put one back / file a new one (+1).
+  function binAdjust(idx, delta, btn) {
+    const e = _binEntries[idx];
+    if (!e || btn.disabled) return;
+    btn.disabled = true;
+    const endpoint = delta > 0 ? '/api/add_part' : '/api/remove_part_one';
+    const body = { list_id: e.listId, part_num: e.part_num, color_id: parseInt(e.color_id) };
+    if (delta > 0) body.quantity = 1;
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          showToast(`Couldn’t ${delta > 0 ? 'add' : 'remove'}: ${data.error || 'unknown error'}`);
+          btn.disabled = false;
+          return;
+        }
+        // Adds don't echo a reliable total back (same as mutateListPart), so
+        // count up locally; removes return the authoritative remainder.
+        e.quantity = delta > 0 ? (e.quantity || 0) + 1 : (parseInt(data.quantity) || 0);
+        const name = decodeHtmlEntities(e.name || e.part_num);
+        showToast(delta > 0
+          ? `Put back 1 × ${name} — ×${e.quantity} in ${e.listName}`
+          : `Took 1 × ${name} — ${e.quantity ? `×${e.quantity} left` : 'none left'} in ${e.listName}`);
+        if (e.quantity <= 0) _binEntries.splice(idx, 1);
+        renderBinRows();   // rebuilds rows, indices, and the count line
+      })
+      .catch(() => { showToast('Network error.'); btn.disabled = false; });
+  }
+
+  // QR payload → bin label. Accepts the sticker URL form (…/?bin=A3) and a
+  // bare "BIN:A3" in case anyone hand-makes codes.
+  function _binFromQrText(text) {
+    if (!text) return null;
+    try {
+      const b = new URL(text).searchParams.get('bin');
+      if (b) return b;
+    } catch (e) {}
+    const m = /^BIN:(.+)$/i.exec(text.trim());
+    return m ? m[1].trim() : null;
+  }
+
+  // jsQR is 250KB, only needed while the viewfinder runs — load it lazily when
+  // live scan starts; until it arrives, ticks just skip the QR check.
+  let _jsQrPromise = null;
+  function _ensureJsQR() {
+    if (window.jsQR) return Promise.resolve();
+    if (!_jsQrPromise) {
+      _jsQrPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = '/static/jsQR.js';
+        s.onload = resolve;
+        s.onerror = () => { _jsQrPromise = null; reject(); };
+        document.head.appendChild(s);
+      });
+    }
+    return _jsQrPromise;
+  }
+
+  // Scan the current viewfinder frame (already on a canvas) for a bin QR.
+  function _binFromCanvas(c) {
+    if (!window.jsQR) return null;
+    try {
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+      const hit = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
+      return hit ? _binFromQrText(hit.data) : null;
+    } catch (e) { return null; }
+  }
+
+  // Deep link from a sticker scanned with the camera app: /?bin=A3. The URL is
+  // cleaned immediately so a pull-to-refresh doesn't re-open the bin screen.
+  (function binDeepLink() {
+    const label = new URLSearchParams(window.location.search).get('bin');
+    if (!label) return;
+    history.replaceState(null, '', window.location.pathname);
+    openBinScreen(label);
+  })();
 
   // ── List Compare ──
   let _cmpData = null;   // { in_both, only_a, only_b }
