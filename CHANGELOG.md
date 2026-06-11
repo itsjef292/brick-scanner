@@ -3,6 +3,69 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Retiring-sets section (June 2026):**
+- New **"Retiring Soon"** button on the Sets toolbar → `screen-retirement`:
+  LEGO retirement dates from the **Brick Tap community sheet** (data sourced
+  from Brick Hound), searchable by name/number and filterable by **theme** and
+  **retirement month** (month dropdown includes a "Recently retired" group,
+  newest first). Rows grouped under month labels; thumbs guessed from
+  `cdn.rebrickable.com/media/sets/{num}-1.jpg`; tap opens the LEGO.com product
+  page (affiliate redirects unwrapped to plain `lego.com` URLs at parse time).
+- **Data pipeline:** the sheet is link-public, so `refresh_retirement.py`
+  downloads the xlsx export (no Google auth), parses the "Sorted by Retirement
+  Date" + "Recently Retired" tabs (header row sniffed; rows without a real
+  datetime in the date column skipped), and writes **`retirement_sets.json`**
+  (~1900 sets, committed — so Render ships with data). `GET /api/retirement`
+  serves it (mtime-cached); `POST /api/retirement/refresh` re-pulls — LOCAL-ONLY
+  (403 on Render; needs `openpyxl`, a user-site dep of `/usr/bin/python3`, NOT
+  in requirements.txt). A launchd agent (`com.brickscanner.retirement-refresh`,
+  via `refresh_retirement.sh`) re-pulls on the 5th of each month at 06:00 local —
+  the sheet updates near the start of each month.
+
+**Bulk scanning fixes — bbox space + full-pile sweep (June 2026):**
+- **Root-cause fix:** Brickognize returns bounding boxes in ITS internal resized
+  space (the bbox's own `image_width/height`), not the submitted image's. The
+  single-scan client always honored that; `identify_multi` didn't — so every
+  mask/overlay landed offset toward the origin (user-visible as the box hovering
+  the wrong piece), and "masked" pieces kept re-triggering because the paint
+  never covered them. Server now rescales each bbox into its image space.
+- **Sweep hardening:** dud rounds (overlapped/unclassifiable detections) no
+  longer end the loop — they paint a progressively larger patch and continue
+  (same-size re-masks provably don't dislodge the detector); only a 5-dud
+  streak stops pass 1. **Pass 2** then finds leftover not-background blobs
+  (pure-PIL connected components on a coarse grid, `_find_blobs`) and submits a
+  tight crop of each — catches pieces the detector never fires on; blob results
+  deduped by intersection-over-smaller-box. Regions sorted into reading order.
+  5/5 pieces on the synthetic EXIF-orientation-6 test (was 3/5).
+- **Frontend:** photo-overlay boxes now %-positioned (immune to iOS layout
+  timing — the px-at-onload math also misplaced boxes), plus an "N pieces
+  boxed" hint under the photo. Debug trail per pile scan: `/tmp/brk_multi.json`.
+
+**Bulk scanning (June 2026):**
+- **Backend:** `identify()` factored into `_brickognize_search()` +
+  `_items_from_detected()` (behavior unchanged). New `POST /api/identify_multi`:
+  Brickognize's internal endpoint only ever returns ONE `detected_items` entry
+  (verified empirically + against their own frontend bundle), so the route loops
+  mask-and-rescan — detect the most prominent piece, paint its bbox with the
+  border-sampled background colour (Pillow, now in requirements.txt), resubmit;
+  stops on no detection, score < 0.25, bbox-IoU > 0.5 vs. an already-found region
+  (mask didn't take), or 8 rounds (politeness cap). Mid-loop network failure
+  returns the regions found so far with `"partial": true`.
+- **Frontend bulk mode** (layers toggle right of the shutter, persisted in
+  `localStorage('bulkScan')`): live-scan hits are filed into a **scan tray**
+  (`bulkTray`, chips strip under the scan stage) while the camera keeps running —
+  conveyor workflow. Dedupe: the same top candidate won't re-add until 2 clear
+  ticks (piece left the frame); identical part+colour rows merge into ×N.
+  The shutter (or photo capture) in bulk mode sends the frame to
+  `/api/identify_multi` — pile scan; each region gets per-bbox colour sampling.
+- **Review screen** (`screen-bulk-review`): pile photo with numbered bbox
+  overlays, one row per piece (candidate select when Brickognize returned
+  alternates, colour select with stud dot, ×N steppers, red `needs-color`
+  highlight), "Parts go to" list picker (defaults to the scan tab's selection),
+  **Add All** (parts → `/api/add_part` per row, minifigs → `/api/add_minifig`;
+  failures stay in the tray). Colour decision logic factored out of
+  `showIdentifyScreen` into shared `resolveDetectedColor()`.
+
 **Sets + Part Lists consistency pass (June 2026):**
 - **Sets tab now mirrors Figs exactly:** centred copper `.collection-head`
   ("My Sets" + mono stats), pill catalog search (`.list-search-input`, debounced

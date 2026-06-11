@@ -37,3 +37,6 @@ minifig_prices.launchd.log
 set_prices.log
 set_prices.launchd.log
 .playwright-mcp/
+
+# Monthly retirement-data refresh log (local dev only)
+retirement_refresh.log

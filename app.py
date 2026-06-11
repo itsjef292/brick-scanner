@@ -810,6 +810,43 @@ def get_status():
     return jsonify(status)
 
 
+# ── Retirement dates (Brick Tap community sheet → retirement_sets.json) ───────
+# The JSON is committed (built by refresh_retirement.py), so it's available on
+# Render too; only the refresh itself is LOCAL-ONLY (needs openpyxl + writes).
+RETIREMENT_PATH = os.path.join(_HERE, "retirement_sets.json")
+_RETIREMENT_CACHE = {"mtime": None, "data": None}
+
+
+@app.route("/api/retirement")
+def get_retirement():
+    """Full retirement dataset; the client filters in memory (like parts_all)."""
+    try:
+        mtime = os.path.getmtime(RETIREMENT_PATH)
+        if _RETIREMENT_CACHE["mtime"] != mtime:
+            with open(RETIREMENT_PATH) as f:
+                _RETIREMENT_CACHE["data"] = json.load(f)
+            _RETIREMENT_CACHE["mtime"] = mtime
+        data = dict(_RETIREMENT_CACHE["data"])
+    except (OSError, ValueError):
+        data = {"updated": "", "sets": []}
+    data["can_refresh"] = not IS_RENDER
+    return jsonify(data), 200
+
+
+@app.route("/api/retirement/refresh", methods=["POST"])
+def retirement_refresh():
+    if IS_RENDER:
+        return jsonify({"error": "Refresh runs on the local instance only"}), 403
+    try:
+        from refresh_retirement import refresh
+        out = refresh()
+        return jsonify({"updated": out["updated"], "count": out["count"]}), 200
+    except ImportError:
+        return jsonify({"error": "openpyxl not installed (see refresh_retirement.py)"}), 501
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/api/catalog/status")
 def catalog_status():
     """Offline-catalog freshness + refresh capability (for the scan-screen footer)."""
@@ -1017,6 +1054,154 @@ def _brk_color_id(color_id_str):
     return None
 
 
+def _brickognize_search(filename, img_bytes, content_type):
+    """POST an image to Brickognize's internal search endpoint (it returns
+    server-side candidate_colors, unlike the public /predict/)."""
+    resp = requests.post(
+        "https://api.brickognize.com/internal/search/",
+        params={"external_catalogs": "bricklink", "predict_color": "true"},
+        files={"query_image": (filename, img_bytes, content_type)},
+        headers={"Origin": "https://brickognize.com", "Referer": "https://brickognize.com/"},
+        timeout=30,
+    )
+    return resp.json()
+
+
+def _items_from_detected(detected, max_candidates=None):
+    """Convert one Brickognize detected_item into our items list: strip catalog
+    prefixes, resolve BrickLink→Rebrickable ids, attach images + candidate colors."""
+    candidates = detected.get("candidate_items", [])
+    if max_candidates:
+        candidates = candidates[:max_candidates]
+    items = []
+    for ci in candidates:
+        raw_id = ci.get("id", "")
+        item_type = "minifig" if ci.get("type") in ("minifig", "fig") else "part"
+        bl_id = raw_id.replace("part-", "").replace("minifig-", "").replace("fig-", "")
+        ext = next((e for e in ci.get("external_items", [])
+                    if e.get("catalog_name") == "bricklink"), {})
+        bl_external_id = ext.get("external_id", bl_id)
+
+        # Resolve BrickLink ID → Rebrickable ID
+        rb_id = bl_id
+        bl_only = False
+        if item_type == "minifig":
+            name = ci.get("name", "")
+            resolved = None
+            # Prefer the offline catalog (no API quota); fall back to the live API.
+            local_fig = _local_resolve_minifig(name)
+            if local_fig:
+                resolved = local_fig["fig_num"]
+            else:
+                try:
+                    # Rebrickable doesn't support bricklink_id filtering for minifigs.
+                    # Strip color/variant suffix (after " - " or "(") for a cleaner search term,
+                    # then pick the result with the most word overlap against the full name.
+                    search_name = re.split(r' - | \(', name)[0].strip() if name else ""
+                    if search_name:
+                        rb_resp = requests.get(
+                            f"{RB_BASE}/lego/minifigs/",
+                            params={"key": API_KEY, "search": search_name, "page_size": 8},
+                            timeout=5,
+                        )
+                        if rb_resp.status_code == 200:
+                            results = rb_resp.json().get("results", [])
+                            if results:
+                                full_words = set(re.findall(r'\w+', name.lower()))
+                                def _overlap(r):
+                                    return len(full_words & set(re.findall(r'\w+', r['name'].lower())))
+                                best = max(results, key=_overlap)
+                                # Only trust a strong match — a weak single-word
+                                # overlap binds the wrong fig (see _MINIFIG_MATCH_MIN).
+                                if _minifig_match_score(name, best['name']) >= _MINIFIG_MATCH_MIN:
+                                    resolved = best['set_num']
+                except Exception:
+                    pass
+            if resolved:
+                rb_id = resolved
+            else:
+                # No confident Rebrickable match — identify by the BrickLink id so
+                # the owned-collection key isn't bound to a wrong fig (e.g. a
+                # brand-new fig Rebrickable hasn't catalogued). Mirrors the
+                # bl-only search path (openMinifigFromBlOnly).
+                rb_id = bl_external_id
+                bl_only = True
+            img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
+        else:
+            # Prefer the offline catalog (no API quota); fall back to the live API.
+            local_part = _local_resolve_part(bl_external_id)
+            if local_part:
+                rb_id = local_part["part_num"]
+                img_url = local_part["img_url"] or \
+                    f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
+            else:
+                rb_part = None
+                try:
+                    rb_resp = requests.get(
+                        f"{RB_BASE}/lego/parts/",
+                        params={"key": API_KEY, "bricklink_id": bl_external_id},
+                        timeout=5,
+                    )
+                    if rb_resp.status_code == 200:
+                        results = rb_resp.json().get("results", [])
+                        if results:
+                            rb_part = results[0]
+                            rb_id = rb_part["part_num"]
+                except Exception:
+                    pass
+                # Use Rebrickable image if available, otherwise BrickLink
+                if rb_part and rb_part.get("part_img_url"):
+                    img_url = rb_part["part_img_url"]
+                else:
+                    img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
+
+        # Build candidate_colors with Rebrickable IDs (parts only).
+        # Brickognize's numeric color ids are BrickLink-namespaced (e.g.
+        # color-156 = Medium Azure ≠ Rebrickable 156), so resolve the correct
+        # Rebrickable id by NAME via the local catalog; fall back to the raw
+        # stripped id only when the name can't be resolved.
+        rb_colors = []
+        if item_type != "minifig":
+            for c in ci.get("candidate_colors", []):
+                cname = c.get("name", "")
+                c_rb_id = _local_color_id_by_name(cname)
+                if c_rb_id is None:
+                    c_rb_id = _brk_color_id(c.get("id", ""))
+                if c_rb_id:
+                    rb_colors.append({"id": str(c_rb_id), "name": cname})
+
+        item = {
+            "id": rb_id,
+            "bl_id": bl_external_id,
+            "name": ci.get("name", ""),
+            "img_url": img_url,
+            "external_sites": [{"name": "bricklink", "url": ext.get("url", "")}] if ext else [],
+            "type": item_type,
+            "score": ci.get("score", 0),
+        }
+        if bl_only:
+            item["bl_only"] = True   # no Rebrickable catalog entry; key by bl_id
+        if rb_colors:
+            item["candidate_colors"] = rb_colors
+        items.append(item)
+
+    # Brickognize predicts the scanned object's colour but only attaches the
+    # candidate_colors to some part guesses (e.g. the 2x2 tile, not a mis-ranked
+    # 6x6). The object's colour is the same whichever part it guesses, so share
+    # the first non-empty colour shortlist with every item that lacks one.
+    # Otherwise the colour matcher falls back to that part's full palette and can
+    # pick a wrong nearby colour the object isn't (e.g. azure → Dark Turquoise
+    # when the mis-ranked part doesn't even come in Medium Azure).
+    shared_colors = next((it["candidate_colors"] for it in items
+                          if it.get("candidate_colors")), None)
+    if shared_colors:
+        for it in items:
+            if not it.get("candidate_colors"):
+                it["candidate_colors"] = shared_colors
+
+    return items
+
+
 @app.route("/api/identify", methods=["POST"])
 def identify():
     if "image" not in request.files:
@@ -1024,146 +1209,13 @@ def identify():
     image = request.files["image"]
     img_bytes = image.read()
     try:
-        # Use Brickognize's internal endpoint which returns server-side candidate_colors
-        resp = requests.post(
-            "https://api.brickognize.com/internal/search/",
-            params={"external_catalogs": "bricklink", "predict_color": "true"},
-            files={"query_image": (image.filename, img_bytes, image.content_type)},
-            headers={"Origin": "https://brickognize.com", "Referer": "https://brickognize.com/"},
-            timeout=30,
-        )
-        idata = resp.json()
+        idata = _brickognize_search(image.filename, img_bytes, image.content_type)
 
         # Convert internal format → our existing format
         detected = (idata.get("detected_items") or [{}])[0]
         bb_list = detected.get("bounding_boxes") or []
         bounding_box = bb_list[0] if bb_list else {}
-
-        items = []
-        for ci in detected.get("candidate_items", []):
-            raw_id = ci.get("id", "")
-            item_type = "minifig" if ci.get("type") in ("minifig", "fig") else "part"
-            bl_id = raw_id.replace("part-", "").replace("minifig-", "").replace("fig-", "")
-            ext = next((e for e in ci.get("external_items", [])
-                        if e.get("catalog_name") == "bricklink"), {})
-            bl_external_id = ext.get("external_id", bl_id)
-
-            # Resolve BrickLink ID → Rebrickable ID
-            rb_id = bl_id
-            bl_only = False
-            if item_type == "minifig":
-                name = ci.get("name", "")
-                resolved = None
-                # Prefer the offline catalog (no API quota); fall back to the live API.
-                local_fig = _local_resolve_minifig(name)
-                if local_fig:
-                    resolved = local_fig["fig_num"]
-                else:
-                    try:
-                        # Rebrickable doesn't support bricklink_id filtering for minifigs.
-                        # Strip color/variant suffix (after " - " or "(") for a cleaner search term,
-                        # then pick the result with the most word overlap against the full name.
-                        search_name = re.split(r' - | \(', name)[0].strip() if name else ""
-                        if search_name:
-                            rb_resp = requests.get(
-                                f"{RB_BASE}/lego/minifigs/",
-                                params={"key": API_KEY, "search": search_name, "page_size": 8},
-                                timeout=5,
-                            )
-                            if rb_resp.status_code == 200:
-                                results = rb_resp.json().get("results", [])
-                                if results:
-                                    full_words = set(re.findall(r'\w+', name.lower()))
-                                    def _overlap(r):
-                                        return len(full_words & set(re.findall(r'\w+', r['name'].lower())))
-                                    best = max(results, key=_overlap)
-                                    # Only trust a strong match — a weak single-word
-                                    # overlap binds the wrong fig (see _MINIFIG_MATCH_MIN).
-                                    if _minifig_match_score(name, best['name']) >= _MINIFIG_MATCH_MIN:
-                                        resolved = best['set_num']
-                    except Exception:
-                        pass
-                if resolved:
-                    rb_id = resolved
-                else:
-                    # No confident Rebrickable match — identify by the BrickLink id so
-                    # the owned-collection key isn't bound to a wrong fig (e.g. a
-                    # brand-new fig Rebrickable hasn't catalogued). Mirrors the
-                    # bl-only search path (openMinifigFromBlOnly).
-                    rb_id = bl_external_id
-                    bl_only = True
-                img_url = f"https://img.bricklink.com/ItemImage/MN/0/{bl_external_id}.png"
-            else:
-                # Prefer the offline catalog (no API quota); fall back to the live API.
-                local_part = _local_resolve_part(bl_external_id)
-                if local_part:
-                    rb_id = local_part["part_num"]
-                    img_url = local_part["img_url"] or \
-                        f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
-                else:
-                    rb_part = None
-                    try:
-                        rb_resp = requests.get(
-                            f"{RB_BASE}/lego/parts/",
-                            params={"key": API_KEY, "bricklink_id": bl_external_id},
-                            timeout=5,
-                        )
-                        if rb_resp.status_code == 200:
-                            results = rb_resp.json().get("results", [])
-                            if results:
-                                rb_part = results[0]
-                                rb_id = rb_part["part_num"]
-                    except Exception:
-                        pass
-                    # Use Rebrickable image if available, otherwise BrickLink
-                    if rb_part and rb_part.get("part_img_url"):
-                        img_url = rb_part["part_img_url"]
-                    else:
-                        img_url = f"https://img.bricklink.com/ItemImage/PN/0/{bl_external_id}.png"
-
-            # Build candidate_colors with Rebrickable IDs (parts only).
-            # Brickognize's numeric color ids are BrickLink-namespaced (e.g.
-            # color-156 = Medium Azure ≠ Rebrickable 156), so resolve the correct
-            # Rebrickable id by NAME via the local catalog; fall back to the raw
-            # stripped id only when the name can't be resolved.
-            rb_colors = []
-            if item_type != "minifig":
-                for c in ci.get("candidate_colors", []):
-                    cname = c.get("name", "")
-                    c_rb_id = _local_color_id_by_name(cname)
-                    if c_rb_id is None:
-                        c_rb_id = _brk_color_id(c.get("id", ""))
-                    if c_rb_id:
-                        rb_colors.append({"id": str(c_rb_id), "name": cname})
-
-            item = {
-                "id": rb_id,
-                "bl_id": bl_external_id,
-                "name": ci.get("name", ""),
-                "img_url": img_url,
-                "external_sites": [{"name": "bricklink", "url": ext.get("url", "")}] if ext else [],
-                "type": item_type,
-                "score": ci.get("score", 0),
-            }
-            if bl_only:
-                item["bl_only"] = True   # no Rebrickable catalog entry; key by bl_id
-            if rb_colors:
-                item["candidate_colors"] = rb_colors
-            items.append(item)
-
-        # Brickognize predicts the scanned object's colour but only attaches the
-        # candidate_colors to some part guesses (e.g. the 2x2 tile, not a mis-ranked
-        # 6x6). The object's colour is the same whichever part it guesses, so share
-        # the first non-empty colour shortlist with every item that lacks one.
-        # Otherwise the colour matcher falls back to that part's full palette and can
-        # pick a wrong nearby colour the object isn't (e.g. azure → Dark Turquoise
-        # when the mis-ranked part doesn't even come in Medium Azure).
-        shared_colors = next((it["candidate_colors"] for it in items
-                              if it.get("candidate_colors")), None)
-        if shared_colors:
-            for it in items:
-                if not it.get("candidate_colors"):
-                    it["candidate_colors"] = shared_colors
+        items = _items_from_detected(detected)
 
         data = {
             "listing_id": idata.get("id", ""),
@@ -1177,6 +1229,213 @@ def identify():
         return jsonify(data), 200
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 502
+
+
+def _bbox_iou(a, b):
+    ix = max(0, min(a["right"], b["right"]) - max(a["left"], b["left"]))
+    iy = max(0, min(a["lower"], b["lower"]) - max(a["upper"], b["upper"]))
+    inter = ix * iy
+    union = ((a["right"] - a["left"]) * (a["lower"] - a["upper"])
+             + (b["right"] - b["left"]) * (b["lower"] - b["upper"]) - inter)
+    return inter / union if union > 0 else 0
+
+
+def _find_blobs(img, bg, max_blobs=8):
+    """Pieces Brickognize's detector never fired on: connected components of
+    not-background pixels on a coarse grid (already-masked spots read as
+    background, so they're skipped automatically). Returns full-res bboxes,
+    biggest first."""
+    from collections import deque
+    w, h = img.size
+    scale = max(1, w // 320)
+    small = img.resize((max(1, w // scale), max(1, h // scale)))
+    sw, sh = small.size
+    px = small.load()
+    grid = bytearray(sw * sh)
+    for y in range(sh):
+        row = y * sw
+        for x in range(sw):
+            r, g, b = px[x, y][:3]
+            if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) > 60:
+                grid[row + x] = 1
+    blobs = []
+    seen = bytearray(sw * sh)
+    for i in range(sw * sh):
+        if not grid[i] or seen[i]:
+            continue
+        q = deque([i])
+        seen[i] = 1
+        x0 = x1 = i % sw
+        y0 = y1 = i // sw
+        n = 0
+        while q:
+            j = q.popleft()
+            n += 1
+            xj, yj = j % sw, j // sw
+            x0 = min(x0, xj); x1 = max(x1, xj)
+            y0 = min(y0, yj); y1 = max(y1, yj)
+            for dj in (-1, 1, -sw, sw):
+                k = j + dj
+                if dj in (-1, 1) and k // sw != yj:
+                    continue   # row wrap
+                if 0 <= k < sw * sh and grid[k] and not seen[k]:
+                    seen[k] = 1
+                    q.append(k)
+        bw, bh = x1 - x0 + 1, y1 - y0 + 1
+        # Too small = noise/shadow speck; too large = busy background, not a piece.
+        if n >= 25 and bw >= 4 and bh >= 4 and bw * bh < 0.5 * sw * sh:
+            blobs.append({"left": x0 * scale, "upper": y0 * scale,
+                          "right": (x1 + 1) * scale, "lower": (y1 + 1) * scale,
+                          "image_width": w, "image_height": h, "_n": n})
+    blobs.sort(key=lambda b: -b.pop("_n"))
+    return blobs[:max_blobs]
+
+
+@app.route("/api/identify_multi", methods=["POST"])
+def identify_multi():
+    """Bulk scan: identify every piece in one photo. Brickognize only returns one
+    detection per image, so loop: detect the most prominent piece, paint over its
+    bounding box with the background colour, resubmit — until nothing confident
+    remains. Returns regions in the (EXIF-upright) image's coordinate space."""
+    if "image" not in request.files:
+        return jsonify({"error": "No image provided"}), 400
+    try:
+        from PIL import Image, ImageDraw, ImageOps, ImageStat
+    except ImportError:
+        return jsonify({"error": "Multi-piece scan requires Pillow on the server"}), 501
+    try:
+        img = Image.open(request.files["image"].stream)
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    except Exception:
+        return jsonify({"error": "Could not read image"}), 400
+
+    # Downscale like the client does for single scans — keeps each round fast.
+    w, h = img.size
+    if w > 1280:
+        img = img.resize((1280, round(h * 1280 / w)))
+        w, h = img.size
+
+    # Background colour = median of the border strips; it fills the masks that
+    # hide already-identified pieces from the next round.
+    edge = max(2, min(w, h) // 50)
+    strips = [img.crop((0, 0, w, edge)), img.crop((0, h - edge, w, h)),
+              img.crop((0, 0, edge, h)), img.crop((w - edge, 0, w, h))]
+    bg = tuple(round(sum(ImageStat.Stat(s).median[c] for s in strips) / 4)
+               for c in range(3))
+
+    MAX_PIECES = 10       # regions returned
+    MAX_ROUNDS = 14       # Brickognize requests per photo (politeness cap)
+    MIN_SCORE = 0.2
+    MAX_DUD_STREAK = 5    # consecutive non-productive rounds before giving up
+    regions = []
+    debug = []
+    draw = ImageDraw.Draw(img)
+    base_pad = max(6, min(w, h) // 60)
+
+    def _mask(bb, pad):
+        draw.rectangle([max(0, bb["left"] - pad), max(0, bb["upper"] - pad),
+                        min(w, bb["right"] + pad), min(h, bb["lower"] + pad)],
+                       fill=bg)
+
+    orig = img.copy()     # pristine copy for second-pass crops (img gets masked)
+    rounds = 0            # Brickognize requests across both passes
+    dud_streak = 0
+    try:
+        # Pass 1: Brickognize's own detector, mask-and-rescan.
+        while rounds < MAX_ROUNDS and len(regions) < MAX_PIECES \
+                and dud_streak < MAX_DUD_STREAK:
+            rounds += 1
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            idata = _brickognize_search("multi.jpg", buf.getvalue(), "image/jpeg")
+            detected = (idata.get("detected_items") or [{}])[0]
+            bb_list = detected.get("bounding_boxes") or []
+            bb = bb_list[0] if bb_list else None
+            if not bb:
+                # Detector sees nothing prominent left; pass 2 sweeps leftovers.
+                debug.append({"round": rounds, "result": "no detection"})
+                break
+            # Brickognize reports bbox coords in ITS internal (resized) space —
+            # the bbox carries that space's image_width/height. Scale to our
+            # image space, or every mask/overlay lands offset toward the origin.
+            sx = w / (bb.get("image_width") or w)
+            sy = h / (bb.get("image_height") or h)
+            bb = {"left": bb["left"] * sx, "upper": bb["upper"] * sy,
+                  "right": bb["right"] * sx, "lower": bb["lower"] * sy,
+                  # our space, so the client's colour sampler scales correctly
+                  "image_width": w, "image_height": h}
+            items = _items_from_detected(detected, max_candidates=6)
+            top = items[0] if items else {}
+            hit = next((r["bounding_box"] for r in regions
+                        if _bbox_iou(bb, r["bounding_box"]) > 0.5), None)
+            debug.append({"round": rounds, "bbox": bb, "top": top.get("id"),
+                          "score": top.get("score"), "overlap": bool(hit)})
+            if hit or not items or (top.get("score") or 0) < MIN_SCORE:
+                # Dud round: the detector re-found a masked spot (flat patches
+                # leave detectable edges/fragments) or couldn't classify it.
+                # Paint a progressively LARGER patch over the spot — same-size
+                # re-masks provably don't dislodge the detector — and move on;
+                # only a streak of duds ends the pass.
+                dud_streak += 1
+                union = bb if not hit else {
+                    "left": min(bb["left"], hit["left"]),
+                    "upper": min(bb["upper"], hit["upper"]),
+                    "right": max(bb["right"], hit["right"]),
+                    "lower": max(bb["lower"], hit["lower"]),
+                }
+                _mask(union, base_pad * (1 + dud_streak * 2))
+                continue
+            dud_streak = 0
+            _mask(bb, base_pad)
+            regions.append({"bounding_box": bb, "items": items})
+
+        # Pass 2: pieces the detector never fired on. Find leftover
+        # not-background blobs in the masked image and classify a tight crop of
+        # each — Brickognize handles centered single-piece crops well even when
+        # its detector skips them in the full frame.
+        def _same_spot(a, b):
+            # Intersection over the SMALLER box: catches a blob that surrounds
+            # (or sits inside) an already-found region, where plain IoU stays low.
+            ix = max(0, min(a["right"], b["right"]) - max(a["left"], b["left"]))
+            iy = max(0, min(a["lower"], b["lower"]) - max(a["upper"], b["upper"]))
+            amin = min((a["right"] - a["left"]) * (a["lower"] - a["upper"]),
+                       (b["right"] - b["left"]) * (b["lower"] - b["upper"]))
+            return amin > 0 and (ix * iy) / amin > 0.4
+
+        for blob in _find_blobs(img, bg):
+            if rounds >= MAX_ROUNDS or len(regions) >= MAX_PIECES:
+                break
+            if any(_same_spot(blob, r["bounding_box"]) for r in regions):
+                continue
+            mx = round((blob["right"] - blob["left"]) * 0.15)
+            my = round((blob["lower"] - blob["upper"]) * 0.15)
+            crop = orig.crop((max(0, blob["left"] - mx), max(0, blob["upper"] - my),
+                              min(w, blob["right"] + mx), min(h, blob["lower"] + my)))
+            rounds += 1
+            buf = io.BytesIO()
+            crop.save(buf, format="JPEG", quality=85)
+            idata = _brickognize_search("crop.jpg", buf.getvalue(), "image/jpeg")
+            detected = (idata.get("detected_items") or [{}])[0]
+            items = _items_from_detected(detected, max_candidates=6)
+            top = items[0] if items else {}
+            debug.append({"round": rounds, "pass": "crop", "bbox": blob,
+                          "top": top.get("id"), "score": top.get("score")})
+            if items and (top.get("score") or 0) >= MIN_SCORE:
+                regions.append({"bounding_box": blob, "items": items})
+        # Read order beats discovery order: top-to-bottom, left-to-right.
+        regions.sort(key=lambda r: (r["bounding_box"]["upper"] // 80,
+                                    r["bounding_box"]["left"]))
+    except requests.exceptions.RequestException as e:
+        if not regions:
+            return jsonify({"error": str(e)}), 502
+    finally:
+        # Debug trail for the last pile scan (mirrors /tmp/brk_full.json).
+        try:
+            with open("/tmp/brk_multi.json", "w") as f:
+                json.dump(debug, f, indent=2, default=str)
+        except OSError:
+            pass
+    return jsonify({"regions": regions, "image_width": w, "image_height": h}), 200
 
 
 @app.route("/api/partlists/<int:list_id>/parts")

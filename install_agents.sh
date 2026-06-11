@@ -9,23 +9,26 @@
 #   ./install_agents.sh            # install/refresh both agents
 #
 # Agents installed:
-#   com.brickscanner.app             — keeps the Flask server up (RunAtLoad + KeepAlive)
-#   com.brickscanner.catalog-refresh — daily offline-catalog refresh at 07:30 local
-#   com.brickscanner.minifig-prices  — daily BrickLink price refresh (My Minifigs) at 05:00 local
-#   com.brickscanner.set-prices      — daily BrickLink price refresh (My Sets) at 05:30 local
+#   com.brickscanner.app                — keeps the Flask server up (RunAtLoad + KeepAlive)
+#   com.brickscanner.catalog-refresh    — daily offline-catalog refresh at 07:30 local
+#   com.brickscanner.minifig-prices    — daily BrickLink price refresh (My Minifigs) at 05:00 local
+#   com.brickscanner.set-prices        — daily BrickLink price refresh (My Sets) at 05:30 local
+#   com.brickscanner.retirement-refresh — Brick Tap retirement data, 5th of each month 06:00 local
+#                                         (needs openpyxl: /usr/bin/python3 -m pip install --user openpyxl)
 #
 # Uninstall:
 #   launchctl unload ~/Library/LaunchAgents/com.brickscanner.app.plist
 #   launchctl unload ~/Library/LaunchAgents/com.brickscanner.catalog-refresh.plist
 #   launchctl unload ~/Library/LaunchAgents/com.brickscanner.minifig-prices.plist
 #   launchctl unload ~/Library/LaunchAgents/com.brickscanner.set-prices.plist
+#   launchctl unload ~/Library/LaunchAgents/com.brickscanner.retirement-refresh.plist
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 LA="$HOME/Library/LaunchAgents"
 mkdir -p "$LA"
 
-for label in com.brickscanner.app com.brickscanner.catalog-refresh com.brickscanner.minifig-prices com.brickscanner.set-prices; do
+for label in com.brickscanner.app com.brickscanner.catalog-refresh com.brickscanner.minifig-prices com.brickscanner.set-prices com.brickscanner.retirement-refresh; do
   src="$DIR/$label.plist"
   dst="$LA/$label.plist"
   if [ ! -f "$src" ]; then
@@ -44,6 +47,6 @@ done
 
 echo ""
 echo "  Done. App autostarts at login; catalog refreshes 07:30, minifig prices 05:00,"
-echo "  set prices 05:30 local."
+echo "  set prices 05:30 local; retirement data on the 5th of each month at 06:00."
 echo "  Reach it over Tailscale — run ./start.sh once to print the URL, or use the"
 echo "  always-on agent and open  http://<this-mac>.<tailnet>.ts.net:5001  on your phone."

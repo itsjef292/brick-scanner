@@ -406,6 +406,111 @@
     .scan-ctl .ico-stop { display: none; }
     .scan-area.live .scan-ctl .ico-cam { display: none; }
     .scan-area.live .scan-ctl .ico-stop { display: block; }
+    /* Bulk-mode toggle: mirrors the live toggle on the shutter's other side */
+    .scan-ctl.bulk-ctl { right: auto; left: calc(50% + 60px); }
+    .scan-ctl.bulk-ctl.on,
+    .scan-area.live .scan-ctl.bulk-ctl.on { background: var(--yellow); border-color: transparent; color: var(--on-accent); }
+    /* Bulk tray: pieces identified in bulk mode stack here until reviewed */
+    .bulk-tray {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 12px; padding: 10px 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .bulk-tray-scroll {
+      display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; min-height: 44px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    .bulk-tray-empty { color: var(--muted2); font-size: 13px; }
+    .bulk-chip {
+      position: relative; width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: var(--radius-sm); background: var(--socket); border: 1px solid var(--border);
+    }
+    .bulk-chip img { width: 100%; height: 100%; object-fit: contain; }
+    .bulk-chip-qty {
+      position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px;
+      border-radius: 9px; background: var(--yellow); color: var(--on-accent);
+      font-family: var(--font-mono); font-size: 11px; line-height: 18px; text-align: center;
+    }
+    .bulk-review-btn {
+      flex-shrink: 0; padding: 10px 16px; border: none; border-radius: 999px; cursor: pointer;
+      background: var(--yellow); color: var(--on-accent);
+      font-family: var(--font-display); font-size: 13px; font-weight: 700; text-transform: uppercase;
+    }
+    .bulk-review-btn:disabled { background: var(--surface3); color: var(--muted2); }
+    /* Bulk review screen */
+    .bulk-review-head { display: flex; align-items: baseline; justify-content: space-between; margin: 8px 0 12px; }
+    .bulk-review-head h2 { font-size: 20px; margin: 0; }
+    .bulk-review-head .bulk-count { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+    .bulk-photo-wrap {
+      position: relative; margin-bottom: 12px; border-radius: var(--radius); overflow: hidden;
+      background: var(--socket); border: 1px solid var(--border);
+    }
+    .bulk-photo-wrap img { display: block; width: 100%; }
+    .bulk-photo-box { position: absolute; border: 2px solid var(--yellow); border-radius: 4px; }
+    .bulk-photo-box span {
+      position: absolute; top: -2px; left: -2px; min-width: 18px; height: 18px; padding: 0 4px;
+      background: var(--yellow); color: var(--on-accent); border-radius: 0 0 4px 0;
+      font-family: var(--font-mono); font-size: 11px; line-height: 18px; text-align: center;
+    }
+    .bulk-photo-hint { font-size: 11px; color: var(--muted2); margin: -6px 2px 12px; }
+    .bulk-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .bulk-row.needs-color { border-color: var(--red); }
+    .bulk-row-num { font-family: var(--font-mono); font-size: 12px; color: var(--muted2); flex-shrink: 0; }
+    .bulk-thumb {
+      width: 52px; height: 52px; flex-shrink: 0; object-fit: contain;
+      border-radius: var(--radius-sm); background: var(--socket); border: 1px solid var(--border);
+    }
+    .bulk-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .bulk-row-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bulk-row-id { font-family: var(--font-mono); font-size: 11px; color: var(--yellow); }
+    .bulk-cand-select, .bulk-color-select {
+      width: 100%; min-width: 0; padding: 6px 8px; font-size: 13px;
+      border: 1px solid var(--border-bright); border-radius: var(--radius-sm);
+      background: var(--surface3); color: var(--text);
+    }
+    .bulk-color-row { display: flex; align-items: center; gap: 6px; }
+    .bulk-fig-dest { font-size: 12px; color: var(--muted); }
+    .bulk-qty { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+    .bulk-qty-btn {
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      border: 1px solid var(--border-bright); background: var(--surface3); color: var(--text);
+      font-size: 16px; line-height: 1;
+    }
+    .bulk-qty-n { font-family: var(--font-mono); font-size: 13px; }
+    /* Retiring sets screen */
+    .retire-month-label {
+      font-family: var(--font-display); font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted);
+      margin: 16px 2px 8px;
+    }
+    .retire-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      cursor: pointer;
+    }
+    .retire-thumb {
+      width: 56px; height: 56px; flex-shrink: 0; object-fit: contain;
+      border-radius: var(--radius-sm); background: var(--socket); border: 1px solid var(--border);
+    }
+    .retire-main { flex: 1; min-width: 0; }
+    .retire-name { font-size: 14px; }
+    .retire-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .retire-ids { display: flex; gap: 10px; margin-top: 4px; font-family: var(--font-mono); font-size: 11px; }
+    .retire-num { color: var(--yellow); }
+    .retire-pieces { color: var(--muted2); }
+    .retire-date {
+      font-family: var(--font-mono); font-size: 12px; color: var(--text); white-space: nowrap;
+      background: var(--surface3); border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm); padding: 4px 8px; flex-shrink: 0;
+    }
+    .retire-date.retired { color: var(--muted2); }
+    .retire-refresh-link {
+      background: none; border: none; color: var(--yellow); font-size: 11px;
+      cursor: pointer; padding: 0;
+    }
     @keyframes livePulse {
       0% { box-shadow: 0 0 0 0 rgba(59,158,255,0.55); }
       70% { box-shadow: 0 0 0 9px rgba(59,158,255,0); }
@@ -1436,8 +1541,17 @@
         <svg class="ico-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       </button>
       <button class="shutter-btn" id="shutterBtn" onclick="shutterTap()" aria-label="Take photo"><span class="shutter-core"></span></button>
+      <button class="scan-ctl bulk-ctl" id="bulkModeBtn" onclick="toggleBulkMode()" aria-label="Bulk mode" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3zM4.7 10.2 2.5 11.4 12 16.4l9.5-5-2.2-1.2L12 14l-7.3-3.8zm0 3.4L2.5 14.8 12 19.8l9.5-5-2.2-1.2L12 17.4l-7.3-3.8z"/></svg>
+      </button>
     </div>
     <input type="file" id="cameraInput" accept="image/*" capture="environment">
+  </div>
+
+  <!-- Bulk tray: bulk-mode hits stack here while the camera keeps running -->
+  <div id="bulkTrayBar" class="bulk-tray" style="display:none;">
+    <div class="bulk-tray-scroll" id="bulkTrayScroll"></div>
+    <button class="bulk-review-btn" id="bulkReviewBtn" onclick="openBulkReview()" disabled>Review</button>
   </div>
 
   <!-- Combined parts + minifigs search: one pill, live results -->
@@ -1687,6 +1801,7 @@
       onkeydown="if(event.key==='Enter'){clearTimeout(_setsSearchTimer);searchSetsFromTop();this.blur();}">
     <div id="setSearchResults" style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius);overflow-y:auto;display:none;box-shadow:var(--shadow-pop);margin:0 0 10px;"></div>
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 10px;">
+      <button onclick="openRetirement()" class="figs-tool-btn" style="margin-right:auto;">Retiring Soon</button>
       <select id="mySetsSort" class="toolbar-select" onchange="_onSetsSortChange(this.value)">
         <option value="name">Name A–Z</option>
         <option value="price_desc">Price: High → Low</option>
@@ -1701,6 +1816,30 @@
     </div>
     <div id="mySetsGrid"></div>
   </div>
+</div>
+
+<!-- Screen: Retiring sets — Brick Tap community retirement dates, filterable
+     by theme / retirement month, grouped by month, rows link to LEGO.com -->
+<div class="screen" id="screen-retirement">
+  <button class="back-btn" onclick="goTo('screen-sets')">← Back to Sets</button>
+  <div class="bulk-review-head">
+    <h2>Retiring Sets</h2>
+    <span class="bulk-count" id="retireCount"></span>
+  </div>
+  <input id="retireSearch" type="text" class="list-search-input" style="margin:0 0 10px;"
+    placeholder="Search retiring sets — number or name"
+    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"
+    oninput="renderRetirement()" onkeydown="if(event.key==='Enter')this.blur();">
+  <div style="display:flex;gap:8px;margin:0 0 8px;">
+    <select id="retireTheme" class="toolbar-select" style="flex:1;min-width:0;" onchange="renderRetirement()">
+      <option value="">All themes</option>
+    </select>
+    <select id="retireMonth" class="toolbar-select" style="flex:1;min-width:0;" onchange="renderRetirement()">
+      <option value="">All upcoming</option>
+    </select>
+  </div>
+  <div id="retireMeta" style="font-size:11px;color:var(--muted2);margin:0 0 6px;"></div>
+  <div id="retireList"></div>
 </div>
 
 <!-- Screen: Set Details -->
@@ -1979,6 +2118,31 @@
   <h2 id="successTitle">Part Added!</h2>
   <p id="successMsg"></p>
   <button class="btn" style="margin-top:16px;max-width:300px" onclick="goTo('screen-scan')">Scan Another</button>
+</div>
+
+<!-- Screen: Bulk review — edit the scan tray (colors / quantities / candidates),
+     pick the destination list, commit everything in one go -->
+<div class="screen" id="screen-bulk-review">
+  <button class="back-btn" onclick="goTo('screen-scan')">← Back to Scan</button>
+  <div class="bulk-review-head">
+    <h2>Scan Tray</h2>
+    <span class="bulk-count" id="bulkReviewCount"></span>
+  </div>
+  <div class="bulk-photo-wrap" id="bulkPhotoWrap" style="display:none;">
+    <img id="bulkPhotoImg" alt="Scanned pile">
+    <div id="bulkPhotoBoxes"></div>
+  </div>
+  <div id="bulkPhotoHint" class="bulk-photo-hint" style="display:none;"></div>
+  <div id="bulkRows"></div>
+  <div class="list-selector" id="bulkListRow" style="margin-top:12px;">
+    <div class="list-pick-row">
+      <span class="list-pick-label" id="bulkListLabel">Parts go to</span>
+      <select id="bulkListSelect" aria-labelledby="bulkListLabel"><option value="">Loading…</option></select>
+    </div>
+  </div>
+  <div id="bulkReviewError" style="display:none;color:var(--red);font-size:13px;margin:10px 0 0;"></div>
+  <button class="btn" id="bulkAddAllBtn" style="margin-top:14px;" onclick="bulkAddAll()">Add All</button>
+  <button class="btn secondary" style="margin-top:8px;" onclick="bulkClearTray(true)">Clear Tray</button>
 </div>
 
 <script>
@@ -2294,6 +2458,7 @@
   document.getElementById('cameraInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
+    if (bulkMode) { identifyMulti(file); this.value = ''; return; }
     if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
     capturedObjectUrl = URL.createObjectURL(file);
     showLoadingScreen();
@@ -2410,9 +2575,10 @@
     c.getContext('2d').drawImage(video, 0, 0, w, h);
     c.toBlob((blob) => {
       if (!blob || !_liveRunning) return;
+      stopLiveScan();   // release the camera before presenting
+      if (bulkMode) { identifyMulti(blob); return; }   // pile shot → multi-identify
       if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
       capturedObjectUrl = URL.createObjectURL(blob);
-      stopLiveScan();   // release the camera before presenting
       showLoadingScreen();
       identifyPart(new File([blob], 'live.jpg', { type: 'image/jpeg' }));
     }, 'image/jpeg', 0.85);
@@ -2465,7 +2631,20 @@
         .then(data => {
           if (!_liveRunning) return;
           const top = (data.items || [])[0];
-          if (top && (top.score || 0) >= LIVE_SCORE_MIN) {
+          const hit = top && (top.score || 0) >= LIVE_SCORE_MIN;
+          if (bulkMode) {
+            // Conveyor mode: file the hit into the tray and keep the camera
+            // running. A couple of clear ticks = the piece left the frame, so
+            // the same part can be counted again.
+            if (!hit) {
+              if (++_bulkClearTicks >= 2) _bulkLastKey = null;
+              _liveBusy = false;
+              return;
+            }
+            handleBulkHit(data, blob).finally(() => { _liveBusy = false; });
+            return;
+          }
+          if (hit) {
             if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
             capturedObjectUrl = URL.createObjectURL(blob);   // freeze the hit frame
             stopLiveScan();                                  // release camera before presenting
@@ -2487,6 +2666,486 @@
       _liveEnabled = true;
       try { localStorage.setItem('liveScan', '1'); } catch (e) {}
       startLiveScan();
+    }
+  }
+
+  // ── Bulk scan mode ────────────────────────────────────────────────────
+  // Conveyor workflow: confident live-scan hits are filed into a tray while
+  // the camera keeps running, and the shutter scans a whole pile at once via
+  // /api/identify_multi. The tray is committed from the review screen
+  // (parts → the chosen list, minifigs → My Minifigs).
+  let bulkMode = false;
+  try { bulkMode = localStorage.getItem('bulkScan') === '1'; } catch (e) {}
+  let bulkTray = [];            // {key,type,id,blId,name,imgUrl,qty,colorId,colorName,colorRgb,rgb,alts,partColors,regionIdx}
+  let _bulkLastKey = null;      // live dedupe: the piece currently under the camera
+  let _bulkClearTicks = 0;      // consecutive no-hit ticks; 2 in a row → frame is clear
+  let _bulkPhotoUrl = null;     // pile photo shown on the review screen
+  let _bulkRegions = null;      // pile bboxes ({regions, image_width, image_height})
+  let _bulkMultiBusy = false;   // one pile scan at a time
+  const _partColorsCache = {};  // part_num → palette, shared across tray edits
+
+  function toggleBulkMode() {
+    bulkMode = !bulkMode;
+    try { localStorage.setItem('bulkScan', bulkMode ? '1' : '0'); } catch (e) {}
+    _bulkLastKey = null;
+    syncBulkUI();
+  }
+
+  function syncBulkUI() {
+    const btn = document.getElementById('bulkModeBtn');
+    if (btn) { btn.classList.toggle('on', bulkMode); btn.setAttribute('aria-pressed', String(bulkMode)); }
+    const hint = document.getElementById('scanHint');
+    if (hint) hint.textContent = bulkMode
+      ? 'Bulk mode: scanned pieces stack in the tray below.'
+      : 'Point the camera at a part or minifig.';
+    renderBulkTray();
+  }
+
+  function getPartColorsCached(partId) {
+    if (_partColorsCache[partId]) return Promise.resolve(_partColorsCache[partId]);
+    return fetch(`/api/part_colors/${partId}`).then(r => r.json())
+      .then(d => { _partColorsCache[partId] = d.results || []; return _partColorsCache[partId]; })
+      .catch(() => []);
+  }
+
+  // One confident live hit → tray. Skipped while the same piece sits under the
+  // camera (cleared after two empty ticks, so duplicates of a part still count
+  // once it's swapped for the next copy).
+  async function handleBulkHit(data, blob) {
+    const top = (data.items || [])[0];
+    const key = `${top.type}:${top.id || top.bl_id}`;
+    if (key === _bulkLastKey) return;
+    _bulkLastKey = key;
+    _bulkClearTicks = 0;
+    let rgb = null;
+    if (top.type === 'part') {
+      const url = URL.createObjectURL(blob);
+      try { rgb = await sampleColorFromBoundingBox(url, data.bounding_box); }
+      finally { URL.revokeObjectURL(url); }
+    }
+    const entry = await addToBulkTray(top, (data.items || []).slice(0, 6), rgb, null);
+    showToast(`Tray: ${decodeHtmlEntities(entry.name)}${entry.colorName ? ` — ${entry.colorName}` : ''}`);
+  }
+
+  async function addToBulkTray(item, alts, rgb, regionIdx) {
+    const entry = {
+      key: `${item.type}:${item.id}`, type: item.type, id: item.id,
+      blId: item.bl_id || '', name: item.name || item.id, imgUrl: item.img_url || '',
+      qty: 1, colorId: null, colorName: '', colorRgb: '',
+      rgb: rgb || null, alts: alts || [], partColors: null,
+      regionIdx: regionIdx == null ? null : regionIdx,
+    };
+    if (item.type === 'part') {
+      entry.partColors = await getPartColorsCached(item.id);
+      const chosen = resolveDetectedColor(item, rgb, entry.partColors);
+      if (chosen) { entry.colorId = chosen.id; entry.colorName = chosen.name; entry.colorRgb = chosen.rgb; }
+    }
+    // Live mode: the same part+colour again just bumps the quantity. Pile
+    // regions stay one row each so they keep their photo numbering.
+    const dup = regionIdx == null && bulkTray.find(t =>
+      t.regionIdx == null && t.type === entry.type && t.id === entry.id && t.colorId === entry.colorId);
+    if (dup) dup.qty += 1; else bulkTray.push(entry);
+    renderBulkTray();
+    return dup || entry;
+  }
+
+  function renderBulkTray() {
+    const bar = document.getElementById('bulkTrayBar');
+    const scroll = document.getElementById('bulkTrayScroll');
+    const btn = document.getElementById('bulkReviewBtn');
+    if (!bar || !scroll || !btn) return;
+    bar.style.display = (bulkMode || bulkTray.length) ? 'flex' : 'none';
+    const n = bulkTray.reduce((s, t) => s + t.qty, 0);
+    btn.disabled = !bulkTray.length;
+    btn.textContent = bulkTray.length ? `Review ${n}` : 'Review';
+    scroll.innerHTML = bulkTray.length
+      ? bulkTray.map(t => `
+        <span class="bulk-chip">
+          <img src="${t.imgUrl}" alt="" onerror="this.style.display='none'">
+          ${t.qty > 1 ? `<span class="bulk-chip-qty">×${t.qty}</span>` : ''}
+        </span>`).join('')
+      : '<span class="bulk-tray-empty">Scanned pieces stack here.</span>';
+  }
+
+  // ── Bulk review screen ──
+  function openBulkReview() {
+    if (!bulkTray.length) return;
+    goTo('screen-bulk-review');
+    renderBulkReview();
+    loadBulkListSelect();
+  }
+
+  function loadBulkListSelect() {
+    fetch('/api/partlists').then(r => r.json()).then(data => {
+      const sel = document.getElementById('bulkListSelect');
+      // Default to whatever the scan screen's "Adding to" list is set to.
+      const prev = sel.value || document.getElementById('listSelect')?.value || '';
+      sel.innerHTML = '<option value="">Select a list…</option>';
+      (data.results || []).forEach(l => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = `${l.name} (${l.num_parts} parts)`;
+        if (String(l.id) === String(prev)) o.selected = true;
+        sel.appendChild(o);
+      });
+    }).catch(() => {});
+  }
+
+  function renderBulkReview() {
+    const wrap = document.getElementById('bulkPhotoWrap');
+    const img = document.getElementById('bulkPhotoImg');
+    const hint = document.getElementById('bulkPhotoHint');
+    if (_bulkPhotoUrl && bulkTray.some(t => t.regionIdx != null)) {
+      img.src = _bulkPhotoUrl;
+      wrap.style.display = '';
+      renderBulkPhotoBoxes();   // %-positioned: no need to wait for image layout
+      const n = (_bulkRegions && _bulkRegions.regions || []).length;
+      hint.textContent =
+        `${n} piece${n === 1 ? '' : 's'} boxed — anything unboxed wasn't recognized; scan those separately.`;
+      hint.style.display = '';
+    } else {
+      wrap.style.display = 'none';
+      hint.style.display = 'none';
+    }
+    const n = bulkTray.reduce((s, t) => s + t.qty, 0);
+    document.getElementById('bulkReviewCount').textContent = `${n} piece${n === 1 ? '' : 's'}`;
+    document.getElementById('bulkListRow').style.display =
+      bulkTray.some(t => t.type === 'part') ? '' : 'none';
+    document.getElementById('bulkRows').innerHTML = bulkTray.map(bulkRowHtml).join('');
+  }
+
+  function renderBulkPhotoBoxes() {
+    const box = document.getElementById('bulkPhotoBoxes');
+    if (!box) return;
+    if (!_bulkRegions || !_bulkRegions.image_width) { box.innerHTML = ''; return; }
+    // Percentages of the wrap (which exactly bounds the img), so the boxes stay
+    // glued to the photo no matter when iOS finishes layout or how it resizes.
+    const W = _bulkRegions.image_width, H = _bulkRegions.image_height;
+    box.innerHTML = _bulkRegions.regions.map((r, i) => {
+      const bb = r.bounding_box;
+      return `<div class="bulk-photo-box" style="left:${(bb.left / W * 100).toFixed(2)}%;top:${(bb.upper / H * 100).toFixed(2)}%;width:${((bb.right - bb.left) / W * 100).toFixed(2)}%;height:${((bb.lower - bb.upper) / H * 100).toFixed(2)}%;"><span>${i + 1}</span></div>`;
+    }).join('');
+  }
+
+  function bulkRowHtml(t, i) {
+    const name = decodeHtmlEntities(t.name);
+    const head = (t.alts && t.alts.length > 1)
+      ? `<select class="bulk-cand-select" onchange="bulkPickCandidate(${i}, this.value)">
+          ${t.alts.map((a, j) => `<option value="${j}"${a.id === t.id ? ' selected' : ''}>${decodeHtmlEntities(a.name || a.id)} (${Math.round((a.score || 0) * 100)}%)</option>`).join('')}
+        </select>`
+      : `<div class="bulk-row-name">${name}</div>`;
+    const colorRow = t.type === 'part'
+      ? `<div class="bulk-color-row">
+          <span class="color-dot" style="background:${t.colorRgb ? '#' + t.colorRgb : 'var(--surface3)'}"></span>
+          <select class="bulk-color-select" onchange="bulkPickColor(${i}, this.value)">
+            <option value="">Pick color…</option>
+            ${(t.partColors || []).map(pc => `<option value="${pc.color_id}"${pc.color_id === t.colorId ? ' selected' : ''}>${pc.color_name}</option>`).join('')}
+          </select>
+        </div>`
+      : `<span class="bulk-fig-dest">Minifig → My Minifigs</span>`;
+    return `
+      <div class="bulk-row${t.type === 'part' && t.colorId == null ? ' needs-color' : ''}" data-idx="${i}">
+        ${t.regionIdx != null ? `<span class="bulk-row-num">${t.regionIdx + 1}</span>` : ''}
+        <img class="bulk-thumb" src="${t.imgUrl}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="bulk-row-main">
+          ${head}
+          ${colorRow}
+          <span class="bulk-row-id">${t.blId || t.id}</span>
+        </div>
+        <div class="bulk-qty">
+          <button class="bulk-qty-btn" onclick="bulkAdjustQty(${i}, 1)" aria-label="One more">+</button>
+          <span class="bulk-qty-n">×${t.qty}</span>
+          <button class="bulk-qty-btn" onclick="bulkAdjustQty(${i}, -1)" aria-label="One fewer">−</button>
+        </div>
+      </div>`;
+  }
+
+  function bulkAdjustQty(i, d) {
+    const t = bulkTray[i];
+    if (!t) return;
+    t.qty += d;
+    if (t.qty <= 0) bulkTray.splice(i, 1);
+    renderBulkTray();
+    if (!bulkTray.length) { goTo('screen-scan'); return; }
+    renderBulkReview();
+  }
+
+  function bulkPickColor(i, val) {
+    const t = bulkTray[i];
+    if (!t) return;
+    const id = parseInt(val, 10);
+    const c = Number.isNaN(id) ? null : colors.find(c => c.id === id);
+    t.colorId = c ? c.id : null;
+    t.colorName = c ? c.name : '';
+    t.colorRgb = c ? c.rgb : '';
+    renderBulkReview();
+  }
+
+  async function bulkPickCandidate(i, j) {
+    const t = bulkTray[i];
+    const a = t && t.alts[parseInt(j, 10)];
+    if (!a) return;
+    t.type = a.type || t.type;
+    t.id = a.id; t.blId = a.bl_id || '';
+    t.name = a.name || a.id; t.imgUrl = a.img_url || '';
+    t.key = `${t.type}:${t.id}`;
+    t.colorId = null; t.colorName = ''; t.colorRgb = ''; t.partColors = null;
+    if (t.type === 'part') {
+      t.partColors = await getPartColorsCached(t.id);
+      const chosen = resolveDetectedColor(a, t.rgb, t.partColors);
+      if (chosen) { t.colorId = chosen.id; t.colorName = chosen.name; t.colorRgb = chosen.rgb; }
+    }
+    renderBulkTray();
+    renderBulkReview();
+  }
+
+  function bulkClearTray(backToScan) {
+    bulkTray = [];
+    _bulkLastKey = null;
+    _bulkRegions = null;
+    if (_bulkPhotoUrl) { URL.revokeObjectURL(_bulkPhotoUrl); _bulkPhotoUrl = null; }
+    renderBulkTray();
+    if (backToScan) goTo('screen-scan');
+  }
+
+  async function bulkAddAll() {
+    const err = document.getElementById('bulkReviewError');
+    const btn = document.getElementById('bulkAddAllBtn');
+    err.style.display = 'none';
+    const partRows = bulkTray.filter(t => t.type === 'part');
+    const listId = document.getElementById('bulkListSelect').value;
+    if (partRows.length && !listId) {
+      err.textContent = 'Pick a parts list first.'; err.style.display = 'block'; return;
+    }
+    if (partRows.some(t => t.colorId == null)) {
+      err.textContent = 'Pick a color for every part (highlighted rows).';
+      err.style.display = 'block';
+      renderBulkReview();
+      return;
+    }
+    btn.disabled = true;
+    const total = bulkTray.length;
+    const failures = [];
+    let added = 0, done = 0;
+    for (const t of bulkTray.slice()) {
+      btn.textContent = `Adding ${++done}/${total}…`;
+      try {
+        const resp = t.type === 'part'
+          ? await fetch('/api/add_part', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ list_id: listId, part_num: t.id, color_id: t.colorId, quantity: t.qty }),
+            })
+          : await fetch('/api/add_minifig', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ set_num: t.id, quantity: t.qty, name: t.name, img_url: t.imgUrl, bl_id: t.blId }),
+            });
+        if (!resp.ok) throw new Error();
+        added += t.qty;
+        bulkTray.splice(bulkTray.indexOf(t), 1);
+      } catch (e) {
+        failures.push(t);
+      }
+    }
+    btn.disabled = false;
+    btn.textContent = 'Add All';
+    renderBulkTray();
+    if (failures.length) {
+      renderBulkReview();
+      err.textContent = `${failures.length} item${failures.length === 1 ? '' : 's'} failed — still in the tray. ${added ? `${added} added.` : ''}`;
+      err.style.display = 'block';
+      return;
+    }
+    const figCount = total - partRows.length;
+    const listName = document.getElementById('bulkListSelect').selectedOptions[0]?.text.split(' (')[0] || '';
+    const dests = [];
+    if (partRows.length && listName) dests.push(`parts to "${listName}"`);
+    if (figCount) dests.push('minifigs to My Minifigs');
+    bulkClearTray(false);
+    document.getElementById('successTitle').textContent = 'Tray Filed!';
+    document.getElementById('successMsg').textContent =
+      `${added} piece${added === 1 ? '' : 's'} added${dests.length ? ` — ${dests.join(', ')}` : ''}.`;
+    goTo('screen-success');
+  }
+
+  // ── Pile photo → multi-identify ──
+  // One photo of several spread-out pieces; the server identifies them one at a
+  // time (mask-and-rescan), so this takes a couple of seconds per piece.
+  async function identifyMulti(fileOrBlob) {
+    if (_bulkMultiBusy) return;
+    _bulkMultiBusy = true;
+    // The loading stage shows the pile photo (same frozen-frame language as a
+    // single scan); a second URL is kept for the review screen's bbox overlay.
+    if (capturedObjectUrl) URL.revokeObjectURL(capturedObjectUrl);
+    capturedObjectUrl = URL.createObjectURL(fileOrBlob);
+    if (_bulkPhotoUrl) URL.revokeObjectURL(_bulkPhotoUrl);
+    _bulkPhotoUrl = URL.createObjectURL(fileOrBlob);
+    showLoadingScreen();
+    startLoadingProgress();
+    const form = new FormData();
+    form.append('image', fileOrBlob, 'pile.jpg');
+    let data = null;
+    try {
+      const r = await fetch('/api/identify_multi', { method: 'POST', body: form });
+      data = await r.json();
+    } catch (e) { /* handled below */ }
+    finishLoadingProgress();
+    _bulkMultiBusy = false;
+    const regions = (data && data.regions) || [];
+    if (!regions.length) {
+      goTo('screen-scan');
+      showToast((data && data.error)
+        ? `Bulk scan failed: ${data.error}`
+        : 'No pieces found — spread them out on a plain background.');
+      return;
+    }
+    // Rows from an older pile keep their data but lose their numbers — the
+    // photo panel only shows the latest pile.
+    bulkTray.forEach(t => { t.regionIdx = null; });
+    _bulkRegions = { regions, image_width: data.image_width, image_height: data.image_height };
+    for (let i = 0; i < regions.length; i++) {
+      const items = regions[i].items || [];
+      if (!items.length) continue;
+      let rgb = null;
+      if (items[0].type === 'part') {
+        rgb = await sampleColorFromBoundingBox(_bulkPhotoUrl, regions[i].bounding_box);
+      }
+      await addToBulkTray(items[0], items.slice(0, 6), rgb, i);
+    }
+    openBulkReview();
+  }
+
+  syncBulkUI();
+
+  // ── Retiring sets (Brick Tap community sheet via /api/retirement) ──────
+  // The whole dataset (~1900 rows) loads once and filters in memory, same
+  // pattern as the Lists live search.
+  let _retireData = null;
+  let _retireLoaded = false;
+
+  function openRetirement() {
+    goTo('screen-retirement');
+    if (_retireLoaded) renderRetirement();
+    else loadRetirement();
+  }
+
+  async function loadRetirement() {
+    document.getElementById('retireList').innerHTML =
+      '<div style="color:var(--muted);font-size:13px;padding:24px 0;text-align:center;">Loading…</div>';
+    try {
+      const r = await fetch('/api/retirement');
+      _retireData = await r.json();
+    } catch (e) {
+      _retireData = { updated: '', sets: [] };
+    }
+    _retireLoaded = true;
+    buildRetireFilters();
+    renderRetirement();
+  }
+
+  function _retireMonthLabel(m) {
+    const [y, mo] = m.split('-');
+    return new Date(y, mo - 1, 1).toLocaleString('en', { month: 'short' }) + ' ' + y;
+  }
+
+  function buildRetireFilters() {
+    const sets = _retireData.sets || [];
+    const themeSel = document.getElementById('retireTheme');
+    const monthSel = document.getElementById('retireMonth');
+    const prevTheme = themeSel.value, prevMonth = monthSel.value;
+
+    const themes = [...new Set(sets.map(s => s.theme).filter(Boolean))].sort();
+    themeSel.innerHTML = '<option value="">All themes</option>' +
+      themes.map(t => `<option value="${t.replace(/"/g, '&quot;')}">${t}</option>`).join('');
+    themeSel.value = prevTheme;
+
+    const upcoming = [...new Set(sets.filter(s => !s.retired).map(s => s.retire_date.slice(0, 7)))].sort();
+    const retired = [...new Set(sets.filter(s => s.retired).map(s => s.retire_date.slice(0, 7)))].sort().reverse();
+    monthSel.innerHTML = '<option value="">All upcoming</option>' +
+      upcoming.map(m => `<option value="${m}">${_retireMonthLabel(m)}</option>`).join('') +
+      (retired.length
+        ? '<option value="__retired">Recently retired</option>' +
+          retired.map(m => `<option value="${m}">${_retireMonthLabel(m)} (retired)</option>`).join('')
+        : '');
+    monthSel.value = prevMonth;
+
+    document.getElementById('retireMeta').innerHTML =
+      `Sheet updated ${_retireData.updated || '—'} · Brick Tap / Brick Hound data` +
+      (_retireData.can_refresh
+        ? ` · <button class="retire-refresh-link" id="retireRefreshBtn" onclick="refreshRetirement()">refresh</button>`
+        : '');
+  }
+
+  function renderRetirement() {
+    if (!_retireData) return;
+    const q = (document.getElementById('retireSearch').value || '').trim().toLowerCase();
+    const theme = document.getElementById('retireTheme').value;
+    const month = document.getElementById('retireMonth').value;
+
+    let rows = (_retireData.sets || []).slice();
+    if (month === '__retired') rows = rows.filter(s => s.retired);
+    else if (month) rows = rows.filter(s => s.retire_date.slice(0, 7) === month);
+    else rows = rows.filter(s => !s.retired);          // default view: upcoming only
+    if (theme) rows = rows.filter(s => s.theme === theme);
+    if (q) {
+      rows = rows.filter(s =>
+        s.name.toLowerCase().includes(q) || s.set_num.includes(q) ||
+        s.theme.toLowerCase().includes(q) || (s.subtheme || '').toLowerCase().includes(q));
+    }
+    // Soonest first; the retired view reads newest-retired first instead.
+    const dir = month === '__retired' ? -1 : 1;
+    rows.sort((a, b) => dir * a.retire_date.localeCompare(b.retire_date)
+      || a.theme.localeCompare(b.theme) || a.name.localeCompare(b.name));
+
+    document.getElementById('retireCount').textContent = `${rows.length} set${rows.length === 1 ? '' : 's'}`;
+
+    let html = '', lastMonth = '';
+    for (const s of rows) {
+      const m = s.retire_date.slice(0, 7);
+      if (m !== lastMonth) {
+        lastMonth = m;
+        html += `<div class="retire-month-label">${_retireMonthLabel(m)}${s.retired ? ' · retired' : ''}</div>`;
+      }
+      html += retireRowHtml(s);
+    }
+    const list = document.getElementById('retireList');
+    list.innerHTML = html ||
+      '<div style="color:var(--muted);font-size:13px;padding:24px 0;text-align:center;">No sets match.</div>';
+    lazyLoadImages(list);
+  }
+
+  function retireRowHtml(s) {
+    const img = s.set_num ? `https://cdn.rebrickable.com/media/sets/${s.set_num}-1.jpg` : '';
+    const d = new Date(s.retire_date + 'T00:00:00');
+    const dateStr = d.toLocaleString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+    const sub = s.theme + (s.subtheme ? ` › ${s.subtheme}` : '') + (s.notes ? ` · ${s.notes}` : '');
+    return `
+      <div class="retire-row"${s.url ? ` onclick="window.open('${s.url.replace(/'/g, "\\'")}','_blank')"` : ''}>
+        ${img ? `<img class="retire-thumb" data-src="${img}" alt="" onerror="this.style.visibility='hidden'">`
+              : '<span class="retire-thumb"></span>'}
+        <div class="retire-main">
+          <div class="retire-name">${s.name}</div>
+          <div class="retire-sub">${sub}</div>
+          <div class="retire-ids">
+            ${s.set_num ? `<span class="retire-num">${s.set_num}</span>` : ''}
+            ${s.pieces ? `<span class="retire-pieces">${s.pieces} pcs</span>` : ''}
+          </div>
+        </div>
+        <span class="retire-date${s.retired ? ' retired' : ''}">${dateStr}</span>
+      </div>`;
+  }
+
+  async function refreshRetirement() {
+    const btn = document.getElementById('retireRefreshBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'refreshing…'; }
+    try {
+      const r = await fetch('/api/retirement/refresh', { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'refresh failed');
+      await loadRetirement();
+      showToast(`Retirement data refreshed — ${d.count} sets`);
+    } catch (e) {
+      buildRetireFilters();
+      showToast(`Refresh failed: ${e.message}`);
     }
   }
 
@@ -2600,6 +3259,8 @@
     'screen-identify': () => retakeOrBack(),                       // → originating tab
     'screen-set-details': () => { goTo('screen-sets'); loadMySets(); },
     'screen-success': () => retakeOrBack(),                        // → originating tab
+    'screen-bulk-review': () => goTo('screen-scan'),
+    'screen-retirement': () => goTo('screen-sets'),
   };
   function _overlayOpen() {
     if (document.querySelector('#imageModal.active, #voiceModal.active, #blExportModal.active, #compareModal.active, #setSubtractModal.active')) return true;
@@ -3394,6 +4055,45 @@
     return Math.min(d, 360 - d);
   }
 
+  // Colour decision shared by the identify screen and the bulk tray. Brickognize
+  // predicts the object's colour(s):
+  //  • exactly one predicted colour → it's confident, trust it outright (pixel
+  //    sampling can mislead — a well-lit Dark Green part reads close to Green);
+  //  • multiple (or none) → match the sampled pixel against the part's FULL
+  //    palette, with the predicted colours as a prior (not a hard restriction —
+  //    the shortlist sometimes omits the true colour, e.g. Dark Azure for an
+  //    azure tile), so the closest real LEGO colour wins but the ML prediction
+  //    breaks near-ties.
+  function resolveDetectedColor(item, detectedRgb, partColors) {
+    const serverColors = item.candidate_colors || [];
+    const colorByName = colors.length
+      ? Object.fromEntries(colors.map(c => [c.name.toLowerCase(), c]))
+      : {};
+    const colorMap = colors.length ? Object.fromEntries(colors.map(c => [c.id, c])) : {};
+
+    // Resolve Brickognize's predicted colours → Rebrickable colour objects.
+    const serverCandidates = serverColors
+      .map(sc => colorByName[(sc.name || '').toLowerCase()])
+      .filter(Boolean);
+    const shortlistIds = new Set(serverCandidates.map(c => c.id));
+
+    // Pool = the part's full palette; fall back to the shortlist, then all colours.
+    let pool = (partColors || []).map(pc => colorMap[pc.color_id]).filter(Boolean);
+    if (!pool.length) pool = serverCandidates.slice();
+
+    const avgBrightness = detectedRgb ? (detectedRgb.r + detectedRgb.g + detectedRgb.b) / 3 : 0;
+    if (serverCandidates.length === 1) return serverCandidates[0];
+    if (detectedRgb && avgBrightness >= 70 && pool.length) {
+      return findClosestLegoColor(
+        detectedRgb.r, detectedRgb.g, detectedRgb.b,
+        pool, detectedRgb.darkFraction || 0, null, shortlistIds, false
+      ) || null;
+    }
+    // Too dark to sample reliably — trust Brickognize's first predicted colour.
+    if (serverCandidates.length) return serverCandidates[0];
+    return null;
+  }
+
   function findClosestLegoColor(r, g, b, candidates, darkFraction = 0, preferred = null, preferredIds = null, trustShortlist = null) {
     const pool = candidates?.length ? candidates : colors;
     const hsv = rgbToHsv(r, g, b);
@@ -3866,45 +4566,8 @@
       document.getElementById('debugLabel').style.display = 'block';
     }
 
-    // Colour selection. Brickognize predicts the object's colour(s):
-    //  • exactly one predicted colour → it's confident, trust it outright (pixel
-    //    sampling can mislead — a well-lit Dark Green part reads close to Green);
-    //  • multiple (or none) → match the sampled pixel against the part's FULL
-    //    palette, with the predicted colours as a prior (not a hard restriction —
-    //    the shortlist sometimes omits the true colour, e.g. Dark Azure for an
-    //    azure tile), so the closest real LEGO colour wins but the ML prediction
-    //    breaks near-ties.
-    const serverColors = items[0].candidate_colors || [];
-    const colorByName = colors.length
-      ? Object.fromEntries(colors.map(c => [c.name.toLowerCase(), c]))
-      : {};
-    const colorMap = colors.length ? Object.fromEntries(colors.map(c => [c.id, c])) : {};
-
-    // Resolve Brickognize's predicted colours → Rebrickable colour objects.
-    const serverCandidates = serverColors
-      .map(sc => colorByName[(sc.name || '').toLowerCase()])
-      .filter(Boolean);
-    const shortlistIds = new Set(serverCandidates.map(c => c.id));
-
-    // Pool = the part's full palette; fall back to the shortlist, then all colours.
-    let pool = partColors.map(pc => colorMap[pc.color_id]).filter(Boolean);
-    if (!pool.length) pool = serverCandidates.slice();
-
-    const avgBrightness = detectedRgb ? (detectedRgb.r + detectedRgb.g + detectedRgb.b) / 3 : 0;
-    if (serverCandidates.length === 1) {
-      const c = serverCandidates[0];
-      applyColor(c.id, c.name, c.rgb);
-    } else if (detectedRgb && avgBrightness >= 70 && pool.length) {
-      const closest = findClosestLegoColor(
-        detectedRgb.r, detectedRgb.g, detectedRgb.b,
-        pool, detectedRgb.darkFraction || 0, null, shortlistIds, false
-      );
-      if (closest) applyColor(closest.id, closest.name, closest.rgb);
-    } else if (serverCandidates.length) {
-      // Too dark to sample reliably — trust Brickognize's first predicted colour.
-      const c = serverCandidates[0];
-      applyColor(c.id, c.name, c.rgb);
-    }
+    const chosen = resolveDetectedColor(items[0], detectedRgb, partColors);
+    if (chosen) applyColor(chosen.id, chosen.name, chosen.rgb);
 
     // Alternatives
     const alts = items.slice(1, 5);

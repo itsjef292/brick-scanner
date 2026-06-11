@@ -98,16 +98,26 @@ Endpoints (grep `@app.route` for the full list; notable ones):
   `POST /api/remove_minifig_one`, `…/<fig>/meta`, `…/<fig>/blid` (manual BrickLink
   id entry → clears prices so refresh re-fetches). Prices: `refresh_minifig_prices()`
   for figs with a `bl_id`. Shared JSON helpers `_load_meta`/`_save_meta`/`_clean_meta`.
+- **Retiring sets:** `GET /api/retirement` — serves committed
+  `retirement_sets.json` (Brick Tap community sheet, built by
+  `refresh_retirement.py` from the link-public xlsx export; needs local
+  `openpyxl`). `POST /api/retirement/refresh` re-pulls (LOCAL-ONLY, 403 on
+  Render). UI: "Retiring Soon" on the Sets toolbar → `screen-retirement`
+  (theme/month filters, month-grouped, client-side filtering).
 - **Offline search:** `GET /api/local/search?q=&type=parts|minifigs|sets` — prefers
   `brick_parts.db`, **falls back to live Rebrickable when absent** (production);
   response carries `"source": "offline"|"api"`. BrickLink minifig ids (e.g. sw0131)
   with no local hit → translated via BrickLink (`_bricklink_minifig_name`) and
   returned as ranked candidates + `"bl_match"`.
-- **Core:** `POST /api/identify` (Brickognize), `GET /api/colors` (cached),
+- **Core:** `POST /api/identify` (Brickognize via `_brickognize_search` +
+  `_items_from_detected`), `POST /api/identify_multi` (bulk: Brickognize returns
+  one detection per image, so loop detect → mask bbox with background colour
+  (Pillow) → resubmit; ≤8 rounds), `GET /api/colors` (cached),
   `GET /api/part/<n>`, `GET /api/part_colors/<n>`.
 
 Price refreshes are threaded (`POST …/refresh` + `…/status` poll) and run daily via
-launchd (minifigs 05:00, sets 05:30, catalog local). LOCAL-ONLY.
+launchd (minifigs 05:00, sets 05:30, catalog 07:30; retirement data monthly on
+the 5th at 06:00). LOCAL-ONLY.
 
 ### Frontend (`templates/index.html`) — 4 tabs, type-agnostic scanner
 
@@ -127,7 +137,14 @@ Notable subsystems (names given for grep — see code/CHANGELOG for detail):
   only (HTTPS/localhost) — over plain HTTP the live toggle hides and the shutter
   is photo-capture only. Auto-starts only if camera permission is already
   `granted` (`_queryCamPerm`) — never an unsolicited prompt.
+- **Bulk scan mode** — layers toggle beside the shutter (`toggleBulkMode`,
+  `localStorage('bulkScan')`). Live hits file into a tray (`bulkTray`/
+  `handleBulkHit`; camera keeps running, 2-clear-tick dedupe) and the shutter
+  pile-scans via `/api/identify_multi` (`identifyMulti`). Review + commit on
+  `screen-bulk-review` (`renderBulkReview`/`bulkAddAll`: parts → list,
+  minifigs → My Minifigs).
 - **Color detection/matching** — LAB sampling from bbox (center-40% fallback).
+  `resolveDetectedColor` (shared identify/bulk) →
   `findClosestLegoColor(..., preferredIds, trustShortlist)`: **exactly one predicted
   color → trust it outright** (pixel sampling can mislead); **multiple/none → match
   the sampled pixel against the part's full palette**, with predicted colors as a
