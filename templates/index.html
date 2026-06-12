@@ -1178,13 +1178,13 @@
     .voice-mic.listening .ico-mic { display: none; }
     .voice-mic.listening .ico-vstop { display: block; }
     .voice-mic.listening {
-      background: #EF4444; box-shadow: 0 0 0 0 rgba(239,68,68,0.6);
+      background: var(--red); box-shadow: 0 0 0 0 rgba(240,86,75,0.6);
       animation: voicePulse 1.4s infinite;
     }
     @keyframes voicePulse {
-      0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
-      70% { box-shadow: 0 0 0 18px rgba(239,68,68,0); }
-      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+      0% { box-shadow: 0 0 0 0 rgba(240,86,75,0.5); }
+      70% { box-shadow: 0 0 0 18px rgba(240,86,75,0); }
+      100% { box-shadow: 0 0 0 0 rgba(240,86,75,0); }
     }
     .voice-status { font-size: 13px; color: var(--muted); min-height: 18px; text-align: center; }
     .voice-input {
@@ -1200,7 +1200,7 @@
     }
     .voice-cancel { background: var(--surface3); color: var(--muted); }
     .voice-go { background: var(--yellow); color: var(--on-accent); border-color: var(--yellow); }
-    .voice-error { font-size: 13px; color: #FCA5A5; text-align: center; }
+    .voice-error { font-size: 13px; color: var(--red-text); text-align: center; }
     .voice-quick {
       display: flex; align-items: center; gap: 8px; width: 100%;
       justify-content: center; font-size: 13px; color: var(--muted);
@@ -1484,6 +1484,10 @@
     }
     .catalog-caret { width: 10px; height: 10px; fill: var(--muted2); flex-shrink: 0; transition: transform 0.15s; }
     .catalog-line[aria-expanded="true"] .catalog-caret { transform: rotate(180deg); }
+    /* Shared expandable-section caret (azure, CSS-rotated by [aria-expanded]) —
+       the design-system pattern; never ▶/▼ text glyphs swapped in JS. */
+    .section-caret { width: 12px; height: 12px; fill: var(--yellow); flex-shrink: 0; transition: transform 0.15s; }
+    [aria-expanded="true"] > .section-caret { transform: rotate(180deg); }
     .catalog-details { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
     .catalog-checked { font-family: var(--font-mono); font-size: 11px; color: var(--muted2); }
     .catalog-refresh-btn {
@@ -1509,7 +1513,6 @@
       font-family: var(--font-display); font-size: 12px; font-weight: 700;
       letter-spacing: 0.5px; color: var(--text); text-align: left;
     }
-    #catalogChangesArrow { color: var(--yellow); font-size: 10px; }
     .catalog-changes-body {
       margin-top: 8px; padding: 10px 12px;
       background: var(--surface2); border: 1px solid var(--border);
@@ -1683,8 +1686,8 @@
       </button>
       <div id="catalogMsg" class="catalog-msg"></div>
       <div id="catalogChanges" class="catalog-changes" style="display:none;">
-        <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()">
-          <span id="catalogChangesArrow">▶</span>
+        <button class="catalog-changes-toggle" onclick="toggleCatalogChanges()" aria-expanded="false">
+          <svg class="section-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.3 6 8.1l3.8-3.8z"/></svg>
           <span id="catalogChangesSummary"></span>
         </button>
         <div id="catalogChangesBody" class="catalog-changes-body" style="display:none;"></div>
@@ -1949,7 +1952,7 @@
   <div id="setOwnedBar" style="margin:12px 14px 0;">
     <button id="setOwnAddBtn" class="btn" onclick="addOwnedSet()" style="width:100%;padding:13px 16px;font-size:14px;">+ Add to My Sets</button>
     <div id="setOwnStepper" style="display:none;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;">
-      <span style="width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#6fd79b,var(--green) 75%);flex-shrink:0;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:var(--green);background-image:var(--stud-sheen);flex-shrink:0;"></span>
       <span style="color:var(--green);font-weight:600;font-size:14px;">In My Sets</span>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
         <button class="list-adjust-btn remove" onclick="removeOwnedSetOne()" aria-label="Remove one">−</button>
@@ -2020,7 +2023,7 @@
     </div>
     <!-- Prominent "you already own this" banner for minifigs in My Minifigs -->
     <div id="minifigOwnedBanner" style="display:none;align-items:center;gap:9px;margin:10px 12px 0;padding:10px 13px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius-sm);">
-      <span style="width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#7be0a6,var(--green) 75%);flex-shrink:0;"></span>
+      <span style="width:16px;height:16px;border-radius:50%;background:var(--green);background-image:var(--stud-sheen);flex-shrink:0;"></span>
       <span style="color:var(--green);font-weight:700;font-size:14px;">Already in My Minifigs</span>
       <span id="minifigOwnedQty" style="margin-left:auto;font-family:var(--font-mono);font-weight:700;color:var(--green);"></span>
     </div>
@@ -2099,7 +2102,7 @@
     <div id="minifigOwnBar" style="display:none;margin-bottom:12px;">
       <button id="figOwnAddBtn" class="btn green" onclick="addMinifig()" style="margin-bottom:0;">Add to My Minifigs</button>
       <div id="figOwnStepper" style="display:none;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;">
-        <span style="width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#6fd79b,var(--green) 75%);flex-shrink:0;"></span>
+        <span style="width:14px;height:14px;border-radius:50%;background:var(--green);background-image:var(--stud-sheen);flex-shrink:0;"></span>
         <span style="color:var(--green);font-weight:600;font-size:14px;">In My Minifigs</span>
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
           <button class="list-adjust-btn remove" onclick="removeMinifigOne()" aria-label="Remove one">−</button>
@@ -2146,8 +2149,8 @@
 
   <!-- Minifig parts -->
   <div class="parts-section" id="partsSection" style="display:none">
-    <div style="cursor:pointer;user-select:none;padding:12px 0;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);" onclick="togglePartsSection()">
-      <span id="partsToggleArrow" style="display:inline-block;transition:transform 0.2s;font-size:14px;color:var(--yellow);">▶</span>
+    <div id="partsToggle" style="cursor:pointer;user-select:none;padding:12px 0;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);" onclick="togglePartsSection()" aria-expanded="false">
+      <svg class="section-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.3 6 8.1l3.8-3.8z"/></svg>
       <div class="parts-label" id="partsLabel" style="margin:0;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;">Parts</div>
     </div>
     <div id="partsContent" style="display:none;padding-top:10px;">
@@ -4007,10 +4010,10 @@
 
   function toggleCatalogChanges() {
     const body = document.getElementById('catalogChangesBody');
-    const arrow = document.getElementById('catalogChangesArrow');
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : 'block';
-    arrow.textContent = open ? '▶' : '▼';
+    document.querySelector('.catalog-changes-toggle')
+      .setAttribute('aria-expanded', String(!open));  // CSS rotates the caret
   }
 
   function toggleListTools() {
@@ -4343,7 +4346,7 @@
       document.getElementById('rbValue').innerHTML = `<span>${item.id}</span>`;
       document.getElementById('blValue').innerHTML = blId
         ? `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?P=${blId}" target="_blank">${blId}</a>
-           <button class="copy-btn" onclick="copyText('${blId}', event)" title="Copy">⧉</button>`
+           <button class="copy-btn" onclick="copyText('${blId}', event)" aria-label="Copy">⧉</button>`
         : '—';
       document.getElementById('categoryRow').style.display = 'none';
     }
@@ -4487,7 +4490,7 @@
             </div>
             <div style="display:flex;gap:6px;">
               <button onclick="quickAddPartToList(${item.list_id})" style="width:28px;height:28px;border:1px solid var(--border-bright);background:var(--surface3);color:var(--yellow);border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">+</button>
-              <button onclick="quickRemovePartFromList(${item.list_id})" style="width:28px;height:28px;border:1px solid #f00;background:#3a1618;color:#ffb8bf;border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">−</button>
+              <button onclick="quickRemovePartFromList(${item.list_id})" style="width:28px;height:28px;border:1px solid var(--red-border);background:var(--red-bg);color:var(--red-text);border-radius:6px;font-size:16px;cursor:pointer;font-weight:bold;">−</button>
             </div>
           </div>`
         ).join('');
@@ -5019,10 +5022,10 @@
     if (!cell) return;
     const blId = (selectedPart && selectedPart.blId) ? String(selectedPart.blId) : '';
     const esc = (s) => escapeHtml(s);
-    const editBtn = `<button class="copy-btn" onclick="editMinifigBlId()" title="Edit BrickLink id">✎</button>`;
+    const editBtn = `<button class="copy-btn" onclick="editMinifigBlId()" aria-label="Edit BrickLink id">✎</button>`;
     if (blId) {
       cell.innerHTML = `<a href="https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(blId)}" target="_blank">${esc(blId)}</a>
-        <button class="copy-btn" onclick="copyText('${blId.replace(/'/g, "\\'")}', event)" title="Copy">⧉</button> ${editBtn}`;
+        <button class="copy-btn" onclick="copyText('${blId.replace(/'/g, "\\'")}', event)" aria-label="Copy">⧉</button> ${editBtn}`;
     } else {
       const name = (selectedPart && selectedPart.name) || '';
       cell.innerHTML = `<a href="https://www.bricklink.com/catalogList.asp?catType=M&q=${encodeURIComponent(name)}" target="_blank" style="color:var(--yellow);text-decoration:none;">Search BrickLink ↗</a> ${editBtn}`;
@@ -5036,7 +5039,7 @@
         autocapitalize="off" autocorrect="off" spellcheck="false"
         style="width:120px;background:var(--socket);border:1px solid var(--border-bright);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:13px;padding:5px 8px;outline:none;"
         onkeydown="if(event.key==='Enter')saveMinifigBlId(); else if(event.key==='Escape')_renderMinifigBlRow();">
-      <button class="copy-btn" onclick="saveMinifigBlId()" title="Save" style="color:var(--green);">✓</button>`;
+      <button class="copy-btn" onclick="saveMinifigBlId()" aria-label="Save" style="color:var(--green);">✓</button>`;
     const inp = document.getElementById('blIdInput');
     if (inp) { inp.focus(); inp.select(); }
   }
@@ -5469,16 +5472,15 @@
     section.style.display = 'block';
     // Reset parts section to collapsed state
     document.getElementById('partsContent').style.display = 'none';
-    document.getElementById('partsToggleArrow').style.transform = 'rotate(0deg)';
+    document.getElementById('partsToggle').setAttribute('aria-expanded', 'false');
   }
 
   function togglePartsSection() {
     const content = document.getElementById('partsContent');
-    const arrow = document.getElementById('partsToggleArrow');
     const isHidden = content.style.display === 'none';
-
     content.style.display = isHidden ? 'block' : 'none';
-    arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+    document.getElementById('partsToggle')
+      .setAttribute('aria-expanded', String(isHidden));  // CSS rotates the caret
   }
 
   // Store parts data globally for bulk add
@@ -5677,7 +5679,7 @@
       .then(([data, binData]) => {
         if (seq !== _listLoadSeq) return;  // a newer selection superseded this
         if (data.error) {
-          grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>';
+          grid.innerHTML = '<p style="color:var(--red);text-align:center;padding:24px 0">Failed to load.</p>';
           return;
         }
         if (binData && binData.bins) _partBins = binData.bins;
@@ -5686,7 +5688,7 @@
         renderListParts('');
       })
       .catch(() => {
-        grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>';
+        grid.innerHTML = '<p style="color:var(--red);text-align:center;padding:24px 0">Failed to load.</p>';
       });
   }
 
@@ -5715,7 +5717,7 @@
         wrap.style.display = _listAllMinifigs.length ? 'block' : 'none';
         renderMinifigListRows('');
       })
-      .catch(() => { if (seq === _listLoadSeq) grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
+      .catch(() => { if (seq === _listLoadSeq) grid.innerHTML = '<p style="color:var(--red);text-align:center;padding:24px 0">Failed to load.</p>'; });
   }
   // ── My Sets shown inside the Lists tab (dropdown → "My Sets") ──
   function loadSetsIntoListView(seq) {
@@ -5735,7 +5737,7 @@
         wrap.style.display = _listAllSets.length ? 'block' : 'none';
         renderSetListRows('');
       })
-      .catch(() => { if (seq === _listLoadSeq) grid.innerHTML = '<p style="color:#c00;text-align:center;padding:24px 0">Failed to load.</p>'; });
+      .catch(() => { if (seq === _listLoadSeq) grid.innerHTML = '<p style="color:var(--red);text-align:center;padding:24px 0">Failed to load.</p>'; });
   }
   function _reloadSetListView() {
     const seq = ++_listLoadSeq;
@@ -5851,7 +5853,7 @@
       const colorId = p.color_id ?? '';
       return `<div class="part-item" data-part-num="${partNum}" data-color-id="${colorId}">
         ${img ? `<img data-src="${img}" onclick="openImageModal('${img.replace(/'/g, "\\'")}', '${partNum.replace(/'/g, "\\'")}')" onerror="this.onerror=null;this.src='/static/brick.svg'">` :
-                `<div style="width:56px;height:56px;border-radius:8px;background:#f0f0f0;flex-shrink:0"></div>`}
+                `<div style="width:56px;height:56px;border-radius:8px;background:var(--surface3);flex-shrink:0"></div>`}
         <div class="part-item-info">
           <div class="part-item-name">${name}</div>
           <div class="part-item-sub">
@@ -5864,12 +5866,10 @@
         </div>
         <div class="part-item-actions">
           <button class="list-adjust-btn remove"
-            title="Remove one"
             aria-label="Remove one ${name.replace(/"/g, '&quot;')}"
             onclick="adjustListPart(event, -1, '${partNum.replace(/'/g, "\\'")}', '${colorId}')">−</button>
           <div class="part-item-qty">×${qty}</div>
           <button class="list-adjust-btn add"
-            title="Add one"
             aria-label="Add one ${name.replace(/"/g, '&quot;')}"
             onclick="adjustListPart(event, 1, '${partNum.replace(/'/g, "\\'")}', '${colorId}')">+</button>
         </div>
@@ -6520,7 +6520,7 @@
           if (colors.length === 0) {
             colors = fallbackColors;
           }
-          statusDiv.innerHTML = `<span style="color:#ffaa00;">⚠ Using fallback colors - import may work for common colors</span>`;
+          statusDiv.innerHTML = `<span style="color:var(--red-text);">⚠ Using fallback colors - import may work for common colors</span>`;
         }
 
         const colorMap = {};
@@ -6634,7 +6634,7 @@
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:var(--yellow);font-size:13px;">${item.part_num}</div>
               <div style="font-size:12px;color:var(--muted);">
-                <span style="display:inline-block;width:12px;height:12px;background:#${getColorHex(item.color_name)};border-radius:2px;margin-right:6px;vertical-align:middle;"></span>
+                <span style="display:inline-block;width:12px;height:12px;background:#${getColorHex(item.color_name)};background-image:var(--stud-sheen);border-radius:50%;margin-right:6px;vertical-align:middle;"></span>
                 ${item.color_name}
               </div>
             </div>
@@ -6643,7 +6643,7 @@
               <div style="color:var(--muted);font-size:11px;">qty</div>
             </div>
             <button onclick="removeShoppingItem('${item.part_num}_${item.color_id}')"
-              style="padding:6px 10px;background:#3a1618;color:#ffb8bf;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">✕</button>
+              style="padding:6px 10px;background:var(--red-bg);color:var(--red-text);border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">✕</button>
           </div>
         `;
       }).join('');
@@ -6846,11 +6846,11 @@
         const statusText = row.isFull ? '✓ Complete' : `⚠ Need ${row.gap} more`;
 
         return `
-          <div style="display:flex;gap:12px;padding:12px;background:${bgColor};border:1px solid ${row.isFull ? '#1a5a1a' : '#5a1a1a'};border-radius:8px;align-items:center;">
+          <div style="display:flex;gap:12px;padding:12px;background:${bgColor};border:1px solid ${row.isFull ? 'var(--green-border)' : 'var(--red-border)'};border-radius:8px;align-items:center;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:var(--yellow);font-size:13px;">${row.item.part_num}</div>
               <div style="font-size:12px;color:var(--muted);">
-                <span style="display:inline-block;width:10px;height:10px;background:#${getColorHex(row.item.color_name)};border-radius:2px;margin-right:6px;vertical-align:middle;"></span>
+                <span style="display:inline-block;width:10px;height:10px;background:#${getColorHex(row.item.color_name)};background-image:var(--stud-sheen);border-radius:50%;margin-right:6px;vertical-align:middle;"></span>
                 ${row.item.color_name}
               </div>
             </div>
@@ -6877,13 +6877,13 @@
       // Add cache info header
       const cacheText = cacheAge === 0 ? 'just now' : cacheAge === 1 ? '1 min ago' : `${cacheAge} min ago`;
       const header = `
-        <div style="margin-bottom:16px;padding:12px;background:#1a3a1a;border:1px solid #2a5a2a;border-radius:8px;">
+        <div style="margin-bottom:16px;padding:12px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="color:var(--muted);font-size:13px;">
               Inventory data: <span style="color:var(--green);">${cacheText}</span> (cached for 30 min)
             </div>
             <button onclick="loadComparisonView(true)" style="padding:6px 12px;background:var(--yellow);color:var(--on-accent);border:none;border-radius:4px;font-size:12px;cursor:pointer;">
-              🔄 Refresh Now
+              Refresh Now
             </button>
           </div>
         </div>
@@ -7975,7 +7975,7 @@
         const quantity = fig.quantity || 1;
         const ownedQty = ownedMap[figNum];
         const ownedBadge = ownedQty
-          ? `<span title="In My Minifigs ×${ownedQty}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:800;flex-shrink:0;margin-left:6px;vertical-align:middle;">✓</span>`
+          ? `<span aria-label="In My Minifigs ×${ownedQty}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:800;flex-shrink:0;margin-left:6px;vertical-align:middle;">✓</span>`
           : '';
 
         html += `

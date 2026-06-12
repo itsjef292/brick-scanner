@@ -3,6 +3,21 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**UI consistency pass against the design system (June 2026):**
+- New shared `.section-caret` (azure SVG, rotated by `[aria-expanded]` CSS)
+  replaces the last two `▶`/`▼` text glyphs swapped in JS (catalog-changes
+  toggle, minifig Parts section).
+- All `title=` tooltips → `aria-label` (iOS long-press never showed them).
+- Raw hex → tokens in JS-generated styles: error text `#c00`→`--red`, CSV
+  warning→`--red-text`, quick-remove/shopping red buttons→`--red-bg/-text/-border`,
+  comparison-row greens/reds→`--green-bg/-border` + `--red-border`, placeholder
+  thumb `#f0f0f0`→`--surface3`; voice-mic pulse `#EF4444`→`--red`, error text
+  →`--red-text`. Inline green stud dots unified on `--stud-sheen` over
+  `--green` (were two different hand-rolled gradients).
+- Flat square colour swatches in Shopping/comparison views are now glossy
+  round studs (`--stud-sheen`, 50% radius); dropped the `🔄` emoji from the
+  refresh button. Verified both themes at iPhone size, zero console errors.
+
 **Performance + redundancy pass on `app.py` (June 2026):**
 - All 35 outbound API calls now share one pooled `requests.Session` (`http`,
   keep-alive instead of a TLS handshake per call) with a default 10s timeout —
