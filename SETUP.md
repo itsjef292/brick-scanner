@@ -141,18 +141,15 @@ instructions are in the plist header (`launchctl load|stop|start|unload …`).
    Public URL; auto-deploys on push to GitHub; ~$5-50/month depending on usage.
 
 **Render Stack:**
-- `Dockerfile` for containerization
+- `render.yaml` native Python runtime (no Docker)
 - `requirements.txt` with dependencies
 - `gunicorn` WSGI server (production-grade)
 - Environment variables set in Render console
 - Auto-redeploy on GitHub push via webhook
 
 **Files involved in deployment:**
-- `Dockerfile` — Container config
+- `render.yaml` — Render-specific configuration (build/start commands, env var keys)
 - `requirements.txt` — Python dependencies
-- `.dockerignore` — Excludes unnecessary files from build
-- `render.yaml` — Render-specific configuration
-- `DEPLOY.md` — (older Google Cloud Run notes; current prod is Render)
 
 ### API Key Management
 

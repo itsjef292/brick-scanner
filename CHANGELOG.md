@@ -3,6 +3,18 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Repo cleanup: stale deployment paths + unused assets (June 2026):**
+- Removed stale non-Render deployment artifacts: `DEPLOY.md` (old Google Cloud
+  Run guide), `Dockerfile`, `.dockerignore`, `INSTALL-linux.md`, and `deploy/`
+  (Linux systemd units) — production is Render via `render.yaml`'s native
+  Python runtime. Updated `SETUP.md`'s deployment-files list accordingly.
+- Removed stray root screenshots `parted-out.png`/`subtracted-sets.png` and
+  unused `static/Alignment_Fig.jpg`, `static/parts_icon.jpg`,
+  `static/parts_icon.png` — all unreferenced in code or docs.
+- Slimmed `AGENTS.md` from a stale, duplicated translation of the architecture
+  doc (still called the app "LEGO Scanner", referenced a removed ngrok helper)
+  to a short pointer at `CLAUDE.md` as the single source of truth.
+
 **UI consistency pass against the design system (June 2026):**
 - New shared `.section-caret` (azure SVG, rotated by `[aria-expanded]` CSS)
   replaces the last two `▶`/`▼` text glyphs swapped in JS (catalog-changes
