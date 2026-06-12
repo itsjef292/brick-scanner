@@ -3,6 +3,44 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Performance + redundancy pass on `app.py` (June 2026):**
+- All 35 outbound API calls now share one pooled `requests.Session` (`http`,
+  keep-alive instead of a TLS handshake per call) with a default 10s timeout —
+  22 calls previously had none and could hang a worker thread indefinitely.
+- `GET /api/partlists/<id>/parts` no longer fans out up to 50 per-row
+  Rebrickable image lookups per page; color-accurate images come from one
+  batched `_local_part_color_imgs` query (per-item API lookup kept as fallback).
+- `_local_color_id_by_name` (called per candidate color on every identify)
+  caches the ~275-row colors table in memory instead of opening a SQLite
+  connection per call; `/bins/print` batches part-name lookups into IN queries.
+- Eight copy-pasted Rebrickable pagination loops → one `_rb_collect()` helper;
+  `/api/sets/<n>/parts|minifigs` now respect the rate-limit throttle.
+- Removed dead code: `/api/verify-part`, `/api/search_sets`, `/api/status`,
+  `check_rate_limited`, `RATE_LIMIT_STATUS`. Collapsed the three copies of the
+  color-list fetch (`/api/colors`, `/api/colors-hybrid`, CSV import) into one
+  cached `_all_colors()`; `/api/colors-hybrid` is now just an alias route and
+  the frontend fetches `/api/colors` directly. `get_minifig` reuses
+  `_bricklink_minifig_lookup`; both price refreshers share `_bl_avg`.
+  Net −306 lines.
+
+**Subtracted Sets — what a set gave the list vs. what's left over (June 2026):**
+- Confirming a **Subtract a Set** run now records, per set+list, which of the
+  set's pieces were pulled into the list (**subtracted**) vs. which weren't
+  needed and are now **spare/remaining** (set qty − subtracted). Stored in
+  `.subtract_records.json` keyed `{set_num}__{list_id}` (LOCAL-ONLY; git-ignored).
+- `subtract_set` seeds a placeholder then spawns `_build_subtract_record` in a
+  background thread (re-fetches the set's full inventory via shared
+  `_fetch_set_parts` — also used by `set_overlap` — and splits it by the
+  confirmed `removed` map), so the confirm never blocks; the card shows
+  `building…` until ready.
+- New **"Subtracted Sets"** section at the top of Part Lists → My Lists
+  (`loadSubtractRecords`/`renderSubtractRecords`): one collapsible card per run
+  (set # + name + "N subtracted · M left · from <list>") expanding to two
+  groups — *Subtracted into list* (green) and *Remaining (spare)* — each a part
+  list (image, colour, part #, ×qty). `×` dismiss → `DELETE /api/subtract_records/
+  <key>`; `GET /api/subtract_records` serves newest-first; re-polls every 2s
+  while building. A clean confirm jumps to My Lists so the card is visible.
+
 **Bin QR stickers — scan a bin, take a piece out (June 2026):**
 - **Printable sticker sheet** at `GET /bins/print` (standalone light-themed
   `templates/bin_stickers.html`, linked from Manage list → "Print Bin QR

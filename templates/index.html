@@ -1321,6 +1321,52 @@
     }
     .list-tool-group .sub-label { margin-bottom: 10px; }
 
+    /* Subtracted Sets — collapsible per-run cards (subtracted vs. leftover) */
+    .subrec-head {
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted);
+      margin: 0 2px 10px;
+    }
+    .subrec-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+    }
+    .subrec-card-head {
+      display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+      padding: 10px 12px; background: none; border: none; cursor: pointer;
+      text-align: left; color: var(--text);
+    }
+    .subrec-card-thumb {
+      width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0;
+      object-fit: contain; background: var(--surface3);
+    }
+    .subrec-card-title { flex: 1; min-width: 0; }
+    .subrec-card-name {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .subrec-card-sub {
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+      margin-top: 2px;
+    }
+    .subrec-card-arrow {
+      width: 10px; height: 10px; fill: var(--yellow); flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .subrec-card.open .subrec-card-arrow { transform: rotate(180deg); }
+    .subrec-card-body { display: none; border-top: 1px solid var(--border); padding: 4px 0; }
+    .subrec-card.open .subrec-card-body { display: block; }
+    .subrec-card-dismiss {
+      background: none; border: none; color: var(--muted2); cursor: pointer;
+      font-size: 18px; line-height: 1; padding: 4px 6px; flex-shrink: 0;
+    }
+    .subrec-group-label {
+      font-family: var(--font-display); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 8px 12px 4px; display: flex; align-items: baseline; gap: 6px;
+    }
+    .subrec-group-label .n { font-family: var(--font-mono); color: var(--muted); font-weight: 600; }
+
     /* List compare */
     .compare-tab {
       flex: 1; padding: 10px 6px; background: none; border: none; border-bottom: 2px solid transparent;
@@ -1693,6 +1739,11 @@
   </div>
 
   <div id="listsModeListsView">
+  <!-- Subtracted Sets: per-run record of "Subtract a Set" — what the set
+       contributed to the list vs. what's left over. Populated by
+       loadSubtractRecords(); hidden when empty. -->
+  <div id="subtractRecordsSection" style="display:none;padding:12px 14px 0;"></div>
+
   <div class="lists-view-header">
     <select id="listsViewSelect" onchange="loadListContents()">
       <option value="">Select a list…</option>
@@ -2250,8 +2301,11 @@
       t.classList.toggle('active', t.dataset.mode === m);
     });
 
-    // Leaving the identify / set-details overlays for a tab hides them.
-    document.getElementById('screen-identify').classList.remove('active');
+    // Leaving the scan-flow overlays (identify / loading / success) or the
+    // set-details overlay for a tab hides them — otherwise an active one stays
+    // stacked under the tab's screen (e.g. the "Part added" success card).
+    ['screen-identify', 'screen-loading', 'screen-success'].forEach(id =>
+      document.getElementById(id).classList.remove('active'));
     if (m !== 'sets') document.getElementById('screen-set-details').classList.remove('active');
 
     Object.values(MODE_SCREENS).forEach(id => {
@@ -5488,6 +5542,114 @@
       // Keep the compare dropdowns populated with the same part lists
       _populateCompareSelects(data.results || []);
     });
+    loadSubtractRecords();
+  }
+
+  // ── Subtracted Sets — collapsible cards recording each "Subtract a Set" run:
+  // which of the set's pieces were pulled into the list (subtracted) vs. which
+  // weren't needed and are now spare (remaining). Built server-side
+  // (.subtract_records.json) when a subtraction is confirmed; while it re-fetches
+  // the set a card shows "building…", so we re-poll until none are. LOCAL-ONLY.
+  let _subRecPollTimer = null;
+  const _subRecOpen = new Set();   // record keys the user has expanded
+  function loadSubtractRecords() {
+    fetch('/api/subtract_records')
+      .then(r => r.json())
+      .then(d => renderSubtractRecords(d.results || []))
+      .catch(() => {});
+  }
+  function renderSubtractRecords(items) {
+    const wrap = document.getElementById('subtractRecordsSection');
+    if (!wrap) return;
+    if (!items.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+    wrap.style.display = 'block';
+    wrap.innerHTML =
+      `<div class="subrec-head">Subtracted Sets · ${items.length}</div>` +
+      items.map(_subRecCardHtml).join('');
+    items.forEach(s => {
+      const body = document.getElementById(`subrecBody-${_subRecDomId(s.key)}`);
+      if (body) lazyLoadImages(body);
+    });
+    // Keep polling while any record is still being built.
+    clearTimeout(_subRecPollTimer);
+    if (items.some(s => s.building)) {
+      _subRecPollTimer = setTimeout(loadSubtractRecords, 2000);
+    }
+  }
+  function _subRecDomId(key) { return String(key).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+  function _subRecCardHtml(s) {
+    const id = _subRecDomId(s.key);
+    const open = _subRecOpen.has(s.key);
+    const num = escapeHtml(s.set_num || '');
+    const name = escapeHtml(s.set_name || s.set_num || '?');
+    const list = escapeHtml(s.list_name || '');
+    const thumb = s.set_img ? escapeHtml(s.set_img) : '/static/brick.svg';
+    let sub;
+    if (s.building) sub = 'building…';
+    else if (s.error) sub = `${num} · couldn’t read set`;
+    else sub = `${num} · ${s.sub_pieces || 0} subtracted · ${s.remain_pieces || 0} left · from ${list}`;
+    let body;
+    if (s.building || s.error) {
+      body = `<p style="color:var(--muted);text-align:center;padding:20px 0;font-size:13px;">${s.building ? 'Reading this set’s parts…' : 'Couldn’t load this set’s parts.'}</p>`;
+    } else {
+      const group = (label, rows, pcs, color) => (rows && rows.length)
+        ? `<div class="subrec-group-label" style="color:${color};">${label}<span class="n">${rows.length} lines · ${pcs} pcs</span></div>` +
+          rows.map(_subRecPartRow).join('')
+        : '';
+      const sect = group('Subtracted into list', s.subtracted, s.sub_pieces, 'var(--green)') +
+                   group('Remaining (spare)', s.remaining, s.remain_pieces, 'var(--muted)');
+      body = sect || `<p style="color:var(--muted);text-align:center;padding:20px 0;font-size:13px;">Nothing recorded.</p>`;
+    }
+    return `<div class="subrec-card${open ? ' open' : ''}" id="subrec-${id}">
+      <div style="display:flex;align-items:center;">
+        <button class="subrec-card-head" onclick="toggleSubRec('${escapeHtml(s.key)}')" aria-expanded="${open}">
+          <img class="subrec-card-thumb" src="${thumb}" onerror="this.onerror=null;this.src='/static/brick.svg'">
+          <span class="subrec-card-title">
+            <span class="subrec-card-name">${name}</span>
+            <span class="subrec-card-sub">${sub}</span>
+          </span>
+          <svg class="subrec-card-arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 4.3 6 8.1l3.8-3.8z"/></svg>
+        </button>
+        <button class="subrec-card-dismiss" aria-label="Dismiss" onclick="dismissSubRec('${escapeHtml(s.key)}')">×</button>
+      </div>
+      <div class="subrec-card-body" id="subrecBody-${id}">${body}</div>
+    </div>`;
+  }
+  function _subRecPartRow(p) {
+    const img = p.img_url || '';
+    const name = escapeHtml(p.name || p.part_num || '?');
+    const rgb = p.rgb || 'ccc';
+    const colorName = escapeHtml(p.color_name || '');
+    const partNum = escapeHtml(p.part_num || '');
+    return `<div class="part-item">
+      ${img ? `<img data-src="${img}" onerror="this.onerror=null;this.src='/static/brick.svg'">` :
+              `<div style="width:56px;height:56px;border-radius:8px;background:var(--surface3);flex-shrink:0;"></div>`}
+      <div class="part-item-info">
+        <div class="part-item-name">${name}</div>
+        <div class="part-item-sub">
+          <span class="part-item-color-dot" style="background:#${rgb}"></span>
+          <span>${colorName}</span>
+          <span style="color:var(--muted);margin-left:4px;">•</span>
+          <span style="font-family:var(--font-mono);margin-left:4px;font-size:13px;">${partNum}</span>
+        </div>
+      </div>
+      <div style="flex-shrink:0;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--text);">×${p.quantity}</div>
+    </div>`;
+  }
+  function toggleSubRec(key) {
+    const card = document.getElementById(`subrec-${_subRecDomId(key)}`);
+    if (!card) return;
+    const nowOpen = !card.classList.contains('open');
+    card.classList.toggle('open', nowOpen);
+    const head = card.querySelector('.subrec-card-head');
+    if (head) head.setAttribute('aria-expanded', String(nowOpen));
+    if (nowOpen) { _subRecOpen.add(key); lazyLoadImages(card); }
+    else _subRecOpen.delete(key);
+  }
+  function dismissSubRec(key) {
+    fetch(`/api/subtract_records/${encodeURIComponent(key)}`, { method: 'DELETE' })
+      .then(() => { _subRecOpen.delete(key); loadSubtractRecords(); })
+      .catch(() => showToast('Couldn’t dismiss'));
   }
 
   function loadListContents() {
@@ -6150,6 +6312,9 @@
     btn.disabled = true;
     btn.textContent = 'Removing…';
     const payload = {
+      set_num: _subData.set_num,
+      set_name: _subData.set_name,
+      list_name: _subListName,
       items: _subData.items.map(p => ({
         part_num: p.part_num,
         color_id: p.color_id,
@@ -6174,6 +6339,13 @@
       closeSetSubtract();
       if (String(document.getElementById('listsViewSelect').value) === String(_subListId)) {
         loadListContents();
+      }
+      // Surface the new "Subtracted vs. remaining" card (server builds it async).
+      // On a clean run, jump to My Lists where the card lives so it's visible.
+      if (d.record_key) {
+        _subRecOpen.add(d.record_key);
+        if (!(d.failed && d.failed.length)) switchListsMode('lists');
+        loadSubtractRecords();
       }
     } catch (e) {
       btn.disabled = false;
@@ -6326,15 +6498,10 @@
           {id:42,name:"Trans-Neon Orange"},{id:43,name:"Trans-Neon Green"},{id:44,name:"Chrome Gold"},{id:45,name:"Chrome Black"}
         ];
 
-        // Fetch all colors for lookup (hybrid: Rebrickable + BrickLink, with fallback)
+        // Fetch all colors for lookup (server: local catalog → live API → fallback)
         let colors = [];
         try {
-          // Try hybrid endpoint first (both APIs)
-          let resp = await fetch('/api/colors-hybrid');
-          if (!resp.ok) {
-            // Fallback to single API
-            resp = await fetch('/api/colors');
-          }
+          let resp = await fetch('/api/colors');
 
           if (resp.ok) {
             colors = await resp.json();

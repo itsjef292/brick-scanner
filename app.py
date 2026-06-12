@@ -27,10 +27,21 @@ API_KEY = os.environ.get("REBRICKABLE_API_KEY", "")
 USER_TOKEN = os.environ.get("REBRICKABLE_USER_TOKEN", "")
 RB_BASE = "https://rebrickable.com/api/v3"
 BL_BASE = "https://api.bricklink.com/api/store/v1"
+
+
+class _PooledSession(requests.Session):
+    """Shared outbound HTTP session: connection pooling (keep-alive instead of
+    a fresh TLS handshake per call) and a default 10s timeout so no call can
+    hang a worker thread. Explicit timeout= kwargs still win."""
+    def request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", 10)
+        return super().request(method, url, **kwargs)
+
+
+http = _PooledSession()
 PART_COLOR_IMAGE_CACHE = {}
 COLORS_CACHE = {"data": None, "timestamp": None}  # Cache colors to avoid repeated API calls
 COLORS_CACHE_DURATION = 3600  # 1 hour in seconds
-RATE_LIMIT_STATUS = {"is_limited": False, "reset_time": None}  # Track rate limit state
 
 # ── Offline catalog (local SQLite built from the Rebrickable CSV dump) ─────────
 # build_brick_db.py loads "Brick Parts/*.csv" into this file. It powers offline
@@ -58,6 +69,13 @@ MINIFIG_COLLECTION_PATH = os.path.join(_HERE, ".minifig_collection.json")
 #                           "A3"}). Keyed by part number only: a mould lives in
 #                           one bin regardless of colour or which list holds it.
 PART_BINS_PATH = os.path.join(_HERE, ".part_bins.json")
+#   SUBTRACT_RECORDS_PATH — record of each "Subtract a Set" run: which of the
+#                           set's pieces were pulled into the list (subtracted)
+#                           vs. which weren't needed and are now spare (remaining).
+#                           Keyed "{set_num}__{list_id}" → {set_name, set_img,
+#                           list_name, subtracted:[…], remaining:[…], …, building}.
+#                           Shown as collapsible cards on the Part Lists tab.
+SUBTRACT_RECORDS_PATH = os.path.join(_HERE, ".subtract_records.json")
 _meta_lock = threading.Lock()
 
 
@@ -217,25 +235,27 @@ def _local_all_colors():
         conn.close()
 
 
+_COLOR_ID_BY_NAME = None   # lazy {lowercase name: id} map of the colors table
+
+
 def _local_color_id_by_name(name):
     """Resolve a color NAME → Rebrickable color id via the local catalog.
 
     Brickognize returns BrickLink-namespaced color ids (e.g. color-156 =
     Medium Azure), not Rebrickable ids, but the color *names* line up. Returns
-    the int id or None.
+    the int id or None. The colors table is tiny and static, so it's loaded
+    once into memory — identify calls this per candidate color, and opening a
+    SQLite connection each time was the scan path's hottest redundant work.
     """
+    global _COLOR_ID_BY_NAME
     if not name:
         return None
-    conn = local_db()
-    if conn is None:
-        return None
-    try:
-        row = conn.execute(
-            "SELECT id FROM colors WHERE name = ? COLLATE NOCASE", (name,)
-        ).fetchone()
-        return row["id"] if row else None
-    finally:
-        conn.close()
+    if _COLOR_ID_BY_NAME is None:
+        colors = _local_all_colors()
+        if colors is None:
+            return None   # no local DB — leave uncached so it works if one appears
+        _COLOR_ID_BY_NAME = {c["name"].lower(): c["id"] for c in colors}
+    return _COLOR_ID_BY_NAME.get(name.lower())
 
 
 # Gate for fuzzy BrickLink→Rebrickable minifig name matches. The two catalogs
@@ -301,7 +321,7 @@ def _bricklink_minifig_lookup(bl_id):
         return None
     try:
         auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
-        resp = requests.get(f"{BL_BASE}/items/MINIFIG/{bl_id}", auth=auth, timeout=8)
+        resp = http.get(f"{BL_BASE}/items/MINIFIG/{bl_id}", auth=auth, timeout=8)
         if resp.status_code == 200:
             d = ((resp.json() or {}).get("data") or {})
             name = d.get("name")
@@ -648,25 +668,37 @@ def rebrickable_get(endpoint, params=None):
         if endpoint.startswith("http"):
             url = endpoint
             # Pagination URLs already include params
-            resp = requests.get(url, timeout=10)
+            resp = http.get(url, timeout=10)
         else:
             url = f"{RB_BASE}{endpoint}"
-            resp = requests.get(url, params=params or {}, timeout=10)
+            resp = http.get(url, params=params or {}, timeout=10)
         return resp
     except Exception as e:
         print(f"⚠ Rebrickable request error: {e}")
         return None
 
-def check_rate_limited(resp):
-    """Check if response indicates rate limiting"""
-    # HTTP 429 = Too Many Requests (standard rate limit)
-    # HTTP 503 = Service Unavailable (sometimes rate limits)
-    # Connection errors (1006) also indicate rate limiting
-    if resp.status_code in [429, 503]:
-        return True
-    if hasattr(resp, 'text') and ('rate' in resp.text.lower() or 'limit' in resp.text.lower()):
-        return True
-    return False
+
+def _rb_collect(endpoint, params=None, max_pages=200):
+    """Page through a Rebrickable list endpoint (throttled, page_size 100).
+
+    Returns (results, error_status): all result items accumulated before the
+    first failed page, and that failure's HTTP status (None if every page
+    succeeded). A first-page failure therefore comes back as ([], status), a
+    mid-pagination failure as a partial list — callers decide which they
+    tolerate. max_pages is a runaway-pagination safety cap (~20k items).
+    """
+    results = []
+    base = dict(params or {}, key=API_KEY, page_size=100)
+    for page in range(1, max_pages + 1):
+        resp = rebrickable_get(endpoint, params=dict(base, page=page))
+        if resp is None or resp.status_code != 200:
+            return results, (resp.status_code if resp is not None else 502)
+        data = resp.json()
+        results.extend(data.get("results", []))
+        if not data.get("next"):
+            break
+    return results, None
+
 
 # Fallback color list for when APIs are down
 FALLBACK_COLORS = [
@@ -702,7 +734,7 @@ def bricklink_request(method, endpoint):
     )
     url = f"{BL_BASE}{endpoint}"
     try:
-        resp = requests.request(method, url, auth=auth, timeout=10)
+        resp = http.request(method, url, auth=auth, timeout=10)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -780,38 +812,6 @@ def get_partlists():
         print(f"⚠ Error fetching partlists: {e}")
         # Return 503 for other errors so frontend knows something went wrong
         return jsonify({"results": [], "error": str(e)}), 503
-
-
-@app.route("/api/status")
-def get_status():
-    """Check API status and rate limit state"""
-    import time
-    status = {
-        "api_available": True,
-        "rate_limited": RATE_LIMIT_STATUS["is_limited"],
-        "cache_status": {
-            "colors_cached": COLORS_CACHE["data"] is not None,
-            "colors_age_minutes": None
-        }
-    }
-
-    # Calculate color cache age
-    if COLORS_CACHE["timestamp"]:
-        age_seconds = time.time() - COLORS_CACHE["timestamp"]
-        status["cache_status"]["colors_age_minutes"] = round(age_seconds / 60, 1)
-
-    # If rate limited, try a simple test call to see if it's cleared
-    if RATE_LIMIT_STATUS["is_limited"]:
-        try:
-            resp = requests.get(f"{RB_BASE}/lego/colors/?key={API_KEY}&page_size=1", timeout=5)
-            if resp.status_code == 200:
-                RATE_LIMIT_STATUS["is_limited"] = False
-                status["rate_limited"] = False
-                print("✓ Rate limit appears to be cleared")
-        except:
-            pass
-
-    return jsonify(status)
 
 
 # ── Retirement dates (Brick Tap community sheet → retirement_sets.json) ───────
@@ -922,133 +922,47 @@ def catalog_refresh():
     return jsonify({"status": "started"}), 202
 
 
-@app.route("/api/colors")
-def get_colors():
-    """Fetch colors with 1-hour cache."""
-    import time
-
-    # Use cached colors if available
-    if COLORS_CACHE["data"]:
-        now = time.time()
-        if (now - COLORS_CACHE["timestamp"]) < COLORS_CACHE_DURATION:
-            print(f"✓ Returning cached colors from /api/colors")
-            return jsonify(COLORS_CACHE["data"])
-
-    # If cache is stale or empty, delegate to hybrid endpoint
-    return get_colors_hybrid()
-
-
-@app.route("/api/colors-hybrid")
-def get_colors_hybrid():
-    """Fetch colors from Rebrickable, with fallback. Uses 1-hour cache."""
-    import time
-
-    # Check cache
+def _all_colors():
+    """The full color list: local catalog → live Rebrickable → FALLBACK_COLORS.
+    Name-sorted, cached 1 hour. Shared by /api/colors and the CSV importer."""
     now = time.time()
     if COLORS_CACHE["data"] and (now - COLORS_CACHE["timestamp"]) < COLORS_CACHE_DURATION:
-        print(f"✓ Returning cached colors ({len(COLORS_CACHE['data'])} colors)")
-        return jsonify(COLORS_CACHE["data"])
+        return COLORS_CACHE["data"]
 
     # Prefer the local catalog: complete (~275 colors) and instant, no Rebrickable
     # quota. Falls back to the live API + FALLBACK_COLORS only when the DB is absent.
-    local_colors = _local_all_colors()
-    if local_colors:
-        local_colors.sort(key=lambda c: c["name"])
-        print(f"✓ Returning {len(local_colors)} colors from local catalog")
-        COLORS_CACHE["data"] = local_colors
-        COLORS_CACHE["timestamp"] = now
-        return jsonify(local_colors)
+    all_colors = _local_all_colors() or []
+    if not all_colors:
+        try:
+            url = f"{RB_BASE}/lego/colors/"
+            while url:
+                resp = rebrickable_get(url, params={"key": API_KEY, "page_size": 200})
+                if resp is None or resp.status_code in (429, 503):
+                    print(f"⚠ Rebrickable colors unavailable, using fallback")
+                    all_colors = FALLBACK_COLORS
+                    break
+                resp.raise_for_status()
+                data = resp.json()
+                all_colors.extend(data.get("results", []))
+                url = data.get("next")
+        except Exception as e:
+            print(f"⚠ Rebrickable colors error: {e}, using fallback")
+            all_colors = FALLBACK_COLORS
 
-    all_colors = []
-
-    # Fetch from Rebrickable only (BrickLink adds too many API calls)
-    try:
-        url = f"{RB_BASE}/lego/colors/"
-        while url:
-            # Use throttled request to respect rate limit
-            resp = rebrickable_get(url, params={"key": API_KEY, "page_size": 200})
-
-            if resp is None:
-                print(f"⚠ Rebrickable request failed, using fallback")
-                all_colors = FALLBACK_COLORS
-                break
-
-            # Check for rate limit or service error
-            if resp.status_code in [429, 503]:
-                print(f"⚠ Rebrickable rate limited/unavailable ({resp.status_code}), using fallback")
-                RATE_LIMIT_STATUS["is_limited"] = True
-                all_colors = FALLBACK_COLORS
-                break
-
-            resp.raise_for_status()
-            data = resp.json()
-            for color in data.get("results", []):
-                all_colors.append(color)
-            url = data.get("next")
-
-        if all_colors:
-            print(f"✓ Fetched {len(all_colors)} colors from Rebrickable")
-    except Exception as e:
-        print(f"⚠ Rebrickable colors error: {e}, using fallback")
+    if not all_colors:
         all_colors = FALLBACK_COLORS
 
-    # If no colors, use fallback
-    if len(all_colors) == 0:
-        all_colors = FALLBACK_COLORS
-        print(f"⚠ Using fallback color list ({len(all_colors)} colors)")
-
-    all_colors.sort(key=lambda c: c["name"])
-
-    # Cache the result
+    all_colors = sorted(all_colors, key=lambda c: c["name"])
     COLORS_CACHE["data"] = all_colors
     COLORS_CACHE["timestamp"] = now
+    return all_colors
 
-    return jsonify(all_colors)
 
-
-@app.route("/api/verify-part/<part_num>")
-def verify_part(part_num):
-    """Verify part exists in Rebrickable or BrickLink"""
-    result = {
-        "part_num": part_num,
-        "found": False,
-        "sources": []
-    }
-
-    # Try Rebrickable first
-    try:
-        resp = requests.get(
-            f"{RB_BASE}/lego/parts/{part_num}/",
-            params={"key": API_KEY},
-            timeout=10
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            result["found"] = True
-            result["sources"].append({
-                "api": "Rebrickable",
-                "name": data.get("name"),
-                "part_num": data.get("part_num")
-            })
-    except Exception as e:
-        print(f"Rebrickable part lookup error: {e}")
-
-    # Try BrickLink if not found
-    if not result["found"]:
-        try:
-            bl_data = bricklink_request("GET", f"/items/PART/{part_num}")
-            if bl_data and "results" in bl_data and len(bl_data["results"]) > 0:
-                item = bl_data["results"][0]
-                result["found"] = True
-                result["sources"].append({
-                    "api": "BrickLink",
-                    "name": item.get("name"),
-                    "part_num": item.get("no")
-                })
-        except Exception as e:
-            print(f"BrickLink part lookup error: {e}")
-
-    return jsonify(result)
+@app.route("/api/colors")
+@app.route("/api/colors-hybrid")   # legacy alias (older cached clients)
+def get_colors():
+    """Full color list with 1-hour cache (local catalog → live API → fallback)."""
+    return jsonify(_all_colors())
 
 
 def _brk_color_id(color_id_str):
@@ -1061,7 +975,7 @@ def _brk_color_id(color_id_str):
 def _brickognize_search(filename, img_bytes, content_type):
     """POST an image to Brickognize's internal search endpoint (it returns
     server-side candidate_colors, unlike the public /predict/)."""
-    resp = requests.post(
+    resp = http.post(
         "https://api.brickognize.com/internal/search/",
         params={"external_catalogs": "bricklink", "predict_color": "true"},
         files={"query_image": (filename, img_bytes, content_type)},
@@ -1103,7 +1017,7 @@ def _items_from_detected(detected, max_candidates=None):
                     # then pick the result with the most word overlap against the full name.
                     search_name = re.split(r' - | \(', name)[0].strip() if name else ""
                     if search_name:
-                        rb_resp = requests.get(
+                        rb_resp = http.get(
                             f"{RB_BASE}/lego/minifigs/",
                             params={"key": API_KEY, "search": search_name, "page_size": 8},
                             timeout=5,
@@ -1141,7 +1055,7 @@ def _items_from_detected(detected, max_candidates=None):
             else:
                 rb_part = None
                 try:
-                    rb_resp = requests.get(
+                    rb_resp = http.get(
                         f"{RB_BASE}/lego/parts/",
                         params={"key": API_KEY, "bricklink_id": bl_external_id},
                         timeout=5,
@@ -1227,9 +1141,8 @@ def identify():
             "items": items,
         }
 
-        import json as _j
         with open('/tmp/brk_full.json', 'w') as f:
-            _j.dump(data, f, indent=2)
+            json.dump(data, f, indent=2)
         return jsonify(data), 200
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 502
@@ -1449,12 +1362,28 @@ def get_partlist_parts(list_id):
         f"/users/{USER_TOKEN}/partlists/{list_id}/parts/",
         params={"key": API_KEY, "page_size": 50, "page": page},
     )
+    if resp is None:
+        return jsonify({"error": "Couldn't fetch list parts", "results": []}), 502
     data = resp.json()
     if resp.status_code == 200:
-        for item in data.get("results", []):
-            part_num = (item.get("part") or {}).get("part_num")
-            color_id = (item.get("color") or {}).get("id")
-            img_url = _part_color_img_url(part_num, color_id)
+        results = data.get("results", [])
+        # Color-accurate images: one batched local-catalog query for the page;
+        # only combos with no local image (~6%) fall back to the per-item
+        # Rebrickable lookup (in-memory cached).
+        pairs = [((item.get("part") or {}).get("part_num"),
+                  (item.get("color") or {}).get("id")) for item in results]
+        conn = local_db()
+        local_imgs = {}
+        if conn is not None:
+            try:
+                local_imgs = _local_part_color_imgs(conn, pairs)
+            finally:
+                conn.close()
+        for item, (part_num, color_id) in zip(results, pairs):
+            img_url = local_imgs.get((part_num, int(color_id))) \
+                if color_id is not None else None
+            if not img_url:
+                img_url = _part_color_img_url(part_num, color_id)
             if img_url:
                 item["_accurate_img_url"] = img_url
     return jsonify(data), resp.status_code
@@ -1472,34 +1401,23 @@ def get_partlist_parts_all(list_id):
     Powers the live search box in the Lists view, where the full set must be in
     memory to filter as the user types.
     """
+    rows, err = _rb_collect(f"/users/{USER_TOKEN}/partlists/{list_id}/parts/")
+    if err and not rows:
+        return jsonify({"error": "Couldn't fetch list parts", "results": []}), err
+    # On a mid-pagination failure, a partial list is better than none.
     out = []
-    page = 1
-    while page <= 200:  # safety cap (~20k parts at page_size 100)
-        resp = rebrickable_get(
-            f"/users/{USER_TOKEN}/partlists/{list_id}/parts/",
-            params={"key": API_KEY, "page_size": 100, "page": page},
-        )
-        if resp is None or resp.status_code != 200:
-            if page == 1:
-                return jsonify({"error": "Couldn't fetch list parts", "results": []}), \
-                    (resp.status_code if resp is not None else 502)
-            break  # partial list is better than none
-        data = resp.json()
-        for it in data.get("results", []):
-            part = it.get("part") or {}
-            color = it.get("color") or {}
-            out.append({
-                "part_num": part.get("part_num"),
-                "name": part.get("name"),
-                "img_url": part.get("part_img_url"),  # generic fallback
-                "color_id": color.get("id"),
-                "color_name": color.get("name"),
-                "rgb": color.get("rgb"),
-                "quantity": it.get("quantity") or 1,
-            })
-        if not data.get("next"):
-            break
-        page += 1
+    for it in rows:
+        part = it.get("part") or {}
+        color = it.get("color") or {}
+        out.append({
+            "part_num": part.get("part_num"),
+            "name": part.get("name"),
+            "img_url": part.get("part_img_url"),  # generic fallback
+            "color_id": color.get("id"),
+            "color_name": color.get("name"),
+            "rgb": color.get("rgb"),
+            "quantity": it.get("quantity") or 1,
+        })
 
     # Overlay color-specific images from the local catalog (one batched query).
     conn = local_db()
@@ -1580,33 +1498,61 @@ def _fetch_partlist_parts_map(list_id):
     Throttled paging via rebrickable_get. Shared by the list-compare and
     subtract-a-set features.
     """
+    rows, _err = _rb_collect(f"/users/{USER_TOKEN}/partlists/{list_id}/parts/")
     parts = {}
-    page = 1
-    while page <= 200:  # safety cap (~20k parts at page_size 100)
-        resp = rebrickable_get(
-            f"/users/{USER_TOKEN}/partlists/{list_id}/parts/",
-            params={"key": API_KEY, "page_size": 100, "page": page},
-        )
-        if resp is None or resp.status_code != 200:
-            break
-        data = resp.json()
-        for it in data.get("results", []):
-            part = it.get("part") or {}
-            color = it.get("color") or {}
-            key = (part.get("part_num"), color.get("id"))
-            parts[key] = {
+    for it in rows:
+        part = it.get("part") or {}
+        color = it.get("color") or {}
+        parts[(part.get("part_num"), color.get("id"))] = {
+            "part_num": part.get("part_num"),
+            "name": part.get("name"),
+            "img_url": part.get("part_img_url"),
+            "color_id": color.get("id"),
+            "color_name": color.get("name"),
+            "rgb": color.get("rgb"),
+            "quantity": it.get("quantity") or 1,
+        }
+    return parts
+
+
+def _fetch_set_parts(set_num):
+    """Aggregate a set's inventory by (part_num, color_id), including spares —
+    they're physical pieces in the box too. Returns
+    (set_name, set_img, parts_by_key, total_pieces) or None on hard failure.
+    Shared by set-overlap and the subtract-a-set record."""
+    set_name, set_img = set_num, None
+    info_resp = rebrickable_get(f"/lego/sets/{set_num}/", params={"key": API_KEY})
+    if info_resp is not None and info_resp.status_code == 200:
+        info = info_resp.json()
+        set_name = info.get("name") or set_num
+        set_img = info.get("set_img_url")
+    elif info_resp is not None and info_resp.status_code == 404:
+        return None
+
+    rows, err = _rb_collect(f"/lego/sets/{set_num}/parts/")
+    if err and not rows:
+        return None
+    set_parts = {}
+    set_total = 0
+    for it in rows:
+        part = it.get("part") or {}
+        color = it.get("color") or {}
+        key = (part.get("part_num"), color.get("id"))
+        qty = it.get("quantity") or 0
+        set_total += qty
+        if key in set_parts:
+            set_parts[key]["quantity"] += qty
+        else:
+            set_parts[key] = {
                 "part_num": part.get("part_num"),
                 "name": part.get("name"),
                 "img_url": part.get("part_img_url"),
                 "color_id": color.get("id"),
                 "color_name": color.get("name"),
                 "rgb": color.get("rgb"),
-                "quantity": it.get("quantity") or 1,
+                "quantity": qty,
             }
-        if not data.get("next"):
-            break
-        page += 1
-    return parts
+    return set_name, set_img, set_parts, set_total
 
 
 def _normalize_set_num(set_num):
@@ -1630,52 +1576,10 @@ def partlist_set_overlap(list_id):
     if not set_num:
         return jsonify({"error": "set_num required"}), 400
 
-    # Set name/image for display (best-effort; failure isn't fatal).
-    set_name, set_img = set_num, None
-    info_resp = rebrickable_get(f"/lego/sets/{set_num}/", params={"key": API_KEY})
-    if info_resp is not None and info_resp.status_code == 200:
-        info = info_resp.json()
-        set_name = info.get("name") or set_num
-        set_img = info.get("set_img_url")
-    elif info_resp is not None and info_resp.status_code == 404:
-        return jsonify({"error": f"Set {set_num} not found"}), 404
-
-    # Aggregate the set's parts by (part_num, color_id), including spares — they
-    # are physical pieces in the box too.
-    set_parts = {}
-    set_total = 0
-    page = 1
-    while page <= 200:
-        resp = rebrickable_get(
-            f"/lego/sets/{set_num}/parts/",
-            params={"key": API_KEY, "page_size": 100, "page": page},
-        )
-        if resp is None or resp.status_code != 200:
-            if page == 1:
-                return jsonify({"error": "Couldn't fetch set parts"}), 502
-            break
-        data = resp.json()
-        for it in data.get("results", []):
-            part = it.get("part") or {}
-            color = it.get("color") or {}
-            key = (part.get("part_num"), color.get("id"))
-            qty = it.get("quantity") or 0
-            set_total += qty
-            if key in set_parts:
-                set_parts[key]["quantity"] += qty
-            else:
-                set_parts[key] = {
-                    "part_num": part.get("part_num"),
-                    "name": part.get("name"),
-                    "img_url": part.get("part_img_url"),
-                    "color_id": color.get("id"),
-                    "color_name": color.get("name"),
-                    "rgb": color.get("rgb"),
-                    "quantity": qty,
-                }
-        if not data.get("next"):
-            break
-        page += 1
+    fetched = _fetch_set_parts(set_num)
+    if fetched is None:
+        return jsonify({"error": f"Couldn't fetch set {set_num}"}), 502
+    set_name, set_img, set_parts, set_total = fetched
 
     list_parts = _fetch_partlist_parts_map(list_id)
 
@@ -1745,6 +1649,7 @@ def partlist_subtract_set(list_id):
 
     updated, deleted, removed_pieces = 0, 0, 0
     failed = []
+    removed_map = {}     # "part|color" → pieces actually pulled into the list
     for it in items:
         part_num = it.get("part_num")
         color_id = it.get("color_id")
@@ -1756,29 +1661,58 @@ def partlist_subtract_set(list_id):
         throttle_rebrickable_request()
         try:
             if new_qty <= 0:
-                resp = requests.delete(item_url, params={"key": API_KEY}, timeout=10)
+                resp = http.delete(item_url, params={"key": API_KEY}, timeout=10)
                 ok = resp.status_code in (200, 204)
                 if ok:
                     deleted += 1
             else:
-                resp = requests.put(item_url, params={"key": API_KEY},
+                resp = http.put(item_url, params={"key": API_KEY},
                                     data={"quantity": new_qty}, timeout=10)
                 ok = resp.status_code == 200
                 if ok:
                     updated += 1
             if ok:
                 removed_pieces += remove_qty
+                if remove_qty > 0:
+                    removed_map[f"{part_num}|{color_id}"] = remove_qty
             else:
                 failed.append({"part_num": part_num, "color_id": color_id,
                                "status": resp.status_code})
         except Exception as e:
             failed.append({"part_num": part_num, "color_id": color_id, "error": str(e)})
 
+    # Record what this set contributed to the list (subtracted) vs. what's left
+    # over (spare) — a collapsible card on the Part Lists tab. Built in the
+    # background (re-fetches the set's full inventory); seed a placeholder now.
+    record_key = None
+    set_num = _normalize_set_num(data.get("set_num", ""))
+    if set_num and removed_map:
+        record_key = f"{set_num}__{list_id}"
+        with _meta_lock:
+            recs = _load_meta(SUBTRACT_RECORDS_PATH)
+            recs[record_key] = {
+                **(recs.get(record_key) or {}),
+                "key": record_key,
+                "set_num": set_num,
+                "set_name": data.get("set_name") or set_num,
+                "list_id": list_id,
+                "list_name": data.get("list_name") or f"list {list_id}",
+                "ts": time.time(),
+                "building": True,
+            }
+            _save_meta(SUBTRACT_RECORDS_PATH, recs)
+        threading.Thread(
+            target=_build_subtract_record,
+            args=(record_key, set_num, list_id, data.get("list_name") or f"list {list_id}", removed_map),
+            daemon=True,
+        ).start()
+
     return jsonify({
         "updated": updated,
         "deleted": deleted,
         "removed_pieces": removed_pieces,
         "failed": failed,
+        "record_key": record_key,
     }), (200 if not failed else 207)
 
 
@@ -1822,25 +1756,14 @@ def export_bricklink_wanted(list_id):
     from xml.sax.saxutils import escape
     conn = local_db()
     try:
-        items = []
-        page = 1
-        while page <= 200:  # safety cap (~20k parts at page_size 100)
-            resp = rebrickable_get(
-                f"/users/{USER_TOKEN}/partlists/{list_id}/parts/",
-                params={"key": API_KEY, "page_size": 100, "page": page},
-            )
-            if resp is None or resp.status_code != 200:
-                return jsonify({"error": "Couldn't fetch list parts from Rebrickable"}), 502
-            data = resp.json()
-            for it in data.get("results", []):
-                items.append((
-                    (it.get("part") or {}).get("part_num"),
-                    (it.get("color") or {}).get("id"),
-                    it.get("quantity") or 1,
-                ))
-            if not data.get("next"):
-                break
-            page += 1
+        rows, err = _rb_collect(f"/users/{USER_TOKEN}/partlists/{list_id}/parts/")
+        if err:
+            return jsonify({"error": "Couldn't fetch list parts from Rebrickable"}), 502
+        items = [(
+            (it.get("part") or {}).get("part_num"),
+            (it.get("color") or {}).get("id"),
+            it.get("quantity") or 1,
+        ) for it in rows]
 
         lines = ["<INVENTORY>"]
         total_qty = 0
@@ -1882,7 +1805,7 @@ def _part_color_img_url(part_num, color_id):
 
     img_url = None
     try:
-        resp = requests.get(
+        resp = http.get(
             f"{RB_BASE}/lego/parts/{part_num}/colors/",
             params={"key": API_KEY, "page_size": 100},
             timeout=5,
@@ -1901,7 +1824,7 @@ def _part_color_img_url(part_num, color_id):
 
 @app.route("/api/partlists/<int:list_id>/parts/<part_num>/<int:color_id>")
 def get_partlist_part(list_id, part_num, color_id):
-    resp = requests.get(
+    resp = http.get(
         f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/",
         params={"key": API_KEY},
     )
@@ -1944,7 +1867,7 @@ def get_part_in_lists(part_num, color_id):
     """Fetch all lists containing a specific part/color with quantities."""
     try:
         # Get all user's lists
-        lists_resp = requests.get(
+        lists_resp = http.get(
             f"{RB_BASE}/users/{USER_TOKEN}/partlists/",
             params={"key": API_KEY},
         )
@@ -1954,7 +1877,7 @@ def get_part_in_lists(part_num, color_id):
         # For each list, check if the part exists
         lists_with_part = []
         for lst in lists:
-            part_resp = requests.get(
+            part_resp = http.get(
                 f"{RB_BASE}/users/{USER_TOKEN}/partlists/{lst['id']}/parts/{part_num}/{color_id}/",
                 params={"key": API_KEY},
                 timeout=5,
@@ -2005,13 +1928,18 @@ def bin_stickers():
     conn = local_db()
     if conn is not None:
         try:
+            part_nums = sorted(bins)
+            names = {}
+            for i in range(0, len(part_nums), 400):  # SQLite variable limit
+                chunk = part_nums[i:i + 400]
+                placeholders = ",".join("?" for _ in chunk)
+                names.update(conn.execute(
+                    f"SELECT part_num, name FROM parts WHERE part_num IN ({placeholders})",
+                    chunk,
+                ).fetchall())
             for parts in by_label.values():
                 for p in parts:
-                    row = conn.execute(
-                        "SELECT name FROM parts WHERE part_num = ?", (p["part_num"],)
-                    ).fetchone()
-                    if row:
-                        p["name"] = row["name"]
+                    p["name"] = names.get(p["part_num"])
         except sqlite3.OperationalError:
             pass
         finally:
@@ -2029,7 +1957,7 @@ def add_part():
     quantity = int(data["quantity"])
 
     # Check if this part+color already exists: GET /parts/{part_num}/{color_id}/
-    existing = requests.get(
+    existing = http.get(
         f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/",
         params={"key": API_KEY},
     )
@@ -2039,7 +1967,7 @@ def add_part():
     if existing.status_code == 200:
         current_qty = existing.json().get("quantity", 0)
         new_qty = current_qty + quantity
-        resp = requests.put(
+        resp = http.put(
             f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/",
             params={"key": API_KEY},
             data={"quantity": new_qty},
@@ -2050,7 +1978,7 @@ def add_part():
         result["_previous_quantity"] = current_qty
         return jsonify(result), resp.status_code
     else:
-        resp = requests.post(
+        resp = http.post(
             f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/",
             params={"key": API_KEY},
             data={"part_num": part_num, "color_id": color_id, "quantity": quantity},
@@ -2067,7 +1995,7 @@ def remove_part_one():
     color_id = data["color_id"]
 
     item_url = f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/"
-    existing = requests.get(item_url, params={"key": API_KEY})
+    existing = http.get(item_url, params={"key": API_KEY})
 
     print(f"[remove_part_one] list={list_id} part={part_num} color={color_id}")
 
@@ -2078,7 +2006,7 @@ def remove_part_one():
 
     current_qty = int(existing.json().get("quantity", 0))
     if current_qty <= 1:
-        resp = requests.delete(item_url, params={"key": API_KEY})
+        resp = http.delete(item_url, params={"key": API_KEY})
         if resp.status_code == 204:
             return jsonify({
                 "_deleted": True,
@@ -2088,7 +2016,7 @@ def remove_part_one():
         return jsonify(resp.json()), resp.status_code
 
     new_qty = current_qty - 1
-    resp = requests.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
+    resp = http.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
     if resp.status_code == 200:
         result = resp.json()
         result["_updated"] = True
@@ -2100,7 +2028,7 @@ def remove_part_one():
 
 @app.route("/api/partlists/<int:list_id>", methods=["DELETE"])
 def delete_partlist(list_id):
-    resp = requests.delete(
+    resp = http.delete(
         f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/",
         params={"key": API_KEY},
     )
@@ -2114,7 +2042,7 @@ def create_partlist():
     name = (request.json or {}).get("name", "").strip()
     if not name:
         return jsonify({"error": "Name is required"}), 400
-    resp = requests.post(
+    resp = http.post(
         f"{RB_BASE}/users/{USER_TOKEN}/partlists/",
         params={"key": API_KEY},
         data={"name": name},
@@ -2138,7 +2066,7 @@ def get_minifig_sets(set_num):
     local = _local_minifig_sets(set_num)
     if local:
         return jsonify({"count": len(local), "results": local}), 200
-    resp = requests.get(
+    resp = http.get(
         f"{RB_BASE}/lego/minifigs/{set_num}/sets/",
         params={"key": API_KEY, "page_size": 30},
     )
@@ -2148,36 +2076,18 @@ def get_minifig_sets(set_num):
 @app.route("/api/minifig/<minifig_id>")
 def get_minifig(minifig_id):
     is_rebrickable_format = minifig_id.startswith('fig-')
-    bl_error_status = None
 
     def try_bricklink(fig_id):
-        nonlocal bl_error_status
-        try:
-            auth = OAuth1(BL_CONSUMER_KEY, BL_CONSUMER_SECRET, BL_TOKEN, BL_TOKEN_SECRET)
-            resp = requests.get(
-                f"https://api.bricklink.com/api/store/v1/items/MINIFIG/{fig_id}",
-                auth=auth, timeout=8
-            )
-            bl_error_status = resp.status_code
-            if resp.status_code == 200:
-                bl_data = resp.json()
-                if 'data' in bl_data:
-                    item = bl_data['data']
-                    img_url = item.get('image_url', '')
-                    if img_url.startswith('//'):
-                        img_url = 'https:' + img_url
-                    return {
-                        'fig_num': item.get('no'),
-                        'name': item.get('name'),
-                        'fig_img_url': img_url,
-                        'external_id': item.get('no'),
-                        'source': 'bricklink'
-                    }
-            else:
-                print(f"BrickLink {resp.status_code} for {fig_id}: {resp.text[:200]}", file=sys.stderr)
-        except Exception as e:
-            print(f"BrickLink error for {fig_id}: {e}", file=sys.stderr)
-        return None
+        info = _bricklink_minifig_lookup(fig_id)
+        if not info:
+            return None
+        return {
+            'fig_num': fig_id,
+            'name': info['name'],
+            'fig_img_url': info.get('img_url') or '',
+            'external_id': fig_id,
+            'source': 'bricklink',
+        }
 
     if not is_rebrickable_format:
         result = try_bricklink(minifig_id)
@@ -2186,7 +2096,7 @@ def get_minifig(minifig_id):
 
     # Try Rebrickable (primary for fig- format, fallback for BL format)
     try:
-        resp = requests.get(
+        resp = http.get(
             f"{RB_BASE}/lego/minifigs/{minifig_id}/",
             params={"key": API_KEY},
         )
@@ -2212,7 +2122,7 @@ def get_minifig(minifig_id):
     # (works even when BrickLink API is blocked, e.g. on cloud hosting)
     if not is_rebrickable_format:
         img_url = f"https://img.bricklink.com/ML/{minifig_id}.jpg"
-        print(f"BrickLink API unavailable (status={bl_error_status}), using image fallback for {minifig_id}", file=sys.stderr)
+        print(f"BrickLink API unavailable, using image fallback for {minifig_id}", file=sys.stderr)
         return jsonify({
             'fig_num': minifig_id,
             'name': minifig_id,
@@ -2421,6 +2331,17 @@ def owned_minifigs_list():
     return jsonify({"results": out, "count": len(out)})
 
 
+def _bl_avg(guide, cond):
+    """The positive avg_price for one condition of a _bl_sold_price guide,
+    rounded to cents, or None."""
+    try:
+        v = (guide.get(cond) or {}).get("avg_price")
+        f = float(v)
+        return round(f, 2) if f > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
 def refresh_minifig_prices():
     """Fetch BrickLink last-6-month SOLD averages (Used + New) for every owned
     minifig that has a BrickLink id, and store them back into the local
@@ -2431,17 +2352,9 @@ def refresh_minifig_prices():
     targets = [(fn, e["bl_id"]) for fn, e in coll.items() if e.get("bl_id")]
     results, priced, failed = {}, 0, 0
 
-    def _avg(guide, cond):
-        try:
-            v = (guide.get(cond) or {}).get("avg_price")
-            f = float(v)
-            return round(f, 2) if f > 0 else None
-        except (TypeError, ValueError):
-            return None
-
     for fig_num, bl_id in targets:
         guide = _bl_sold_price("MINIFIG", bl_id)
-        pu, pn = _avg(guide, "U"), _avg(guide, "N")
+        pu, pn = _bl_avg(guide, "U"), _bl_avg(guide, "N")
         if pu is None and pn is None:
             failed += 1
         else:
@@ -2502,7 +2415,7 @@ def minifig_prices_status():
 @app.route("/api/owned_sets/<set_num>")
 def owned_set_status(set_num):
     """Is this set in the user's collection? → {owned, quantity}."""
-    resp = requests.get(
+    resp = http.get(
         f"{RB_BASE}/users/{USER_TOKEN}/sets/{set_num}/",
         params={"key": API_KEY},
     )
@@ -2554,17 +2467,17 @@ def add_set():
 
     print(f"[add_set] set_num={set_num} qty={quantity}")
     item_url = f"{RB_BASE}/users/{USER_TOKEN}/sets/{set_num}/"
-    existing = requests.get(item_url, params={"key": API_KEY})
+    existing = http.get(item_url, params={"key": API_KEY})
 
     if existing.status_code == 200:
         current_qty = int(existing.json().get("quantity", 0))
         new_qty = current_qty + quantity
-        resp = requests.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
+        resp = http.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
         result = resp.json() if resp.content else {}
         result.update({"_updated": True, "_previous_quantity": current_qty, "quantity": new_qty})
         return jsonify(result), resp.status_code
     else:
-        resp = requests.post(
+        resp = http.post(
             f"{RB_BASE}/users/{USER_TOKEN}/sets/",
             params={"key": API_KEY},
             data={"set_num": set_num, "quantity": quantity},
@@ -2576,13 +2489,89 @@ def add_set():
         return jsonify(result), resp.status_code
 
 
+def _build_subtract_record(key, set_num, list_id, list_name, removed):
+    """Fill in a "Subtract a Set" record: split the set's full inventory into
+    what was pulled into the list (subtracted) vs. what wasn't needed and is now
+    spare (remaining). `removed` is {"part|color": qty} from the confirmed
+    preview. Runs in a background thread (the set part-fetch pages through
+    throttled GETs); overlays colour-specific catalog images when present."""
+    fetched = _fetch_set_parts(set_num)
+    rec = {}
+    if fetched is None:
+        rec.update({"building": False, "error": True})
+    else:
+        set_name, set_img, set_parts, _total = fetched
+        subtracted, remaining = [], []
+        sub_pieces = remain_pieces = 0
+        for sp in set_parts.values():
+            rk = f"{sp['part_num']}|{sp['color_id']}"
+            took = int(removed.get(rk, 0))
+            took = max(0, min(took, sp["quantity"]))     # never exceed the set's own count
+            left = sp["quantity"] - took
+            if took > 0:
+                subtracted.append({**sp, "quantity": took})
+                sub_pieces += took
+            if left > 0:
+                remaining.append({**sp, "quantity": left})
+                remain_pieces += left
+        for grp in (subtracted, remaining):
+            grp.sort(key=lambda p: (p.get("name") or "").lower())
+        conn = local_db()
+        if conn is not None:
+            try:
+                pairs = [(p["part_num"], p["color_id"]) for p in subtracted + remaining
+                         if p["color_id"] is not None]
+                imgs = _local_part_color_imgs(conn, pairs)
+                for p in subtracted + remaining:
+                    if p["color_id"] is not None:
+                        local_img = imgs.get((p["part_num"], int(p["color_id"])))
+                        if local_img:
+                            p["img_url"] = local_img
+            finally:
+                conn.close()
+        rec.update({
+            "set_name": set_name,
+            "set_img": set_img,
+            "subtracted": subtracted,
+            "remaining": remaining,
+            "sub_pieces": sub_pieces,
+            "remain_pieces": remain_pieces,
+            "building": False,
+            "error": False,
+        })
+    with _meta_lock:
+        data = _load_meta(SUBTRACT_RECORDS_PATH)
+        data[key] = {**(data.get(key) or {}), **rec}
+        _save_meta(SUBTRACT_RECORDS_PATH, data)
+
+
+@app.route("/api/subtract_records")
+def subtract_records_list():
+    """Past "Subtract a Set" runs, newest first, each split into subtracted vs.
+    remaining (spare) pieces. LOCAL-ONLY (.subtract_records.json is ephemeral on
+    Render)."""
+    data = _load_meta(SUBTRACT_RECORDS_PATH)
+    items = sorted(data.values(), key=lambda r: r.get("ts") or 0, reverse=True)
+    return jsonify({"results": items}), 200
+
+
+@app.route("/api/subtract_records/<key>", methods=["DELETE"])
+def subtract_record_delete(key):
+    """Dismiss a subtract-a-set card."""
+    with _meta_lock:
+        data = _load_meta(SUBTRACT_RECORDS_PATH)
+        if data.pop(key, None) is not None:
+            _save_meta(SUBTRACT_RECORDS_PATH, data)
+    return '', 204
+
+
 @app.route("/api/remove_set_one", methods=["POST"])
 def remove_set_one():
     """Decrement an owned set by 1 (delete the entry if it hits 0)."""
     data = request.json
     set_num = data["set_num"]
     item_url = f"{RB_BASE}/users/{USER_TOKEN}/sets/{set_num}/"
-    existing = requests.get(item_url, params={"key": API_KEY})
+    existing = http.get(item_url, params={"key": API_KEY})
 
     if existing.status_code == 404:
         return jsonify({"error": "Set is not in your collection.", "quantity": 0}), 404
@@ -2591,7 +2580,7 @@ def remove_set_one():
 
     current_qty = int(existing.json().get("quantity", 0))
     if current_qty <= 1:
-        resp = requests.delete(item_url, params={"key": API_KEY})
+        resp = http.delete(item_url, params={"key": API_KEY})
         if resp.status_code == 204:
             with _meta_lock:
                 meta = _load_meta(SET_META_PATH)
@@ -2601,7 +2590,7 @@ def remove_set_one():
         return jsonify(resp.json() if resp.content else {}), resp.status_code
 
     new_qty = current_qty - 1
-    resp = requests.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
+    resp = http.put(item_url, params={"key": API_KEY}, data={"quantity": new_qty})
     if resp.status_code == 200:
         return jsonify({"_updated": True, "_previous_quantity": current_qty, "quantity": new_qty}), 200
     return jsonify(resp.json() if resp.content else {}), resp.status_code
@@ -2610,39 +2599,27 @@ def remove_set_one():
 @app.route("/api/owned_sets")
 def owned_sets_list():
     """The user's owned-sets collection (paginated through, newest Rebrickable order)."""
-    out = []
+    rows, err = _rb_collect(f"/users/{USER_TOKEN}/sets/", max_pages=100)
+    if err and not rows:
+        return jsonify({"error": "Couldn't fetch your sets", "results": []}), err
     meta = _load_meta(SET_META_PATH)
-    page = 1
-    while page <= 100:
-        resp = rebrickable_get(
-            f"/users/{USER_TOKEN}/sets/",
-            params={"key": API_KEY, "page_size": 100, "page": page},
-        )
-        if resp is None or resp.status_code != 200:
-            if page == 1:
-                return jsonify({"error": "Couldn't fetch your sets", "results": []}), \
-                    (resp.status_code if resp is not None else 502)
-            break
-        data = resp.json()
-        for it in data.get("results", []):
-            s = it.get("set") or {}
-            m = meta.get(s.get("set_num")) or {}
-            out.append({
-                "set_num": s.get("set_num"),
-                "name": s.get("name"),
-                "year": s.get("year"),
-                "num_parts": s.get("num_parts"),
-                "img_url": s.get("set_img_url"),
-                "quantity": it.get("quantity", 1),
-                "condition": m.get("condition"),
-                "price_paid": m.get("price_paid"),
-                "price_used": m.get("price_used"),
-                "price_new": m.get("price_new"),
-                "price_updated": m.get("price_updated"),
-            })
-        if not data.get("next"):
-            break
-        page += 1
+    out = []
+    for it in rows:
+        s = it.get("set") or {}
+        m = meta.get(s.get("set_num")) or {}
+        out.append({
+            "set_num": s.get("set_num"),
+            "name": s.get("name"),
+            "year": s.get("year"),
+            "num_parts": s.get("num_parts"),
+            "img_url": s.get("set_img_url"),
+            "quantity": it.get("quantity", 1),
+            "condition": m.get("condition"),
+            "price_paid": m.get("price_paid"),
+            "price_used": m.get("price_used"),
+            "price_new": m.get("price_new"),
+            "price_updated": m.get("price_updated"),
+        })
     return jsonify({"results": out, "count": len(out)})
 
 
@@ -2650,24 +2627,8 @@ def _owned_set_nums():
     """Page through the user's Rebrickable set collection and return just the
     set_nums — the minimal "what do we own" list refresh_set_prices() needs
     (no per-set image/name fan-out)."""
-    out = []
-    page = 1
-    while page <= 100:
-        resp = rebrickable_get(
-            f"/users/{USER_TOKEN}/sets/",
-            params={"key": API_KEY, "page_size": 100, "page": page},
-        )
-        if resp is None or resp.status_code != 200:
-            break
-        data = resp.json()
-        for it in data.get("results", []):
-            num = (it.get("set") or {}).get("set_num")
-            if num:
-                out.append(num)
-        if not data.get("next"):
-            break
-        page += 1
-    return out
+    rows, _err = _rb_collect(f"/users/{USER_TOKEN}/sets/", max_pages=100)
+    return [num for it in rows if (num := (it.get("set") or {}).get("set_num"))]
 
 
 def refresh_set_prices():
@@ -2681,18 +2642,10 @@ def refresh_set_prices():
     set_nums = _owned_set_nums()
     results, priced, failed = {}, 0, 0
 
-    def _avg(guide, cond):
-        try:
-            v = (guide.get(cond) or {}).get("avg_price")
-            f = float(v)
-            return round(f, 2) if f > 0 else None
-        except (TypeError, ValueError):
-            return None
-
     for set_num in set_nums:
         bl_no = set_num if "-" in set_num else f"{set_num}-1"
         guide = _bl_sold_price("SET", bl_no)
-        pu, pn = _avg(guide, "U"), _avg(guide, "N")
+        pu, pn = _bl_avg(guide, "U"), _bl_avg(guide, "N")
         if pu is None and pn is None:
             failed += 1
         else:
@@ -2765,7 +2718,7 @@ def _bl_sold_price(item_type, item_no):
         # answer). (connect, read) seconds.
         for attempt in (1, 2):
             try:
-                r = requests.get(url, params=params, auth=auth, timeout=(5, 15))
+                r = http.get(url, params=params, auth=auth, timeout=(5, 15))
                 if r.status_code == 200:
                     out[cond] = r.json().get("data", {})
                 else:
@@ -2822,7 +2775,7 @@ def get_minifig_parts(minifig_id):
     if local:
         return jsonify({"count": len(local), "results": local})
     try:
-        parts_resp = requests.get(
+        parts_resp = http.get(
             f"{RB_BASE}/lego/minifigs/{minifig_id}/parts/",
             params={"key": API_KEY},
             timeout=8,
@@ -3033,92 +2986,24 @@ def local_search():
         conn.close()
 
 
-@app.route("/api/search_sets")
-def search_sets():
-    """Search for LEGO sets by number or keyword from Rebrickable API."""
-    query = request.args.get("q", "").strip()
-    if not query:
-        return jsonify({"error": "Please enter a search term", "results": []}), 400
-
-    try:
-        # Search by set number or keyword
-        sets_resp = requests.get(
-            f"{RB_BASE}/lego/sets/",
-            params={
-                "key": API_KEY,
-                "search": query,
-                "page_size": 20,
-                "ordering": "-year"
-            },
-            timeout=8,
-        )
-
-        if sets_resp.status_code == 200:
-            data = sets_resp.json()
-            results = data.get("results", [])
-
-            # Format results for frontend
-            formatted = []
-            for set_info in results:
-                formatted.append({
-                    "set_num": set_info.get("set_num"),
-                    "name": set_info.get("name"),
-                    "year": set_info.get("year"),
-                    "image_url": set_info.get("set_img_url"),
-                    "part_count": set_info.get("num_parts"),
-                    "theme": set_info.get("theme", {}).get("id") if set_info.get("theme") else None
-                })
-
-            return jsonify({"results": formatted, "count": len(formatted)})
-        else:
-            return jsonify({"error": f"Search failed: {sets_resp.status_code}", "results": []}), sets_resp.status_code
-    except Exception as e:
-        print(f"Error searching sets: {e}")
-        return jsonify({"error": str(e), "results": []}), 500
-
-
 @app.route("/api/sets/<set_num>/parts")
 def get_set_parts(set_num):
     """Fetch all parts in a specific LEGO set from Rebrickable API."""
     try:
-        all_parts = []
-        page = 1
-        while True:
-            parts_resp = requests.get(
-                f"{RB_BASE}/lego/sets/{set_num}/parts/",
-                params={
-                    "key": API_KEY,
-                    "page": page,
-                    "page_size": 100,
-                },
-                timeout=8,
-            )
+        all_parts, err = _rb_collect(f"/lego/sets/{set_num}/parts/")
+        if err:
+            return jsonify({"error": f"Failed to fetch parts: {err}", "results": []}), err
 
-            if parts_resp.status_code != 200:
-                return jsonify({"error": f"Failed to fetch parts: {parts_resp.status_code}", "results": []}), parts_resp.status_code
-
-            data = parts_resp.json()
-            results = data.get("results", [])
-            all_parts.extend(results)
-
-            # Check if there are more pages
-            if not data.get("next"):
-                break
-            page += 1
-
-        # Format parts for frontend
-        formatted = []
-        for part in all_parts:
-            formatted.append({
-                "part_num": part.get("part", {}).get("part_num"),
-                "part_name": part.get("part", {}).get("name"),
-                "part_img_url": part.get("part", {}).get("part_img_url"),
-                "color_id": part.get("color", {}).get("id"),
-                "color_name": part.get("color", {}).get("name"),
-                "color_rgb": part.get("color", {}).get("rgb"),
-                "quantity": part.get("quantity", 0),
-                "is_spare": part.get("is_spare", False)
-            })
+        formatted = [{
+            "part_num": part.get("part", {}).get("part_num"),
+            "part_name": part.get("part", {}).get("name"),
+            "part_img_url": part.get("part", {}).get("part_img_url"),
+            "color_id": part.get("color", {}).get("id"),
+            "color_name": part.get("color", {}).get("name"),
+            "color_rgb": part.get("color", {}).get("rgb"),
+            "quantity": part.get("quantity", 0),
+            "is_spare": part.get("is_spare", False)
+        } for part in all_parts]
 
         return jsonify({"results": formatted, "count": len(formatted)})
     except Exception as e:
@@ -3130,40 +3015,17 @@ def get_set_parts(set_num):
 def get_set_minifigs(set_num):
     """Fetch all minifigs in a specific LEGO set from Rebrickable API."""
     try:
-        all_figs = []
-        page = 1
-        while True:
-            figs_resp = requests.get(
-                f"{RB_BASE}/lego/sets/{set_num}/minifigs/",
-                params={
-                    "key": API_KEY,
-                    "page": page,
-                    "page_size": 100,
-                },
-                timeout=8,
-            )
+        all_figs, err = _rb_collect(f"/lego/sets/{set_num}/minifigs/")
+        if err:
+            return jsonify({"error": f"Failed to fetch minifigs: {err}", "results": []}), err
 
-            if figs_resp.status_code != 200:
-                return jsonify({"error": f"Failed to fetch minifigs: {figs_resp.status_code}", "results": []}), figs_resp.status_code
-
-            data = figs_resp.json()
-            results = data.get("results", [])
-            all_figs.extend(results)
-
-            # Check if there are more pages
-            if not data.get("next"):
-                break
-            page += 1
-
-        # Format minifigs for frontend
-        formatted = []
-        for fig in all_figs:
-            formatted.append({
-                "fig_num": fig.get("set_num"),  # Rebrickable uses "set_num" for fig ID
-                "fig_name": fig.get("set_name"),  # Rebrickable uses "set_name" for minifig name
-                "fig_img_url": fig.get("set_img_url"),  # Rebrickable uses "set_img_url" for image
-                "quantity": fig.get("quantity", 0)
-            })
+        # Rebrickable uses set_num/set_name/set_img_url for minifig fields
+        formatted = [{
+            "fig_num": fig.get("set_num"),
+            "fig_name": fig.get("set_name"),
+            "fig_img_url": fig.get("set_img_url"),
+            "quantity": fig.get("quantity", 0)
+        } for fig in all_figs]
 
         return jsonify({"results": formatted, "count": len(formatted)})
     except Exception as e:
@@ -3176,7 +3038,7 @@ def import_csv():
     """Import parts from CSV file: part_num, color, quantity"""
     try:
         import csv
-        import io
+        import difflib
 
         list_id = request.form.get("list_id")
         if not list_id:
@@ -3193,56 +3055,10 @@ def import_csv():
         stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
         csv_data = csv.DictReader(stream)
 
-        # Fetch all colors for lookup (use cached colors to reduce API calls)
-        import difflib
-        colors = []
-        color_name_to_id = {}
-        color_names_list = []
-
-        # Use cached colors first, only fetch if cache empty/expired
-        import time
-        now = time.time()
-        if COLORS_CACHE["data"] and (now - COLORS_CACHE["timestamp"]) < COLORS_CACHE_DURATION:
-            colors = COLORS_CACHE["data"]
-            print(f"✓ Using cached colors ({len(colors)} colors)")
-        else:
-            # Fetch from Rebrickable only (to avoid rate limits)
-            try:
-                url = f"{RB_BASE}/lego/colors/"
-                page_count = 0
-                while url:
-                    resp = requests.get(url, params={"key": API_KEY, "page_size": 200}, timeout=10)
-
-                    # Check for rate limit
-                    if resp.status_code == 429:
-                        print("⚠ Rate limited (429), using fallback colors")
-                        colors = FALLBACK_COLORS
-                        break
-
-                    resp.raise_for_status()
-                    data = resp.json()
-                    colors.extend(data.get("results", []))
-                    url = data.get("next")
-                    page_count += 1
-
-                if colors:
-                    print(f"✓ Fetched {len(colors)} colors from Rebrickable ({page_count} pages)")
-                    # Cache the result
-                    COLORS_CACHE["data"] = colors
-                    COLORS_CACHE["timestamp"] = now
-            except Exception as e:
-                print(f"⚠ Rebrickable colors error: {e}, using fallback")
-                colors = FALLBACK_COLORS
-
-        # If still no colors, use fallback
-        if len(colors) == 0:
-            colors = FALLBACK_COLORS
-            print(f"⚠ Using fallback color list ({len(colors)} colors)")
-
-        # Build color lookup maps
-        for c in colors:
-            color_name_to_id[c["name"].lower()] = c["id"]
-            color_names_list.append(c["name"])
+        # Build color lookup maps (shared cached color list)
+        colors = _all_colors()
+        color_name_to_id = {c["name"].lower(): c["id"] for c in colors}
+        color_names_list = [c["name"] for c in colors]
 
         # Helper function for fuzzy color matching
         def resolve_color(color_input):
@@ -3303,7 +3119,7 @@ def import_csv():
                     continue
 
                 # Add part using existing add_part logic
-                existing = requests.get(
+                existing = http.get(
                     f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/",
                     params={"key": API_KEY},
                 )
@@ -3312,14 +3128,14 @@ def import_csv():
                     # Update existing
                     current_qty = existing.json().get("quantity", 0)
                     new_qty = current_qty + quantity
-                    requests.put(
+                    http.put(
                         f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/{part_num}/{color_id}/",
                         params={"key": API_KEY},
                         data={"quantity": new_qty},
                     )
                 else:
                     # Create new
-                    requests.post(
+                    http.post(
                         f"{RB_BASE}/users/{USER_TOKEN}/partlists/{list_id}/parts/",
                         params={"key": API_KEY},
                         data={"part_num": part_num, "color_id": color_id, "quantity": quantity},
@@ -3344,6 +3160,6 @@ if __name__ == "__main__":
         local_ip = socket.gethostbyname(hostname)
     except socket.gaierror:
         local_ip = "127.0.0.1"
-    print(f"\n  Open on your phone: http://{local_ip}:5000\n")
     port = int(os.environ.get("PORT", 5001))
+    print(f"\n  Open on your phone: http://{local_ip}:{port}\n")
     app.run(host="0.0.0.0", port=port, debug=False)

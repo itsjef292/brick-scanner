@@ -30,6 +30,8 @@ app.log
 .minifig_collection.json.tmp
 .bl_minifig_variants.json
 .bl_minifig_variants.json.tmp
+.subtract_records.json
+.subtract_records.json.tmp
 
 # Daily minifig price-refresh logs (local dev only)
 minifig_prices.log
