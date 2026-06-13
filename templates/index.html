@@ -2646,7 +2646,7 @@
     fetch('/api/identify', { method: 'POST', body: form })
       .then(r => r.json())
       .then(data => { finishLoadingProgress(); showIdentifyScreen(data); })
-      .catch(() => { finishLoadingProgress(); showIdentifyScreen({ items: [] }); });
+      .catch(() => { finishLoadingProgress(); showIdentifyScreen({ items: [], netError: true }); });
   }
 
   // ── Live camera auto-scan (hands-free) ──────────────────────────────────
@@ -3137,9 +3137,13 @@
     const regions = (data && data.regions) || [];
     if (!regions.length) {
       goTo('screen-scan');
-      showToast((data && data.error)
-        ? `Bulk scan failed: ${data.error}`
-        : 'No pieces found — spread them out on a plain background.');
+      // data === null means the fetch itself failed — connectivity, not
+      // recognition (same distinction as the single-identify path).
+      showToast(!data
+        ? 'Couldn’t reach the server — check your connection and retry.'
+        : data.error
+          ? `Bulk scan failed: ${data.error}`
+          : 'No pieces found — spread them out on a plain background.');
       return;
     }
     // Rows from an older pile keep their data but lose their numbers — the
@@ -4625,8 +4629,14 @@
     errEl.style.display = 'none';
 
     if (!items.length) {
-      document.getElementById('partName').textContent = 'No part identified';
-      errEl.textContent = 'Try a clearer photo against a plain background.';
+      // A failed fetch is a connectivity problem, not a recognition one — the
+      // PWA shell loads from the SW cache, so the app looks alive even when
+      // the server (e.g. Tailscale link to the Mac) is unreachable.
+      document.getElementById('partName').textContent =
+        data.netError ? 'Connection failed' : 'No part identified';
+      errEl.textContent = data.netError
+        ? 'Couldn’t reach the server — check your connection (Tailscale on?) and retry.'
+        : 'Try a clearer photo against a plain background.';
       errEl.style.display = 'block';
       document.getElementById('catalogImg').src = '';
       document.getElementById('blValue').textContent = '—';
