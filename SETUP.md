@@ -141,15 +141,23 @@ instructions are in the plist header (`launchctl load|stop|start|unload …`).
    Public URL; auto-deploys on push to GitHub; ~$5-50/month depending on usage.
 
 **Render Stack:**
-- `render.yaml` native Python runtime (no Docker)
-- `requirements.txt` with dependencies
-- `gunicorn` WSGI server (production-grade)
+- **`Dockerfile` — the service is a Docker-runtime service; this is what Render
+  actually builds.** Do NOT delete it. (`render.yaml` declares `runtime: python`,
+  but the dashboard service was created as Docker and a service's runtime can't
+  be changed after creation — the yaml's build/start commands are unused.
+  Deleting the Dockerfile broke production builds on 2026-06-12.)
+- Image bakes the offline catalog: `download_csvs.py` + `build_brick_db.py` run
+  at build time, then the raw CSVs are dropped (~195 MB db ships in the image)
+- `gunicorn` WSGI server, 1 worker × 8 threads (keeps the in-process
+  Rebrickable rate limiter global), port 8080
 - Environment variables set in Render console
 - Auto-redeploy on GitHub push via webhook
 
 **Files involved in deployment:**
-- `render.yaml` — Render-specific configuration (build/start commands, env var keys)
+- `Dockerfile` — container build (deps → app files → catalog bake → gunicorn)
+- `.dockerignore` — keeps local state/logs/db out of the build context
 - `requirements.txt` — Python dependencies
+- `render.yaml` — env-var declarations (`sync: false`); runtime/commands unused (see above)
 
 ### API Key Management
 

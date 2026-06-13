@@ -3,11 +3,19 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Dockerfile restored — Render builds it (June 2026):**
+- The cleanup below wrongly classed `Dockerfile`/`.dockerignore` as stale
+  GCP leftovers: the Render service is a Docker-runtime service, so deleting
+  them broke production builds ("Exited with status 1"). Restored both;
+  `render.yaml`'s `runtime: python` line is unused (a Render service's
+  runtime can't change after creation). `SETUP.md` + `CLAUDE.md` now say so.
+
 **Repo cleanup: stale deployment paths + unused assets (June 2026):**
 - Removed stale non-Render deployment artifacts: `DEPLOY.md` (old Google Cloud
   Run guide), `Dockerfile`, `.dockerignore`, `INSTALL-linux.md`, and `deploy/`
   (Linux systemd units) — production is Render via `render.yaml`'s native
   Python runtime. Updated `SETUP.md`'s deployment-files list accordingly.
+  (`Dockerfile`/`.dockerignore` restored same day — see entry above.)
 - Removed stray root screenshots `parted-out.png`/`subtracted-sets.png` and
   unused `static/Alignment_Fig.jpg`, `static/parts_icon.jpg`,
   `static/parts_icon.png` — all unreferenced in code or docs.

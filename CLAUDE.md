@@ -224,7 +224,8 @@ visibly instead.
 
 **Two instances:** local `http://127.0.0.1:5001` (also private via Tailscale — see
 SETUP.md) and production `https://brick-scanner.onrender.com` (auto-redeploys ~1–2
-min after a push to `main`).
+min after a push to `main`). **Render builds the `Dockerfile`** (Docker-runtime
+service; `render.yaml`'s `runtime: python` + commands are unused) — never delete it.
 
 **Golden Rule:** all dev is local; **push to `main` only when explicitly told**
 ("Push to main" / "Deploy this") → `git add . && git commit -m "…" && git push origin main`.
