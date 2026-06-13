@@ -621,6 +621,30 @@
       position: absolute; inset: 0; width: 100%; height: 100%;
       object-fit: cover;
     }
+    /* Corner brackets frame the shot while it's read — scanner framing, the
+       photo is the document on the bed. Drawn as 8 gradient strokes (2 per
+       corner) so it's one element; drop-shadow keeps them legible on light
+       photos. */
+    .scan-corners {
+      position: absolute; inset: 16px; z-index: 2; pointer-events: none;
+      --ck: var(--yellow); --ct: 2.5px; --cl: 30px;
+      background:
+        linear-gradient(var(--ck), var(--ck)) left   top    / var(--cl) var(--ct),
+        linear-gradient(var(--ck), var(--ck)) left   top    / var(--ct) var(--cl),
+        linear-gradient(var(--ck), var(--ck)) right  top    / var(--cl) var(--ct),
+        linear-gradient(var(--ck), var(--ck)) right  top    / var(--ct) var(--cl),
+        linear-gradient(var(--ck), var(--ck)) left   bottom / var(--cl) var(--ct),
+        linear-gradient(var(--ck), var(--ck)) left   bottom / var(--ct) var(--cl),
+        linear-gradient(var(--ck), var(--ck)) right  bottom / var(--cl) var(--ct),
+        linear-gradient(var(--ck), var(--ck)) right  bottom / var(--ct) var(--cl);
+      background-repeat: no-repeat;
+      filter: drop-shadow(0 1px 6px rgba(0,0,0,0.45));
+      animation: cornerBreathe 2.4s ease-in-out infinite;
+    }
+    @keyframes cornerBreathe {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
     /* Beam colours are fixed, not tokens — it sweeps the photo, not a themed
        surface (same exception as the scrim chip). */
     .loading-sweep {
@@ -631,6 +655,12 @@
       box-shadow: 0 0 12px 3px rgba(59,158,255,0.45), 0 0 30px 8px rgba(59,158,255,0.18);
       animation: scan-beam 1.8s ease-in-out infinite;
     }
+    /* Translucent band trailing the beam — the "already scanned" region. */
+    .loading-sweep::before {
+      content: ''; position: absolute; left: 0; right: 0;
+      bottom: 100%; height: 72px;
+      background: linear-gradient(to top, rgba(59,158,255,0.22), rgba(59,158,255,0));
+    }
     @keyframes scan-beam {
       0%   { top: 0; opacity: 0; }
       8%   { opacity: 1; }
@@ -639,6 +669,11 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .loading-sweep { animation: none; top: 50%; }
+      .scan-corners { animation: none; }
+    }
+    .loading-hint {
+      color: var(--muted); font-size: 13px; text-align: center;
+      margin: 0; line-height: 1.5;
     }
     .loading-chip {
       position: absolute; bottom: 14px; left: 50%;
@@ -1996,7 +2031,7 @@
 <div class="screen" id="screen-loading">
   <div class="loading-stage">
     <img id="loadingPhoto" alt="" src="">
-    <span class="scan-reticle"></span>
+    <div class="scan-corners"></div>
     <div class="loading-sweep"></div>
     <div class="scrim-chip loading-chip">
       <span class="live-dot"></span>
@@ -2004,6 +2039,7 @@
       <span id="loadingPct"></span>
     </div>
   </div>
+  <p class="loading-hint">Please wait — this usually takes a few seconds</p>
 </div>
 
 <!-- Screen 3: Identify -->
