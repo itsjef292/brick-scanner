@@ -160,7 +160,7 @@
       letter-spacing: 1px;
       text-transform: uppercase;
     }
-    .theme-toggle {
+    .theme-toggle, .conn-toggle {
       width: 30px; height: 30px; padding: 0; flex-shrink: 0;
       border: 1px solid var(--border-bright);
       border-radius: 50%;
@@ -174,6 +174,25 @@
     .theme-toggle .ico-moon { display: none; }
     html[data-theme="light"] .theme-toggle .ico-moon { display: block; }
     html[data-theme="light"] .theme-toggle .ico-sun { display: none; }
+    /* Server-connection heartbeat dot: green = server reachable, blinking
+       red = unreachable (e.g. Tailscale dropped — the PWA shell still loads
+       from the SW cache, so the app can't tell otherwise). Tap to re-check. */
+    .conn-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted2);
+    }
+    .conn-toggle[data-state="ok"] .conn-dot {
+      background: var(--green);
+      box-shadow: 0 0 6px rgba(70, 201, 126, 0.5);
+    }
+    .conn-toggle[data-state="down"] .conn-dot {
+      background: var(--red);
+      animation: connBlink 1.2s ease-in-out infinite;
+    }
+    @keyframes connBlink { 50% { opacity: 0.35; } }
+    @media (prefers-reduced-motion: reduce) {
+      .conn-toggle[data-state="down"] .conn-dot { animation: none; }
+    }
 
     /* ── Mode Tabs ── */
     .mode-tabs {
@@ -1595,6 +1614,10 @@
 <header>
   <img src="/static/brick.svg" alt="LEGO Brick">
   <h1>Brick Scanner</h1>
+  <button class="conn-toggle" id="connBtn" data-state="checking" onclick="connCheckNow()"
+          aria-label="Check server connection">
+    <span class="conn-dot"></span>
+  </button>
   <button class="theme-toggle" onclick="toggleTheme()" aria-label="Switch between light and dark theme">
     <svg class="ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6"/><path d="M12 1.6l1.5 3.1h-3L12 1.6zm0 20.8l-1.5-3.1h3L12 22.4zM1.6 12l3.1-1.5v3L1.6 12zm20.8 0l-3.1 1.5v-3l3.1 1.5zM4.6 4.6l3.3 1.1-2.2 2.2-1.1-3.3zm14.8 14.8l-3.3-1.1 2.2-2.2 1.1 3.3zm0-14.8l-1.1 3.3-2.2-2.2 3.3-1.1zM4.6 19.4l1.1-3.3 2.2 2.2-3.3 1.1z"/></svg>
     <svg class="ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 14.8A8.8 8.8 0 0 1 9.2 3.4 9.3 9.3 0 1 0 20.6 14.8z"/></svg>
@@ -2340,16 +2363,11 @@
       t.classList.toggle('active', t.dataset.mode === m);
     });
 
-    // Leaving the scan-flow overlays (identify / loading / success) or the
-    // set-details overlay for a tab hides them — otherwise an active one stays
-    // stacked under the tab's screen (e.g. the "Part added" success card).
-    ['screen-identify', 'screen-loading', 'screen-success'].forEach(id =>
-      document.getElementById(id).classList.remove('active'));
-    if (m !== 'sets') document.getElementById('screen-set-details').classList.remove('active');
-
-    Object.values(MODE_SCREENS).forEach(id => {
-      document.getElementById(id).classList.toggle('active', id === MODE_SCREENS[m]);
-    });
+    // Show the tab's screen and hide every other overlay/screen, so none lingers
+    // stacked underneath (e.g. the Retiring Sets list bleeding onto Scan). The
+    // set-details overlay is preserved when switching into Sets so it stays
+    // layered there. See showScreen — the single screen-activation point.
+    showScreen(MODE_SCREENS[m], m === 'sets' ? 'screen-set-details' : null);
 
     if (m === 'scan') {
       // Pick up lists created elsewhere since the page loaded (dropdown is
@@ -2646,7 +2664,7 @@
     fetch('/api/identify', { method: 'POST', body: form })
       .then(r => r.json())
       .then(data => { finishLoadingProgress(); showIdentifyScreen(data); })
-      .catch(() => { finishLoadingProgress(); showIdentifyScreen({ items: [], netError: true }); });
+      .catch(() => { finishLoadingProgress(); _setConnState('down'); showIdentifyScreen({ items: [], netError: true }); });
   }
 
   // ── Live camera auto-scan (hands-free) ──────────────────────────────────
@@ -3384,6 +3402,36 @@
       .catch(() => {});
   }
 
+  // ── Server-connection heartbeat (header dot) ──────────────────────────
+  // The SW-cached shell loads fine with the server unreachable (Tailscale
+  // dropped, Mac asleep), so we ping /api/version: every 30s while visible,
+  // on resume, and on demand (tap the dot). Identify failures flip it red
+  // immediately via _setConnState.
+  function _setConnState(s) {
+    const b = document.getElementById('connBtn');
+    if (b) b.dataset.state = s;
+  }
+  async function pingServer(manual) {
+    if (document.hidden && !manual) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const t0 = performance.now();
+    try {
+      const r = await fetch('/api/version', { cache: 'no-store', signal: ctrl.signal });
+      if (!r.ok) throw new Error();
+      _setConnState('ok');
+      if (manual) showToast(`Connected to ${location.hostname} (${Math.round(performance.now() - t0)} ms)`);
+    } catch (e) {
+      _setConnState('down');
+      if (manual) showToast(`Can’t reach ${location.hostname} — check your connection (Tailscale on?)`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  function connCheckNow() { _setConnState('checking'); pingServer(true); }
+  pingServer();
+  setInterval(() => pingServer(), 30000);
+
   // Release the camera when backgrounded; on return, restart it, refresh data,
   // and check for a new version (only if we were away a moment, so quick
   // app-switches don't thrash).
@@ -3394,12 +3442,13 @@
       stopLiveScan();
     } else {
       syncLiveScan();
+      pingServer();
       if (Date.now() - _hiddenAt > 2000) { checkForUpdate(); refreshActiveScreenData(); }
     }
   });
   // Some iOS PWA resumes fire pageshow (bfcache restore) instead of visibility.
   window.addEventListener('pageshow', (e) => {
-    if (e.persisted) { checkForUpdate(); refreshActiveScreenData(); }
+    if (e.persisted) { checkForUpdate(); pingServer(); refreshActiveScreenData(); }
   });
   // Kick off live scanning on first load (no-op where unsupported / disabled).
   window.addEventListener('load', syncLiveScan);
@@ -5549,12 +5598,24 @@
   // Store parts data globally for bulk add
   let _minifigPartsData = null;
 
+  // The ONE place a screen is made visible: activate `id` and deactivate every
+  // other `.screen`. `keep` optionally spares one overlay (set-details stays
+  // layered when switching into the Sets tab). Routing all navigation through
+  // this is what guarantees overlays (identify / loading / success / retirement
+  // / bin / bulk-review) can't linger stacked under another screen — there's no
+  // per-screen list to forget to update when a new screen is added.
+  function showScreen(id, keep) {
+    document.querySelectorAll('.screen').forEach(s => {
+      if (s.id !== id && s.id !== keep) s.classList.remove('active');
+    });
+    document.getElementById(id).classList.add('active');
+  }
+
   function goTo(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const el = document.getElementById(id);
     // Clear any residual back-swipe transform so the screen never shows shifted.
     el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
-    el.classList.add('active');
+    showScreen(id);
     // Keep the tab bar + mode in sync when navigating straight to a tab screen
     // (back-swipe, Scan Another, retakeOrBack) without going through switchMode.
     const tabMode = Object.keys(MODE_SCREENS).find(k => MODE_SCREENS[k] === id);
