@@ -3,6 +3,21 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Passkeys / Face ID sign-in (June 2026):**
+- Optional WebAuthn fast-path layered on the password gate (`webauthn` lib).
+  Sign in once with the password, tap the key icon in the header to register a
+  platform passkey, then unlock with Face ID. Password stays as bootstrap +
+  recovery. Routes: `/api/passkey/registered` (UI state, exempt),
+  `register/begin|complete` (auth-gated), `auth/begin|complete` (exempt, used
+  pre-login). RP id + origin derived from `request.host` honouring
+  `X-Forwarded-Proto` (https behind Render's proxy).
+- Persistence: credentials (PUBLIC keys only) merge from env var
+  `PASSKEY_CREDENTIALS` + git-ignored `.passkeys.json`. Because Render's FS is
+  ephemeral, registration returns an `env_blob` (auto-copied to clipboard) to
+  paste into the Render env var so the passkey survives deploys. Frontend does
+  the ceremony with hand-rolled base64url↔ArrayBuffer helpers (no npm bundler).
+  Passkeys are bound to one domain, so a Render-registered key works only there.
+
 **Single-user password gate (June 2026):**
 - This is a personal database; an exposed public URL (Render) shouldn't be
   tamperable. Added a global `@app.before_request` gate in `app.py`: when

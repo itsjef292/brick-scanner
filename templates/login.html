@@ -50,6 +50,16 @@
       margin:14px 0 0; padding:10px 12px; font-size:13px; color:#FFD8D4;
       background:rgba(240,86,75,.12); border:1px solid rgba(240,86,75,.3); border-radius:10px;
     }
+    .passkey-btn{
+      display:none; width:100%; margin-top:12px; padding:13px;
+      font-size:15px; font-weight:600; font-family:var(--font-body);
+      color:var(--text); background:var(--surface3);
+      border:1px solid var(--border-bright); border-radius:11px; cursor:pointer;
+      align-items:center; justify-content:center; gap:8px;
+    }
+    .passkey-btn svg{width:18px;height:18px;fill:none;stroke:var(--yellow);stroke-width:2}
+    .divider{display:none;align-items:center;gap:10px;margin:16px 0 4px;color:var(--muted);font-size:11px}
+    .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
   </style>
 </head>
 <body>
@@ -58,10 +68,63 @@
       <img src="/static/app-icon.svg" alt="">
       <h1>Brick Scanner</h1>
     </div>
+    <button type="button" class="passkey-btn" id="passkeyBtn" onclick="signInWithPasskey()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="4"/><path d="M9 13c-3 0-5 1.8-5 4v1h7"/><path d="M14.5 13.5l4 4M17 13a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+      Sign in with Face ID
+    </button>
+    <div class="divider" id="pkDivider">or use password</div>
     <label for="password">Password</label>
-    <input type="password" id="password" name="password" autocomplete="current-password" autofocus required>
+    <input type="password" id="password" name="password" autocomplete="current-password" required>
     <button type="submit">Sign in</button>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <p class="error" id="pkError" style="display:none"></p>
   </form>
+  <script>
+    function b64urlToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');s+='='.repeat((4-s.length%4)%4);const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;}
+    function bufToB64url(buf){const u=new Uint8Array(buf);let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+    const NEXT = new URLSearchParams(location.search).get('next') || '/';
+
+    // Show the passkey button only if WebAuthn is available and one is registered.
+    (async function(){
+      if(!window.PublicKeyCredential) return;
+      try{
+        const s = await fetch('/api/passkey/registered').then(r=>r.json());
+        if(s.enabled && s.has_passkey){
+          document.getElementById('passkeyBtn').style.display='flex';
+          document.getElementById('pkDivider').style.display='flex';
+        }
+      }catch(e){}
+    })();
+
+    async function signInWithPasskey(){
+      const errEl = document.getElementById('pkError');
+      errEl.style.display='none';
+      try{
+        const opts = await fetch('/api/passkey/auth/begin',{method:'POST'}).then(r=>r.json());
+        opts.challenge = b64urlToBuf(opts.challenge);
+        (opts.allowCredentials||[]).forEach(c=>c.id=b64urlToBuf(c.id));
+        const a = await navigator.credentials.get({publicKey:opts});
+        const body = {
+          id:a.id, rawId:bufToB64url(a.rawId), type:a.type,
+          response:{
+            clientDataJSON:bufToB64url(a.response.clientDataJSON),
+            authenticatorData:bufToB64url(a.response.authenticatorData),
+            signature:bufToB64url(a.response.signature),
+            userHandle:a.response.userHandle?bufToB64url(a.response.userHandle):null,
+          },
+          clientExtensionResults:a.getClientExtensionResults(),
+          authenticatorAttachment:a.authenticatorAttachment,
+        };
+        const res = await fetch('/api/passkey/auth/complete',{method:'POST',
+          headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        if(res.ok){ location.href = NEXT.startsWith('/')?NEXT:'/'; return; }
+        throw new Error((await res.json()).error||'Sign-in failed');
+      }catch(e){
+        if(e.name==='NotAllowedError') return;   // user cancelled Face ID
+        errEl.textContent = 'Face ID sign-in failed — use your password.';
+        errEl.style.display='block';
+      }
+    }
+  </script>
 </body>
 </html>

@@ -51,8 +51,12 @@ app.config.update(
 )
 
 # Endpoints reachable without a session: the login page itself, the service
-# worker, the manifest, and all /static assets (so the PWA shell can load).
-_AUTH_EXEMPT = {"login", "service_worker", "web_manifest", "static"}
+# worker, the manifest, all /static assets (so the PWA shell can load), and the
+# passkey *authentication* + status endpoints (used before sign-in).
+_AUTH_EXEMPT = {
+    "login", "service_worker", "web_manifest", "static",
+    "passkey_registered", "passkey_auth_begin", "passkey_auth_complete",
+}
 
 
 @app.before_request
@@ -89,6 +93,186 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+# ── Passkeys (WebAuthn / Face ID) ────────────────────────────────────────────
+# Optional Face-ID fast-path layered on top of the password. You sign in once
+# with the password, register a passkey, then unlock biometrically thereafter.
+# The password always remains as the bootstrap/recovery path.
+#
+# Render's filesystem is ephemeral, so a registered credential written to a file
+# is wiped on the next deploy. To survive that, registration returns an env_blob
+# you paste into the PASSKEY_CREDENTIALS env var (it stores PUBLIC keys only —
+# not a secret). Locally, credentials persist to git-ignored .passkeys.json.
+try:
+    import webauthn as _wa
+    from webauthn.helpers.structs import (
+        AuthenticatorSelectionCriteria, ResidentKeyRequirement,
+        UserVerificationRequirement, PublicKeyCredentialDescriptor,
+    )
+    from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
+    _PASSKEYS_OK = True
+except Exception as _e:      # library missing → feature degrades off
+    _PASSKEYS_OK = False
+    print(f"⚠ Passkeys disabled (webauthn import failed): {_e}")
+
+_WA_USER_ID = b"brick-scanner-owner"      # single user → stable handle
+_PASSKEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".passkeys.json")
+
+
+def _rp_id_origin():
+    """Relying-Party id (bare domain) + expected origin for the current request.
+    Honour X-Forwarded-Proto so the origin is https behind Render's proxy."""
+    host = request.host                       # e.g. brick-scanner.onrender.com[:port]
+    scheme = request.headers.get("X-Forwarded-Proto", request.scheme)
+    return host.split(":")[0], f"{scheme}://{host}"
+
+
+def _load_passkeys():
+    """Registered credentials, merged from the env var (Render) and the local
+    file, de-duped by credential id."""
+    creds = {}
+    raw = os.environ.get("PASSKEY_CREDENTIALS", "")
+    if raw:
+        try:
+            for c in json.loads(raw):
+                creds[c["id"]] = c
+        except Exception as e:
+            print(f"⚠ PASSKEY_CREDENTIALS parse error: {e}")
+    try:
+        with open(_PASSKEY_FILE) as f:
+            for c in json.load(f):
+                creds[c["id"]] = c
+    except (OSError, ValueError):
+        pass
+    return list(creds.values())
+
+
+def _save_passkeys(creds):
+    try:
+        with open(_PASSKEY_FILE, "w") as f:
+            json.dump(creds, f)
+    except OSError:
+        pass      # read-only/ephemeral FS (Render) — env_blob carries it instead
+
+
+@app.route("/api/passkey/registered")
+def passkey_registered():
+    return jsonify({
+        "enabled": bool(APP_PASSWORD) and _PASSKEYS_OK,
+        "has_passkey": len(_load_passkeys()) > 0,
+        "authed": bool(session.get("auth")),
+    })
+
+
+@app.route("/api/passkey/register/begin", methods=["POST"])
+def passkey_register_begin():
+    if not _PASSKEYS_OK:
+        return jsonify({"error": "Passkeys unavailable"}), 500
+    rp_id, _ = _rp_id_origin()
+    opts = _wa.generate_registration_options(
+        rp_id=rp_id,
+        rp_name="Brick Scanner",
+        user_id=_WA_USER_ID,
+        user_name="owner",
+        user_display_name="Brick Scanner Owner",
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.PREFERRED,
+        ),
+        exclude_credentials=[
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(c["id"]))
+            for c in _load_passkeys()
+        ],
+    )
+    session["wa_reg_chal"] = bytes_to_base64url(opts.challenge)
+    return app.response_class(_wa.options_to_json(opts), mimetype="application/json")
+
+
+@app.route("/api/passkey/register/complete", methods=["POST"])
+def passkey_register_complete():
+    if not _PASSKEYS_OK:
+        return jsonify({"error": "Passkeys unavailable"}), 500
+    chal = session.pop("wa_reg_chal", None)
+    if not chal:
+        return jsonify({"error": "No registration in progress"}), 400
+    rp_id, origin = _rp_id_origin()
+    try:
+        ver = _wa.verify_registration_response(
+            credential=request.get_data(as_text=True),
+            expected_challenge=base64url_to_bytes(chal),
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Verification failed: {e}"}), 400
+    body = request.get_json(silent=True) or {}
+    transports = (body.get("response") or {}).get("transports") or []
+    new_id = bytes_to_base64url(ver.credential_id)
+    creds = [c for c in _load_passkeys() if c["id"] != new_id]
+    creds.append({
+        "id": new_id,
+        "public_key": bytes_to_base64url(ver.credential_public_key),
+        "sign_count": ver.sign_count,
+        "transports": transports,
+        "added": datetime.date.today().isoformat(),
+    })
+    _save_passkeys(creds)
+    return jsonify({"ok": True, "count": len(creds),
+                    "env_blob": json.dumps(creds, separators=(",", ":"))})
+
+
+@app.route("/api/passkey/auth/begin", methods=["POST"])
+def passkey_auth_begin():
+    if not _PASSKEYS_OK:
+        return jsonify({"error": "Passkeys unavailable"}), 500
+    creds = _load_passkeys()
+    if not creds:
+        return jsonify({"error": "No passkey registered"}), 404
+    rp_id, _ = _rp_id_origin()
+    opts = _wa.generate_authentication_options(
+        rp_id=rp_id,
+        allow_credentials=[
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(c["id"]))
+            for c in creds
+        ],
+        user_verification=UserVerificationRequirement.PREFERRED,
+    )
+    session["wa_auth_chal"] = bytes_to_base64url(opts.challenge)
+    return app.response_class(_wa.options_to_json(opts), mimetype="application/json")
+
+
+@app.route("/api/passkey/auth/complete", methods=["POST"])
+def passkey_auth_complete():
+    if not _PASSKEYS_OK:
+        return jsonify({"error": "Passkeys unavailable"}), 500
+    chal = session.pop("wa_auth_chal", None)
+    if not chal:
+        return jsonify({"error": "No authentication in progress"}), 400
+    body = request.get_json(silent=True) or {}
+    cred_id = body.get("id") or body.get("rawId")
+    creds = _load_passkeys()
+    match = next((c for c in creds if c["id"] == cred_id), None)
+    if not match:
+        return jsonify({"error": "Unknown passkey"}), 400
+    rp_id, origin = _rp_id_origin()
+    try:
+        ver = _wa.verify_authentication_response(
+            credential=request.get_data(as_text=True),
+            expected_challenge=base64url_to_bytes(chal),
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+            credential_public_key=base64url_to_bytes(match["public_key"]),
+            credential_current_sign_count=match.get("sign_count", 0),
+        )
+    except Exception as e:
+        return jsonify({"error": f"Verification failed: {e}"}), 400
+    match["sign_count"] = ver.new_sign_count       # local persistence only
+    _save_passkeys(creds)
+    session.permanent = True
+    session["auth"] = True
+    return jsonify({"ok": True})
+
 
 BL_CONSUMER_KEY    = os.environ.get("BL_CONSUMER_KEY", "")
 BL_CONSUMER_SECRET = os.environ.get("BL_CONSUMER_SECRET", "")

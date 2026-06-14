@@ -38,6 +38,13 @@ python3 refresh_catalog.py [--force]   # daily HEAD-check, rebuild + atomic swap
 `REBRICKABLE_API_KEY`, `REBRICKABLE_USER_TOKEN`, and BrickLink OAuth1
 `BL_CONSUMER_KEY`/`BL_CONSUMER_SECRET`/`BL_TOKEN`/`BL_TOKEN_SECRET`.
 
+**Auth (Render only):** setting `APP_PASSWORD` turns on a global
+`before_request` gate (pages → `/login`, `/api/` → 401 without a signed session;
+unset = open, for local dev). `APP_SECRET_KEY` signs the cookie — must stay
+stable (locally auto-persisted to `.flask_secret`). Optional Face ID/passkeys
+(WebAuthn) persist PUBLIC keys in `PASSKEY_CREDENTIALS` (env) + `.passkeys.json`;
+registration returns a blob to paste into the env var (Render FS is ephemeral).
+
 New-machine setup (secrets, catalog rebuild, launchd agents via
 `./install_agents.sh`): see **`SETUP.md`**.
 

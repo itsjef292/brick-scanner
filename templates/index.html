@@ -1641,6 +1641,10 @@
           aria-label="Check server connection">
     <span class="conn-dot"></span>
   </button>
+  <button class="theme-toggle" id="passkeyHdrBtn" onclick="setupPasskey()" style="display:none"
+          aria-label="Set up Face ID sign-in">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="4"/><path d="M9 13c-3 0-5 1.8-5 4v1h7"/><path d="M14.5 13.5l4 4M17 13a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+  </button>
   <button class="theme-toggle" onclick="toggleTheme()" aria-label="Switch between light and dark theme">
     <svg class="ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6"/><path d="M12 1.6l1.5 3.1h-3L12 1.6zm0 20.8l-1.5-3.1h3L12 22.4zM1.6 12l3.1-1.5v3L1.6 12zm20.8 0l-3.1 1.5v-3l3.1 1.5zM4.6 4.6l3.3 1.1-2.2 2.2-1.1-3.3zm14.8 14.8l-3.3-1.1 2.2-2.2 1.1 3.3zm0-14.8l-1.1 3.3-2.2-2.2 3.3-1.1zM4.6 19.4l1.1-3.3 2.2 2.2-3.3 1.1z"/></svg>
     <svg class="ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 14.8A8.8 8.8 0 0 1 9.2 3.4 9.3 9.3 0 1 0 20.6 14.8z"/></svg>
@@ -2377,6 +2381,59 @@
     _syncThemeColor();
   }
   _syncThemeColor();
+
+  // ── Passkey (Face ID) registration ──────────────────────────────────
+  // Shown only when password auth is enabled and WebAuthn is available. Tapping
+  // it registers a platform passkey; on the ephemeral Render host the returned
+  // blob must be pasted into the PASSKEY_CREDENTIALS env var to survive deploys.
+  function _b64urlToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');s+='='.repeat((4-s.length%4)%4);const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;}
+  function _bufToB64url(buf){const u=new Uint8Array(buf);let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+
+  (async function _initPasskeyBtn(){
+    if(!window.PublicKeyCredential) return;
+    try{
+      const s = await fetch('/api/passkey/registered').then(r=>r.json());
+      if(s.enabled){
+        const btn = document.getElementById('passkeyHdrBtn');
+        if(btn){
+          btn.style.display='flex';
+          btn.setAttribute('aria-label', s.has_passkey ? 'Add another Face ID device' : 'Set up Face ID sign-in');
+        }
+      }
+    }catch(e){}
+  })();
+
+  async function setupPasskey(){
+    try{
+      const opts = await fetch('/api/passkey/register/begin',{method:'POST'}).then(r=>r.json());
+      opts.challenge = _b64urlToBuf(opts.challenge);
+      opts.user.id = _b64urlToBuf(opts.user.id);
+      (opts.excludeCredentials||[]).forEach(c=>c.id=_b64urlToBuf(c.id));
+      const cred = await navigator.credentials.create({publicKey:opts});
+      const body = {
+        id:cred.id, rawId:_bufToB64url(cred.rawId), type:cred.type,
+        response:{
+          clientDataJSON:_bufToB64url(cred.response.clientDataJSON),
+          attestationObject:_bufToB64url(cred.response.attestationObject),
+          transports:cred.response.getTransports?cred.response.getTransports():[],
+        },
+        clientExtensionResults:cred.getClientExtensionResults(),
+        authenticatorAttachment:cred.authenticatorAttachment,
+      };
+      const res = await fetch('/api/passkey/register/complete',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+      if(!res.ok){ alert('Passkey setup failed: '+(res.error||'unknown')); return; }
+      // On Render the credential must be persisted in an env var. Offer the blob.
+      const blob = res.env_blob || '';
+      if(navigator.clipboard && blob){
+        try{ await navigator.clipboard.writeText(blob); }catch(e){}
+      }
+      alert("Face ID is set up on this device ✓\n\nIMPORTANT (production only): to keep it working across Render deploys, set the env var PASSKEY_CREDENTIALS to the value just copied to your clipboard, in the Render dashboard.\n\n"+blob);
+    }catch(e){
+      if(e.name==='NotAllowedError') return;   // user cancelled
+      alert('Passkey setup failed: '+(e.message||e.name));
+    }
+  }
 
   // ── Mode switching ──────────────────────────────────────────────────
   const MODE_SCREENS = {
