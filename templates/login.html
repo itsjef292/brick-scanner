@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Brick Scanner — Sign in</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <meta name="theme-color" content="#0A0E12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --yellow:#3B9EFF; --bg:#0C1014; --surface:#141A22; --surface3:#232E3D;
+      --socket:#080B0F; --border:rgba(150,180,215,.10); --border-bright:rgba(150,180,215,.20);
+      --text:#EAEEF4; --muted:#9EAAB9; --red:#F0564B;
+      --font-body:'Inter',system-ui,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%}
+    body{
+      background:var(--bg); color:var(--text); font-family:var(--font-body);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+      -webkit-font-smoothing:antialiased;
+    }
+    .card{
+      width:100%; max-width:340px; background:var(--surface);
+      border:1px solid var(--border); border-radius:18px; padding:28px 24px 24px;
+      box-shadow:0 20px 50px rgba(0,0,0,.45);
+    }
+    .logo{display:flex; align-items:center; gap:10px; margin-bottom:22px}
+    .logo img{width:34px; height:34px}
+    .logo h1{font-size:17px; font-weight:600; margin:0; letter-spacing:-.01em}
+    label{display:block; font-size:12px; color:var(--muted); margin:0 0 7px 2px; font-weight:500}
+    input[type=password]{
+      width:100%; padding:13px 14px; font-size:16px; font-family:var(--font-body);
+      color:var(--text); background:var(--socket);
+      border:1px solid var(--border-bright); border-radius:11px; outline:none;
+    }
+    input[type=password]:focus{border-color:var(--yellow)}
+    button{
+      width:100%; margin-top:16px; padding:13px; font-size:15px; font-weight:600;
+      font-family:var(--font-body); color:#06121F; background:var(--yellow);
+      border:none; border-radius:11px; cursor:pointer;
+    }
+    button:active{opacity:.85}
+    .error{
+      margin:14px 0 0; padding:10px 12px; font-size:13px; color:#FFD8D4;
+      background:rgba(240,86,75,.12); border:1px solid rgba(240,86,75,.3); border-radius:10px;
+    }
+  </style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login{{ ('?next=' + request.args.get('next')) if request.args.get('next') else '' }}">
+    <div class="logo">
+      <img src="/static/app-icon.svg" alt="">
+      <h1>Brick Scanner</h1>
+    </div>
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" autofocus required>
+    <button type="submit">Sign in</button>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  </form>
+</body>
+</html>

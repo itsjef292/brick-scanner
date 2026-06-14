@@ -3,6 +3,38 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Single-user password gate (June 2026):**
+- This is a personal database; an exposed public URL (Render) shouldn't be
+  tamperable. Added a global `@app.before_request` gate in `app.py`: when
+  `APP_PASSWORD` is set, every page redirects to a styled `/login`
+  (`templates/login.html`) and every `/api/` call returns 401 until a signed
+  session cookie is present. Unset = runs open (local dev is frictionless).
+- Session cookie signed with `APP_SECRET_KEY` (env; locally auto-persisted to
+  git-ignored `.flask_secret` so logins survive restarts — must be set in the
+  env on Render's ephemeral FS or sessions reset each deploy). 90-day lifetime,
+  HTTPOnly, SameSite=Lax, Secure on Render. `/logout` clears it.
+- Frontend wraps `window.fetch` once to bounce to `/login` on a 401 (expired
+  session) instead of surfacing scattered "network error" states. Login page,
+  `/sw.js`, `/manifest.webmanifest`, and `/static/` are auth-exempt so the PWA
+  shell can load. Enabled on Render only (env vars in the dashboard).
+
+**Offline minifig-variant index — kills the live BrickLink probe (June 2026):**
+- BrickLink has no "variants of" API, so `/api/minifig_variants` discovered
+  families (sw0574, sw0574a…) by *probing* candidate ids one live API call at a
+  time — slow, incomplete (only families you'd scanned; non-contiguous suffixes
+  missed), and LOCAL-ONLY (403s on Render, no BL creds).
+- New `build_minifig_index.py` turns BrickLink's *catalog download* (the full
+  Minifig item list — a flat tab-delimited file behind their web login, not the
+  OAuth API) into a committed `minifig_variants.json` (~1–2 MB, id→name). The
+  route now groups by numeric base from that index first — complete, instant,
+  creds-free — so variant linking finally **works on Render**. The live probe
+  (`.bl_minifig_variants.json` cache, 30-day TTL) stays as a fallback for figs
+  catalogued after the last index build; `?force=1` re-probes. Responses carry
+  `source: "offline"|"probe"`. Thumbnails come from the constructible
+  `img.bricklink.com/ItemImage/MN/0/<id>.png` URL (`_bl_minifig_img_url`), no
+  lookup needed. Raw `Minifigs.txt` is git-ignored; re-download + rebuild +
+  commit monthly-ish as BrickLink adds figs.
+
 **Dockerfile restored — Render builds it (June 2026):**
 - The cleanup below wrongly classed `Dockerfile`/`.dockerignore` as stale
   GCP leftovers: the Render service is a Docker-runtime service, so deleting

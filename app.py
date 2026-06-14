@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
+from flask import Flask, render_template, request, jsonify, send_from_directory, make_response, session, redirect, url_for
 import os
 import re
 import io
 import sys
 import json
 import hashlib
+import secrets
 import datetime
 import sqlite3
 import requests
@@ -17,6 +18,77 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# ── Single-user authentication ───────────────────────────────────────────────
+# This is a personal database. When APP_PASSWORD is set, a signed session cookie
+# gates the whole app so an exposed URL (Render's public host, Tailscale, etc.)
+# can't be tampered with. Leave APP_PASSWORD unset to run wide open (local dev).
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+
+# Cookies are signed with this key. Must stay STABLE or every session is
+# invalidated on restart/deploy — set APP_SECRET_KEY in the environment
+# (required on Render: its filesystem is ephemeral). Locally we persist a random
+# key to a git-ignored file so logins survive server restarts.
+_secret = os.environ.get("APP_SECRET_KEY") or os.environ.get("SECRET_KEY")
+if not _secret:
+    _keyfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".flask_secret")
+    try:
+        with open(_keyfile) as f:
+            _secret = f.read().strip()
+    except OSError:
+        _secret = secrets.token_hex(32)
+        try:
+            with open(_keyfile, "w") as f:
+                f.write(_secret)
+        except OSError:
+            pass  # read-only FS (Render) — env var should supply the key there
+app.secret_key = _secret
+app.config.update(
+    PERMANENT_SESSION_LIFETIME=datetime.timedelta(days=90),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("RENDER") is not None,  # HTTPS-only in prod
+)
+
+# Endpoints reachable without a session: the login page itself, the service
+# worker, the manifest, and all /static assets (so the PWA shell can load).
+_AUTH_EXEMPT = {"login", "service_worker", "web_manifest", "static"}
+
+
+@app.before_request
+def _require_login():
+    if not APP_PASSWORD:
+        return  # auth disabled
+    if request.endpoint in _AUTH_EXEMPT:
+        return
+    if session.get("auth"):
+        return
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Authentication required"}), 401
+    return redirect(url_for("login", next=request.path))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not APP_PASSWORD:
+        return redirect(url_for("index"))
+    error = None
+    if request.method == "POST":
+        if secrets.compare_digest(request.form.get("password", ""), APP_PASSWORD):
+            session.permanent = True
+            session["auth"] = True
+            nxt = request.args.get("next", "")
+            return redirect(nxt if nxt.startswith("/") else url_for("index"))
+        error = "Incorrect password."
+    resp = make_response(render_template("login.html", error=error))
+    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 BL_CONSUMER_KEY    = os.environ.get("BL_CONSUMER_KEY", "")
 BL_CONSUMER_SECRET = os.environ.get("BL_CONSUMER_SECRET", "")
@@ -337,6 +409,7 @@ def _bricklink_minifig_lookup(bl_id):
 
 
 BL_MINIFIG_VARIANTS_PATH = os.path.join(_HERE, ".bl_minifig_variants.json")
+MINIFIG_INDEX_PATH = os.path.join(_HERE, "minifig_variants.json")
 _VARIANT_TTL_DAYS = 30
 
 
@@ -345,6 +418,40 @@ def _minifig_base_id(bl_id):
     'sw0574a' → 'sw0574'; 'sw0574' → 'sw0574'. None if it isn't a minifig id."""
     m = re.match(r'^([a-z]+\d+)[a-z]*$', (bl_id or "").strip().lower())
     return m.group(1) if m else None
+
+
+def _bl_minifig_img_url(bl_id):
+    """BrickLink's canonical minifig image URL — constructible from the id alone,
+    so the offline variant index needs no API call to surface thumbnails."""
+    return f"https://img.bricklink.com/ItemImage/MN/0/{bl_id}.png"
+
+
+# Offline variant index — base id -> [{id, name}, …], grouped once at first use
+# from the committed minifig_variants.json (built by build_minifig_index.py from
+# BrickLink's catalog download). Complete, instant, and creds-free, so unlike the
+# live probe it works on Render. None until loaded; {} if the file is absent.
+_minifig_index = None
+
+
+def _load_minifig_index():
+    global _minifig_index
+    if _minifig_index is not None:
+        return _minifig_index
+    idx = {}
+    try:
+        with open(MINIFIG_INDEX_PATH) as f:
+            data = json.load(f)
+        for mid, name in (data.get("minifigs") or {}).items():
+            base = _minifig_base_id(mid)
+            if not base:
+                continue
+            idx.setdefault(base, []).append({"id": mid, "name": name})
+        for fam in idx.values():
+            fam.sort(key=lambda r: r["id"])
+    except (OSError, ValueError):
+        idx = {}
+    _minifig_index = idx
+    return idx
 
 
 def _probe_minifig_variants(base):
@@ -372,14 +479,27 @@ def _probe_minifig_variants(base):
 @app.route("/api/minifig_variants/<bl_id>")
 def minifig_variants(bl_id):
     """BrickLink minifig ids sharing this id's numeric base (its variants).
-    Probes BrickLink once per base and caches the family locally
-    (.bl_minifig_variants.json) with a TTL, so the local list grows as you scan
-    and newly-added variants are re-detected on the next check. LOCAL-ONLY —
-    needs BrickLink creds. → {base, variants:[{id,name,img_url}], cached}."""
+
+    Prefers the committed offline index (minifig_variants.json) — complete,
+    instant, and creds-free, so it works on Render. Falls back to a live
+    BrickLink probe (cached in .bl_minifig_variants.json with a TTL) for figs not
+    in the index — e.g. catalogued after the last index build. The probe is
+    LOCAL-ONLY (needs BrickLink creds). `?force=1` skips the index and re-probes.
+    → {base, variants:[{id,name,img_url}], cached, source:"offline"|"probe"}."""
     base = _minifig_base_id(bl_id)
     if not base:
         return jsonify({"base": None, "variants": []})
     force = request.args.get("force") == "1"
+
+    # Offline index first — authoritative when the base is present.
+    if not force:
+        fam = _load_minifig_index().get(base)
+        if fam:
+            variants = [{"id": r["id"], "name": r["name"],
+                         "img_url": _bl_minifig_img_url(r["id"])} for r in fam]
+            return jsonify({"base": base, "variants": variants,
+                            "cached": True, "source": "offline"})
+
     rec = _load_meta(BL_MINIFIG_VARIANTS_PATH).get(base)
     fresh = False
     if rec and not force:
@@ -389,18 +509,20 @@ def minifig_variants(bl_id):
         except (TypeError, ValueError):
             fresh = False
     if rec and fresh:
-        return jsonify({"base": base, "variants": rec.get("variants", []), "cached": True})
+        return jsonify({"base": base, "variants": rec.get("variants", []),
+                        "cached": True, "source": "probe"})
 
     variants = _probe_minifig_variants(base)
     # A transient BrickLink outage returns nothing — don't clobber a good cache.
     if not variants and rec:
-        return jsonify({"base": base, "variants": rec.get("variants", []), "cached": True})
+        return jsonify({"base": base, "variants": rec.get("variants", []),
+                        "cached": True, "source": "probe"})
     with _meta_lock:
         cache = _load_meta(BL_MINIFIG_VARIANTS_PATH)
         cache[base] = {"variants": variants,
                        "fetched_at": datetime.datetime.now().isoformat(timespec="seconds")}
         _save_meta(BL_MINIFIG_VARIANTS_PATH, cache)
-    return jsonify({"base": base, "variants": variants, "cached": False})
+    return jsonify({"base": base, "variants": variants, "cached": False, "source": "probe"})
 
 
 def _bricklink_minifig_sets(bl_id):

@@ -20,6 +20,23 @@
   <script>
     // Apply the saved theme before first paint (default: dark).
     try { if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}
+
+    // Auth gate: if the session expires, the server answers /api/ calls with 401.
+    // Intercept every fetch once and bounce to the login page so the user
+    // re-authenticates instead of seeing scattered "network error" states.
+    (function () {
+      const _fetch = window.fetch;
+      let _redirecting = false;
+      window.fetch = function (...args) {
+        return _fetch.apply(this, args).then(resp => {
+          if (resp.status === 401 && !_redirecting) {
+            _redirecting = true;
+            location.href = '/login?next=' + encodeURIComponent(location.pathname);
+          }
+          return resp;
+        });
+      };
+    })();
   </script>
   <style>
     :root {
@@ -693,6 +710,12 @@
     .loading-hint {
       color: var(--muted); font-size: 13px; text-align: center;
       margin: 0; line-height: 1.5;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .loading-gear {
+      width: 14px; height: 14px; flex-shrink: 0;
+      transform-origin: center;
+      animation: ptrSpin 2s linear infinite;
     }
     .loading-chip {
       position: absolute; bottom: 14px; left: 50%;
@@ -2058,11 +2081,13 @@
     <div class="loading-sweep"></div>
     <div class="scrim-chip loading-chip">
       <span class="live-dot"></span>
-      <span id="loadingText">Identifying</span>
       <span id="loadingPct"></span>
     </div>
   </div>
-  <p class="loading-hint">Please wait — this usually takes a few seconds</p>
+  <p class="loading-hint">
+    <svg class="loading-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span>Identifying</span>
+  </p>
 </div>
 
 <!-- Screen 3: Identify -->

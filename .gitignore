@@ -1,4 +1,5 @@
 .env
+.flask_secret
 .claude/
 __pycache__/
 *.pyc
@@ -10,6 +11,11 @@ Brick Parts/
 brick_parts.db
 brick_parts.db.new*
 templates/index.html.bak
+
+# Raw BrickLink catalog download (manual; regenerable; Taildrop may append .xml).
+# The *built* index minifig_variants.json IS committed — tiny, ships to Render.
+Minifig*.txt
+Minifig*.xml
 
 # Daily catalog-refresh runtime artifacts (local dev only)
 .catalog_manifest.json

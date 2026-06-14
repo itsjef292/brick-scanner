@@ -87,8 +87,11 @@ Endpoints (grep `@app.route` for the full list; notable ones):
   per row (`binAdjust` → remove_part_one/add_part) — never auto-removes on scan.
 - **Minifig info:** `GET /api/minifig_sets/<set_num>`,
   `GET /api/minifig_variants/<bl_id>` (variants sharing the id's numeric base, e.g.
-  sw0574→sw0574a; probes BrickLink — no variant API — and caches
-  `.bl_minifig_variants.json`, 30-day TTL),
+  sw0574→sw0574a; reads the committed offline index `minifig_variants.json`
+  (`build_minifig_index.py`, from BrickLink's catalog download — complete,
+  creds-free, **works on Render**), falling back to a live BrickLink probe — no
+  variant API — cached in `.bl_minifig_variants.json` (30-day TTL) for figs not
+  yet in the index; `?force=1` re-probes),
   `GET /api/minifig_price/<fig_id>` & `GET /api/set_price/<set_num>` (BrickLink
   6-mo SOLD, Used+New, via `_bl_sold_price`).
 - **Owned Sets ("My Sets")** — the user's Rebrickable set collection at
@@ -239,6 +242,9 @@ Render/Tailscale/keys/cost detail: **`SETUP.md`**.
 - **templates/index.html** — 5500+ lines: HTML + CSS + vanilla JS + canvas color detection.
 - **.interface-design/system.md** — design system; read before UI work.
 - **build_brick_db.py** — builds `brick_parts.db` from the `Brick Parts/` CSV dump.
+- **build_minifig_index.py** — builds the committed `minifig_variants.json` (offline
+  minifig-variant index) from BrickLink's catalog download. Raw `Minifigs.txt` is
+  git-ignored; the small JSON is committed and ships to Render.
 - **static/** — minifig PNG, header SVG, PWA assets (`manifest.webmanifest`, `sw.js`, icons),
   vendored QR libs (`qrcode.min.js` encoder for `/bins/print`, `jsQR.js` decoder lazy-loaded by live scan).
 - **SETUP.md** — new-machine setup, Tailscale, Render keys/cost.
