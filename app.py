@@ -4,6 +4,7 @@ import re
 import io
 import sys
 import json
+import base64
 import hashlib
 import secrets
 import datetime
@@ -2377,6 +2378,128 @@ def get_minifig_sets(set_num):
         params={"key": API_KEY, "page_size": 30},
     )
     return jsonify(resp.json()), resp.status_code
+
+
+# ── Authenticity check (Claude vision) ───────────────────────────────────────
+# Opt-in, manual "is this genuine LEGO?" check for high-value items (e.g. rare
+# minifigs worth hundreds). NOT run on every scan — triggered by an explicit
+# button. Sends macro photos to Claude's vision model with a LEGO-authenticity
+# rubric. Assistive only: it can flag crude clones (missing/wrong logo, poor
+# printing) but cannot certify high-quality counterfeits — the UI frames it as
+# guidance, not proof. Needs ANTHROPIC_API_KEY (degrades to 503 when unset).
+try:
+    import anthropic as _anthropic
+    _ANTHROPIC_OK = True
+except Exception as _e:
+    _ANTHROPIC_OK = False
+    print(f"⚠ Authenticity check disabled (anthropic import failed): {_e}")
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+_AUTH_CHECK_MODEL = "claude-opus-4-8"
+
+_AUTH_CHECK_SYSTEM = """You are an expert LEGO authenticator. From user-submitted \
+close-up photos, assess whether a minifigure or part is genuine LEGO versus a \
+counterfeit or clone-brand copy.
+
+Genuine-LEGO cues:
+- The "LEGO" logo embossed on every stud, and on the backs of minifig legs and \
+often the torso/hips. Counterfeits frequently omit it, misspell it, or emboss it \
+shallowly/unevenly.
+- Mold/cavity numbers and sometimes a date stamp on undersides and inside cavities.
+- Crisp, correctly-registered printing on faces and torsos with clean edges and \
+accurate color. Fakes show misregistration, pixelation, fuzzy edges, or off-hue color.
+- Clean molding: minimal flash/seams, a consistent slightly-satin ABS finish.
+- Color accuracy to known LEGO standards.
+
+Be rigorous and skeptical but calibrated about uncertainty. You CANNOT certify \
+authenticity from photos — you have no access to weight, clutch power, material, \
+or UV response. Crude clones are detectable; high-quality counterfeits may be \
+indistinguishable in a photo. If a cue is not clearly visible, mark it not \
+visible rather than guessing. Base the verdict only on what is actually visible."""
+
+_AUTH_CHECK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "verdict": {"type": "string",
+                    "enum": ["likely_genuine", "inconclusive", "signs_of_counterfeit"]},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "summary": {"type": "string", "description": "One or two plain-language sentences."},
+        "observations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "cue": {"type": "string", "description": "What was examined, e.g. 'LEGO logo on legs'."},
+                    "finding": {"type": "string", "description": "What was actually seen."},
+                    "assessment": {"type": "string",
+                                   "enum": ["genuine_indicator", "counterfeit_indicator",
+                                            "neutral", "not_visible"]},
+                },
+                "required": ["cue", "finding", "assessment"],
+                "additionalProperties": False,
+            },
+        },
+        "caveats": {"type": "string", "description": "What a photo can't determine here."},
+    },
+    "required": ["verdict", "confidence", "summary", "observations", "caveats"],
+    "additionalProperties": False,
+}
+
+
+@app.route("/api/authenticity_check", methods=["POST"])
+def authenticity_check():
+    if not (_ANTHROPIC_OK and ANTHROPIC_API_KEY):
+        return jsonify({"error": "Authenticity check is not configured "
+                                 "(ANTHROPIC_API_KEY not set)."}), 503
+    files = [f for f in request.files.getlist("images") if f and f.filename][:4]
+    if not files:
+        return jsonify({"error": "No photos provided."}), 400
+
+    content = []
+    for f in files:
+        data = f.read()
+        if not data:
+            continue
+        media_type = f.mimetype if (f.mimetype or "").startswith("image/") else "image/jpeg"
+        content.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": media_type,
+                       "data": base64.standard_b64encode(data).decode("ascii")},
+        })
+    if not content:
+        return jsonify({"error": "No readable photos."}), 400
+
+    name = (request.form.get("name") or "").strip()
+    fig_num = (request.form.get("fig_num") or "").strip()
+    ctx = "the LEGO minifigure/part"
+    if name:
+        ctx = f'a LEGO item identified as "{name}"' + (f" ({fig_num})" if fig_num else "")
+    content.append({
+        "type": "text",
+        "text": f"These are close-up photos of {ctx}. Assess whether it is genuine "
+                f"LEGO. Examine each visible cue and return your structured assessment.",
+    })
+
+    try:
+        client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client.messages.create(
+            model=_AUTH_CHECK_MODEL,
+            max_tokens=4096,
+            thinking={"type": "adaptive"},
+            system=_AUTH_CHECK_SYSTEM,
+            messages=[{"role": "user", "content": content}],
+            output_config={"format": {"type": "json_schema", "schema": _AUTH_CHECK_SCHEMA}},
+        )
+    except Exception as e:
+        print(f"⚠ Authenticity check failed: {e}")
+        return jsonify({"error": f"Analysis failed: {e}"}), 502
+
+    text = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
+    try:
+        return jsonify(json.loads(text))
+    except (ValueError, TypeError):
+        print(f"⚠ Authenticity check: unparseable result: {text[:200]}")
+        return jsonify({"error": "Could not parse analysis result."}), 502
 
 
 @app.route("/api/minifig/<minifig_id>")

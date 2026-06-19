@@ -133,6 +133,11 @@ Endpoints (grep `@app.route` for the full list; notable ones):
   one detection per image, so loop detect → mask bbox with background colour
   (Pillow) → resubmit; ≤8 rounds), `GET /api/colors` (cached),
   `GET /api/part/<n>`, `GET /api/part_colors/<n>`.
+- **Authenticity check (opt-in, minifig-only):** `POST /api/authenticity_check`
+  (multipart `images`) → Claude `claude-opus-4-8` vision + structured outputs with
+  a genuine-vs-counterfeit LEGO rubric. Manual button (`openAuthCheck`/`authModal`)
+  on the minifig identify card; never per-scan. Needs `ANTHROPIC_API_KEY` (anthropic
+  SDK), else 503. Assistive guidance only — can't certify high-quality fakes.
 
 Price refreshes are threaded (`POST …/refresh` + `…/status` poll) and run daily via
 launchd (minifigs 05:00, sets 05:30, catalog 07:30; retirement data monthly on

@@ -1288,6 +1288,53 @@
     }
     .voice-cancel { background: var(--surface3); color: var(--muted); }
     .voice-go { background: var(--yellow); color: var(--on-accent); border-color: var(--yellow); }
+    .voice-go:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Authenticity check ── */
+    .auth-sheet { max-width: 460px; align-items: stretch; max-height: 88vh; overflow-y: auto; }
+    .auth-tiles { display: flex; flex-direction: column; gap: 10px; }
+    .auth-tile {
+      display: flex; align-items: center; gap: 12px; padding: 11px 12px;
+      background: var(--surface3); border: 1px dashed var(--border-bright);
+      border-radius: 12px; cursor: pointer; text-align: left; width: 100%;
+    }
+    .auth-tile.filled { border-style: solid; border-color: var(--yellow); }
+    .auth-thumb {
+      width: 46px; height: 46px; border-radius: 8px; flex-shrink: 0; object-fit: cover;
+      background: var(--socket); display: flex; align-items: center; justify-content: center; color: var(--muted2);
+    }
+    .auth-thumb svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .auth-tlabel { font-size: 14px; font-weight: 600; color: var(--text); }
+    .auth-thint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .auth-redo { margin-left: auto; font-size: 12px; color: var(--yellow); font-weight: 600; }
+    .auth-disclaimer { font-size: 12px; color: var(--muted2); text-align: center; line-height: 1.45; }
+    .auth-spinner {
+      width: 42px; height: 42px; border-radius: 50%;
+      border: 3px solid var(--border-bright); border-top-color: var(--yellow);
+      animation: authSpin 0.8s linear infinite;
+    }
+    @keyframes authSpin { to { transform: rotate(360deg); } }
+    .auth-verdict { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 12px; margin-bottom: 12px; }
+    .auth-verdict .av-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .auth-verdict .av-label { font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: 0.3px; }
+    .auth-verdict .av-conf { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+    .av-genuine { background: var(--green-dim); border: 1px solid var(--green); }
+    .av-genuine .av-dot { background: var(--green); } .av-genuine .av-label { color: var(--green); }
+    .av-incon { background: rgba(200,121,65,0.12); border: 1px solid var(--copper-border); }
+    .av-incon .av-dot { background: var(--copper); } .av-incon .av-label { color: var(--copper); }
+    .av-fake { background: var(--red-bg); border: 1px solid var(--red-border); }
+    .av-fake .av-dot { background: var(--red); } .av-fake .av-label { color: var(--red-text); }
+    .auth-summary { font-size: 14px; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
+    .auth-obs { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+    .auth-obs .ao-icon { flex-shrink: 0; width: 18px; text-align: center; font-weight: 700; line-height: 1.5; }
+    .auth-obs .ao-cue { font-size: 13px; font-weight: 600; color: var(--text); }
+    .auth-obs .ao-find { font-size: 13px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+    .ao-genuine { color: var(--green); } .ao-fake { color: var(--red-text); }
+    .ao-neutral, .ao-na { color: var(--muted2); }
+    .auth-caveats {
+      font-size: 12px; color: var(--muted); background: var(--surface3);
+      border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin: 12px 0; line-height: 1.5;
+    }
     .voice-error { font-size: 13px; color: var(--red-text); text-align: center; }
     .voice-quick {
       display: flex; align-items: center; gap: 8px; width: 100%;
@@ -2231,6 +2278,10 @@
       <div id="figOwnMsg" style="display:none;font-size:12px;margin-top:6px;"></div>
     </div>
 
+    <button class="btn secondary" id="authCheckBtn" onclick="openAuthCheck()" style="display:none;align-items:center;justify-content:center;gap:8px;">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V5.5z"/><path d="M9 12l2 2 4-4"/></svg>
+      Authenticity Check
+    </button>
     <button class="btn green" id="addBtn" onclick="addItem()">Add to List</button>
     <button class="btn secondary" id="retakeBtn" onclick="retakeOrBack()">Retake Photo</button>
   </div>
@@ -4565,6 +4616,9 @@
     const addPartsBtn = document.getElementById('addAllPartsBtn');
     const ownBar = document.getElementById('minifigOwnBar');
     const qtyWrap = document.getElementById('qtyControlsWrap');
+    // Authenticity check is a minifig-only, opt-in action (high-value figs).
+    const authBtn = document.getElementById('authCheckBtn');
+    if (authBtn) authBtn.style.display = isMinifig ? 'flex' : 'none';
     if (isMinifig) {
       // The owned bar (add → stepper + condition/price) replaces the generic
       // add button + quantity input for minifigs, mirroring set-details.
@@ -4590,6 +4644,162 @@
       renderInventoryStatus(0, 'needs-color');
     }
     if (!isMinifig) resetColor();
+  }
+
+  // ── Authenticity check (opt-in Claude vision, minifigs only) ──────────
+  const AUTH_SLOTS = [
+    { key: 'legs',  label: 'Back of legs',       hint: 'LEGO logo + mold marks' },
+    { key: 'print', label: 'Face / torso print', hint: 'check the printing is crisp' },
+    { key: 'extra', label: 'Joint or underside', hint: 'optional — mold stamps' },
+  ];
+  let _authItem = null;
+  let _authPhotos = {};
+
+  function openAuthCheck() {
+    _authItem = selectedPart ? { ...selectedPart } : null;
+    if (!_authItem) return;
+    Object.values(_authPhotos).forEach(p => p && p.url && URL.revokeObjectURL(p.url));
+    _authPhotos = {};
+    document.getElementById('authSubtitle').textContent =
+      decodeHtmlEntities(_authItem.name || _authItem.id || '');
+    _renderAuthTiles();
+    document.getElementById('authCapture').style.display = '';
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('authResult').style.display = 'none';
+    document.getElementById('authResult').innerHTML = '';
+    _syncAuthAnalyze();
+    document.getElementById('authModal').classList.add('active');
+  }
+
+  function closeAuthCheck() {
+    document.getElementById('authModal').classList.remove('active');
+    Object.values(_authPhotos).forEach(p => p && p.url && URL.revokeObjectURL(p.url));
+    _authPhotos = {};
+  }
+
+  function _renderAuthTiles() {
+    const wrap = document.getElementById('authTiles');
+    wrap.innerHTML = '';
+    AUTH_SLOTS.forEach(slot => {
+      const photo = _authPhotos[slot.key];
+      const tile = document.createElement('label');
+      tile.className = 'auth-tile' + (photo ? ' filled' : '');
+      const thumb = photo
+        ? `<img class="auth-thumb" src="${photo.url}" alt="">`
+        : `<span class="auth-thumb"><svg viewBox="0 0 24 24"><path d="M3 7h3l2-2h8l2 2h3v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg></span>`;
+      tile.innerHTML = `${thumb}
+        <span><span class="auth-tlabel">${slot.label}</span>
+        <span class="auth-thint">${slot.hint}</span></span>
+        <span class="auth-redo">${photo ? 'Retake' : 'Add'}</span>
+        <input type="file" accept="image/*" capture="environment" style="display:none;">`;
+      tile.querySelector('input').addEventListener('change', e => _onAuthPhoto(slot.key, e));
+      wrap.appendChild(tile);
+    });
+  }
+
+  async function _onAuthPhoto(key, e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const prev = _authPhotos[key];
+    if (prev && prev.url) URL.revokeObjectURL(prev.url);
+    const blob = await _downscaleImage(file, 2000).catch(() => file);
+    _authPhotos[key] = { blob, url: URL.createObjectURL(blob) };
+    _renderAuthTiles();
+    _syncAuthAnalyze();
+  }
+
+  function _syncAuthAnalyze() {
+    document.getElementById('authAnalyzeBtn').disabled = Object.keys(_authPhotos).length === 0;
+  }
+
+  function _downscaleImage(file, maxEdge) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/jpeg', 0.9);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function runAuthCheck() {
+    const photos = Object.values(_authPhotos);
+    if (!photos.length) return;
+    document.getElementById('authCapture').style.display = 'none';
+    document.getElementById('authResult').style.display = 'none';
+    document.getElementById('authLoading').style.display = 'flex';
+
+    const fd = new FormData();
+    photos.forEach((p, i) => fd.append('images', p.blob, `auth-${i}.jpg`));
+    if (_authItem) {
+      fd.append('name', _authItem.name || '');
+      fd.append('fig_num', _authItem.id || '');
+    }
+    try {
+      const r = await fetch('/api/authenticity_check', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Analysis failed');
+      _renderAuthResult(data);
+    } catch (err) {
+      _renderAuthError(err.message || 'Analysis failed');
+    }
+  }
+
+  function _renderAuthResult(d) {
+    const V = {
+      likely_genuine:       { cls: 'av-genuine', label: 'Likely genuine' },
+      inconclusive:         { cls: 'av-incon',   label: 'Inconclusive' },
+      signs_of_counterfeit: { cls: 'av-fake',    label: 'Signs of counterfeit' },
+    }[d.verdict] || { cls: 'av-incon', label: 'Inconclusive' };
+    const conf = d.confidence ? `${d.confidence} confidence` : '';
+    const AO = {
+      genuine_indicator:     { c: 'ao-genuine', i: '✓' },
+      counterfeit_indicator: { c: 'ao-fake',    i: '✕' },
+      neutral:               { c: 'ao-neutral', i: '•' },
+      not_visible:           { c: 'ao-na',      i: '–' },
+    };
+    const obs = (d.observations || []).map(o => {
+      const a = AO[o.assessment] || AO.neutral;
+      return `<div class="auth-obs"><span class="ao-icon ${a.c}">${a.i}</span>
+        <span><span class="ao-cue">${escapeHtml(o.cue || '')}</span>
+        <span class="ao-find">${escapeHtml(o.finding || '')}</span></span></div>`;
+    }).join('');
+    document.getElementById('authResult').innerHTML = `
+      <div class="auth-verdict ${V.cls}"><span class="av-dot"></span>
+        <span class="av-label">${V.label}</span>
+        ${conf ? `<span class="av-conf">${conf}</span>` : ''}</div>
+      ${d.summary ? `<div class="auth-summary">${escapeHtml(d.summary)}</div>` : ''}
+      ${obs ? `<div>${obs}</div>` : ''}
+      ${d.caveats ? `<div class="auth-caveats">${escapeHtml(d.caveats)}</div>` : ''}
+      <div class="auth-disclaimer">AI-assisted guidance from photos, not a guarantee — it can’t assess weight, clutch, or material. For very high-value pieces, seek expert verification.</div>
+      <div class="voice-actions" style="margin-top:16px;">
+        <button class="voice-cancel" onclick="_authRestart()">New Check</button>
+        <button class="voice-go" onclick="closeAuthCheck()">Done</button></div>`;
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('authResult').style.display = '';
+  }
+
+  function _renderAuthError(msg) {
+    document.getElementById('authResult').innerHTML = `
+      <div class="voice-error" style="margin-bottom:14px;">${escapeHtml(msg)}</div>
+      <div class="voice-actions">
+        <button class="voice-cancel" onclick="closeAuthCheck()">Close</button>
+        <button class="voice-go" onclick="_authRestart()">Try Again</button></div>`;
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('authResult').style.display = '';
+  }
+
+  function _authRestart() {
+    document.getElementById('authResult').style.display = 'none';
+    document.getElementById('authResult').innerHTML = '';
+    document.getElementById('authCapture').style.display = '';
+    _syncAuthAnalyze();
   }
 
   function renderInventoryStatus(quantity, state = 'idle') {
@@ -8098,9 +8308,16 @@
     imgs.forEach(img => io.observe(img));
   }
 
+  // Guards the parts/minifigs sub-views against stale async writes: the set opens
+  // on the parts view by default, so a slow parts fetch can resolve *after* the
+  // user taps Minifigs and clobber the minifig list (tab stays on Minifigs but
+  // parts render). Each view bumps the token; a render only commits if still current.
+  let _setViewToken = 0;
+
   async function showSetPartsView() {
     const setNum = window.currentSetNum;
     if (!setNum) return;
+    const tok = ++_setViewToken;
 
     // Update tab styling
     document.getElementById('tabParts').style.background = 'var(--yellow)';
@@ -8114,6 +8331,7 @@
     try {
       const resp = await fetch(`/api/sets/${encodeURIComponent(setNum)}/parts`);
       const data = await resp.json();
+      if (tok !== _setViewToken) return;   // a newer view won — don't clobber it
 
       const parts = data.results || [];
       if (parts.length === 0) {
@@ -8154,6 +8372,7 @@
       lazyLoadImages(contentDiv);
     } catch (err) {
       console.error('Error loading parts:', err);
+      if (tok !== _setViewToken) return;
       contentDiv.innerHTML = '<p style="color:var(--red);padding:20px;">Failed to load parts</p>';
     }
   }
@@ -8161,6 +8380,7 @@
   async function showSetMinifigsView() {
     const setNum = window.currentSetNum;
     if (!setNum) return;
+    const tok = ++_setViewToken;
 
     // Update tab styling
     document.getElementById('tabParts').style.background = 'var(--surface3)';
@@ -8177,6 +8397,7 @@
         fetch('/api/owned_minifigs').catch(() => null)
       ]);
       const data = await resp.json();
+      if (tok !== _setViewToken) return;   // a newer view won — don't clobber it
 
       // Cross-reference against the local "My Minifigs" collection so each row
       // can show a green checkmark when you already own that figure — mirrors
@@ -8221,10 +8442,12 @@
         `;
       });
 
+      if (tok !== _setViewToken) return;
       contentDiv.innerHTML = html;
       lazyLoadImages(contentDiv);
     } catch (err) {
       console.error('Error loading minifigs:', err);
+      if (tok !== _setViewToken) return;
       contentDiv.innerHTML = '<p style="color:var(--red);padding:20px;">Failed to load minifigs</p>';
     }
   }
@@ -8481,6 +8704,39 @@
   <img id="modalImage" src="" alt="Part image">
   <button class="modal-close-btn" onclick="closeImageModal()">×</button>
   <a id="modalPartLink" href="" target="_blank" style="color:var(--yellow);font-size:15px;font-weight:600;text-decoration:none;margin-top:8px;font-family:var(--font-display);letter-spacing:0.5px;">—</a>
+</div>
+
+<!-- Authenticity Check Modal -->
+<div id="authModal" class="voice-modal" onclick="if(event.target === this) closeAuthCheck()">
+  <div class="voice-sheet auth-sheet">
+    <div class="voice-title">Authenticity Check</div>
+    <div id="authSubtitle" class="voice-hint" style="margin-top:-6px;"></div>
+
+    <!-- Capture stage -->
+    <div id="authCapture" style="width:100%;">
+      <div class="voice-hint" style="margin-bottom:12px;">
+        Take clear, well-lit close-ups — the more detail (especially the embossed
+        <em>LEGO</em> logo), the better. Tap a tile to capture.
+      </div>
+      <div class="auth-tiles" id="authTiles"></div>
+      <div class="auth-disclaimer" style="margin-top:14px;">
+        Guidance only — a photo can flag obvious fakes but can’t certify a high-quality counterfeit.
+      </div>
+      <div class="voice-actions" style="margin-top:16px;">
+        <button class="voice-cancel" onclick="closeAuthCheck()">Cancel</button>
+        <button class="voice-go" id="authAnalyzeBtn" onclick="runAuthCheck()" disabled>Analyze</button>
+      </div>
+    </div>
+
+    <!-- Loading stage -->
+    <div id="authLoading" style="display:none;width:100%;flex-direction:column;align-items:center;gap:16px;padding:14px 0;">
+      <div class="auth-spinner"></div>
+      <div class="voice-hint" id="authLoadingMsg">Analyzing photos… this can take up to a minute.</div>
+    </div>
+
+    <!-- Result stage -->
+    <div id="authResult" style="display:none;width:100%;"></div>
+  </div>
 </div>
 
 <!-- BrickLink Export Modal -->

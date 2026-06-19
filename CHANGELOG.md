@@ -3,6 +3,20 @@
 History of notable changes to Brick Scanner. Newest first. (Moved out of
 `CLAUDE.md` to keep that file lean — see git history for full diffs.)
 
+**Minifig authenticity check — Claude vision (June 2026):**
+- Opt-in "Authenticity Check" button on the minifig identify screen + My Minifigs
+  detail (minifig-only; high-value figs). NOT per-scan — manual trigger. Opens a
+  modal that guides 1–3 macro captures (back of legs for the embossed LEGO logo +
+  mold marks, face/torso print, optional joint/underside), client-side downscales
+  to 2000px, and posts to `POST /api/authenticity_check`.
+- Backend sends the photos to `claude-opus-4-8` (vision + adaptive thinking) with a
+  LEGO-authenticity rubric and structured outputs (`output_config.format`),
+  returning a verdict (likely_genuine / inconclusive / signs_of_counterfeit) +
+  confidence + per-cue observations + caveats. Framed in the UI as assistive
+  guidance, not proof — it can flag crude clones but can't certify high-quality
+  fakes (no weight/clutch/material/UV from a photo). Needs `ANTHROPIC_API_KEY`
+  (anthropic SDK); degrades to 503 / "not configured" when unset. ~$0.10/check.
+
 **Passkeys / Face ID sign-in (June 2026):**
 - Optional WebAuthn fast-path layered on the password gate (`webauthn` lib).
   Sign in once with the password, tap the key icon in the header to register a
