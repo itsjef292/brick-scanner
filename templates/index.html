@@ -8402,11 +8402,18 @@
       // Cross-reference against the local "My Minifigs" collection so each row
       // can show a green checkmark when you already own that figure — mirrors
       // the "Already in inventory" treatment on the parts side.
+      // Key owned figs by BOTH fig_num and bl_id: the set list may be sourced from
+      // BrickLink (rows keyed by bl_id) while owned figs are stored under a
+      // Rebrickable fig_num (or vice-versa), so either key must hit.
       const ownedMap = {};
       if (ownedResp && ownedResp.ok) {
         try {
           const ownedData = await ownedResp.json();
-          (ownedData.results || []).forEach(f => { if (f.fig_num) ownedMap[f.fig_num] = f.quantity || 1; });
+          (ownedData.results || []).forEach(f => {
+            const q = f.quantity || 1;
+            if (f.fig_num) ownedMap[f.fig_num.toLowerCase()] = q;
+            if (f.bl_id) ownedMap[f.bl_id.toLowerCase()] = q;
+          });
         } catch (e) {}
       }
 
@@ -8422,7 +8429,8 @@
         const figName = fig.fig_name || 'Unknown Minifig';
         const figNum = fig.fig_num || 'N/A';
         const quantity = fig.quantity || 1;
-        const ownedQty = ownedMap[figNum];
+        const ownedQty = ownedMap[figNum.toLowerCase()]
+          || (fig.bl_id ? ownedMap[fig.bl_id.toLowerCase()] : undefined);
         const ownedBadge = ownedQty
           ? `<span aria-label="In My Minifigs ×${ownedQty}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:800;flex-shrink:0;margin-left:6px;vertical-align:middle;">✓</span>`
           : '';

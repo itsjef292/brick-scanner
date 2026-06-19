@@ -4,6 +4,7 @@ import re
 import io
 import sys
 import json
+import html
 import base64
 import hashlib
 import secrets
@@ -764,6 +765,44 @@ def _bricklink_minifig_sets(bl_id):
         })
     out.sort(key=lambda s: (s["year"] or 9999, s["set_num"]), reverse=True)
     return out[:30]
+
+
+def _bricklink_set_minifigs(set_num):
+    """The minifigs in a set per BrickLink's catalog ("subsets"), keyed by their
+    BrickLink id. Rebrickable carries no BrickLink id for many newer figs, so its
+    fig_num is the only key on that side — which means owned BrickLink-only figs
+    (e.g. loz003) never match. Sourcing the list from BrickLink lets owned figs
+    cross-reference exactly by id. Returns rows shaped like the Rebrickable path
+    (with an added `bl_id`), or None when unavailable (no creds / API error)."""
+    sid = set_num if "-" in set_num else f"{set_num}-1"  # BrickLink needs the variant suffix
+    data = bricklink_request("GET", f"/items/SET/{sid}/subsets")
+    if not isinstance(data, dict):
+        return None
+    rows, seen = [], {}
+    for group in (data.get("data") or []):
+        for entry in (group.get("entries") or []):
+            item = entry.get("item") or {}
+            # Skip alternates (substitution options, not figs actually in the set)
+            # and counterparts (stickers/spares).
+            if item.get("type") != "MINIFIG" or entry.get("is_alternate") or entry.get("is_counterpart"):
+                continue
+            bl_id = item.get("no")
+            if not bl_id:
+                continue
+            qty = int(entry.get("quantity", 0) or 0) + int(entry.get("extra_quantity", 0) or 0)
+            if bl_id in seen:
+                seen[bl_id]["quantity"] += qty
+                continue
+            row = {
+                "fig_num": bl_id,
+                "fig_name": html.unescape(item.get("name") or ""),
+                "fig_img_url": _bl_minifig_img_url(bl_id),
+                "quantity": qty,
+                "bl_id": bl_id,
+            }
+            seen[bl_id] = row
+            rows.append(row)
+    return rows or None
 
 
 def _local_minifig_search_by_name(name, limit=20):
@@ -3442,8 +3481,15 @@ def get_set_parts(set_num):
 
 @app.route("/api/sets/<set_num>/minifigs")
 def get_set_minifigs(set_num):
-    """Fetch all minifigs in a specific LEGO set from Rebrickable API."""
+    """Minifigs in a set. Prefers BrickLink's catalog (keyed by BrickLink id) when
+    creds are available — so owned BrickLink-only figs cross-reference exactly —
+    and falls back to Rebrickable (e.g. on Render, no creds)."""
     try:
+        if BL_CONSUMER_KEY and not IS_RENDER:
+            bl_rows = _bricklink_set_minifigs(set_num)
+            if bl_rows:
+                return jsonify({"results": bl_rows, "count": len(bl_rows), "source": "bricklink"})
+
         all_figs, err = _rb_collect(f"/lego/sets/{set_num}/minifigs/")
         if err:
             return jsonify({"error": f"Failed to fetch minifigs: {err}", "results": []}), err
@@ -3456,7 +3502,7 @@ def get_set_minifigs(set_num):
             "quantity": fig.get("quantity", 0)
         } for fig in all_figs]
 
-        return jsonify({"results": formatted, "count": len(formatted)})
+        return jsonify({"results": formatted, "count": len(formatted), "source": "rebrickable"})
     except Exception as e:
         print(f"Error fetching set minifigs: {e}")
         return jsonify({"error": str(e), "results": []}), 500
