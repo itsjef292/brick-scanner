@@ -18,8 +18,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <script>
-    // Apply the saved theme before first paint (default: dark).
-    try { if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}
+    // Apply the theme before first paint. An explicit saved choice wins;
+    // with none, follow the OS (prefers-color-scheme), defaulting to dark.
+    try {
+      const t = localStorage.getItem('theme');
+      if (t === 'light' || (!t && matchMedia('(prefers-color-scheme: light)').matches))
+        document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
 
     // Auth gate: if the session expires, the server answers /api/ calls with 401.
     // Intercept every fetch once and bounce to the login page so the user
@@ -195,9 +200,12 @@
     }
     .theme-toggle:active, .conn-toggle:active { background: var(--surface3); color: var(--muted); }
     .theme-toggle svg { width: 16px; height: 16px; fill: currentColor; display: block; }
-    .theme-toggle .ico-moon { display: none; }
-    html[data-theme="light"] .theme-toggle .ico-moon { display: block; }
-    html[data-theme="light"] .theme-toggle .ico-sun { display: none; }
+    /* Tri-state theme toggle: the visible icon reflects the chosen mode
+       (system / light / dark), driven by data-mode on the button. */
+    .theme-toggle .ico-sun, .theme-toggle .ico-moon, .theme-toggle .ico-auto { display: none; }
+    .theme-toggle[data-mode="light"] .ico-sun { display: block; }
+    .theme-toggle[data-mode="dark"] .ico-moon { display: block; }
+    .theme-toggle[data-mode="system"] .ico-auto { display: block; }
     /* Server-connection heartbeat dot: green = server reachable, blinking
        red = unreachable (e.g. Tailscale dropped — the PWA shell still loads
        from the SW cache, so the app can't tell otherwise). Tap to re-check. */
@@ -486,8 +494,20 @@
     .bulk-review-head { display: flex; align-items: baseline; justify-content: space-between; margin: 8px 0 12px; }
     .bulk-review-head h2 { font-size: 20px; margin: 0; }
     .bulk-review-head .bulk-count { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+    .bulk-summary { display: flex; align-items: center; gap: 12px; margin: 6px 0 14px; }
+    .bulk-summary-thumb {
+      width: 56px; height: 56px; flex-shrink: 0; padding: 0; cursor: pointer; position: relative;
+      border-radius: var(--radius-sm); background: var(--socket); border: 1px solid var(--border);
+      overflow: hidden; color: var(--muted2);
+    }
+    .bulk-summary-thumb img { display: none; width: 100%; height: 100%; object-fit: cover; }
+    .bulk-summary-thumb.has-photo img { display: block; }
+    .bulk-summary-thumb.has-photo .bulk-summary-glyph { display: none; }
+    .bulk-summary-glyph { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%,-50%); width: 30px; height: 30px; }
+    .bulk-summary-count { font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.1; }
+    .bulk-summary-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
     .bulk-photo-wrap {
-      position: relative; margin-bottom: 12px; border-radius: var(--radius); overflow: hidden;
+      position: relative; margin: 12px 0; border-radius: var(--radius); overflow: hidden;
       background: var(--socket); border: 1px solid var(--border);
     }
     .bulk-photo-wrap img { display: block; width: 100%; }
@@ -497,34 +517,50 @@
       background: var(--yellow); color: var(--on-accent); border-radius: 0 0 4px 0;
       font-family: var(--font-mono); font-size: 11px; line-height: 18px; text-align: center;
     }
-    .bulk-photo-hint { font-size: 11px; color: var(--muted2); margin: -6px 2px 12px; }
+    .bulk-photo-hint { font-size: 11px; color: var(--muted2); margin: -4px 2px 12px; }
     .bulk-row {
-      display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      display: flex; align-items: center; gap: 12px; padding: 10px; margin-bottom: 4px;
+      border-radius: var(--radius);
     }
-    .bulk-row.needs-color { border-color: var(--red); }
-    .bulk-row-num { font-family: var(--font-mono); font-size: 12px; color: var(--muted2); flex-shrink: 0; }
-    .bulk-thumb {
-      width: 52px; height: 52px; flex-shrink: 0; object-fit: contain;
-      border-radius: var(--radius-sm); background: var(--socket); border: 1px solid var(--border);
+    .bulk-row + .bulk-row { border-top: 1px solid var(--border); border-radius: 0; }
+    .bulk-row.needs-color .bulk-tile { box-shadow: inset 0 0 0 2px var(--red); }
+    .bulk-tile {
+      width: 48px; height: 48px; flex-shrink: 0; position: relative; border-radius: 14px;
+      background: color-mix(in srgb, var(--yellow) 14%, var(--surface));
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
-    .bulk-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .bulk-row-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bulk-tile img { width: 100%; height: 100%; object-fit: contain; }
+    .bulk-tile .bulk-row-num {
+      position: absolute; top: -6px; left: -6px; min-width: 18px; height: 18px; padding: 0 4px; z-index: 1;
+      background: var(--yellow); color: var(--on-accent); border-radius: 9px;
+      font-family: var(--font-mono); font-size: 11px; line-height: 18px; text-align: center;
+    }
+    .bulk-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .bulk-row-name {
+      font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     .bulk-row-id { font-family: var(--font-mono); font-size: 11px; color: var(--yellow); }
-    .bulk-cand-select, .bulk-color-select {
-      width: 100%; min-width: 0; padding: 6px 8px; font-size: 13px;
+    .bulk-cand-select {
+      width: 100%; min-width: 0; padding: 6px 8px; font-size: 13px; font-weight: 700;
       border: 1px solid var(--border-bright); border-radius: var(--radius-sm);
       background: var(--surface3); color: var(--text);
     }
-    .bulk-color-row { display: flex; align-items: center; gap: 6px; }
+    .bulk-color-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .bulk-color-select {
+      min-width: 0; max-width: 100%; padding: 0; font-size: 13px; color: var(--muted);
+      border: none; background: transparent; -webkit-appearance: none; appearance: none;
+      text-overflow: ellipsis;
+    }
+    .bulk-color-select:focus { outline: none; color: var(--text); }
+    .bulk-row.needs-color .bulk-color-select { color: var(--red); }
     .bulk-fig-dest { font-size: 12px; color: var(--muted); }
-    .bulk-qty { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+    .bulk-qty { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .bulk-qty-btn {
       width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
       border: 1px solid var(--border-bright); background: var(--surface3); color: var(--text);
       font-size: 16px; line-height: 1;
     }
-    .bulk-qty-n { font-family: var(--font-mono); font-size: 13px; }
+    .bulk-qty-n { font-family: var(--font-mono); font-size: 14px; min-width: 24px; text-align: center; }
     /* Retiring sets screen */
     .retire-month-label {
       font-family: var(--font-display); font-size: 12px; font-weight: 700;
@@ -1711,9 +1747,10 @@
           aria-label="Set up Face ID sign-in">
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="4"/><path d="M9 13c-3 0-5 1.8-5 4v1h7"/><path d="M14.5 13.5l4 4M17 13a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
   </button>
-  <button class="theme-toggle" onclick="toggleTheme()" aria-label="Switch between light and dark theme">
+  <button class="theme-toggle" id="themeBtn" data-mode="system" onclick="toggleTheme()" aria-label="Theme: following system">
     <svg class="ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6"/><path d="M12 1.6l1.5 3.1h-3L12 1.6zm0 20.8l-1.5-3.1h3L12 22.4zM1.6 12l3.1-1.5v3L1.6 12zm20.8 0l-3.1 1.5v-3l3.1 1.5zM4.6 4.6l3.3 1.1-2.2 2.2-1.1-3.3zm14.8 14.8l-3.3-1.1 2.2-2.2 1.1 3.3zm0-14.8l-1.1 3.3-2.2-2.2 3.3-1.1zM4.6 19.4l1.1-3.3 2.2 2.2-3.3 1.1z"/></svg>
     <svg class="ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 14.8A8.8 8.8 0 0 1 9.2 3.4 9.3 9.3 0 1 0 20.6 14.8z"/></svg>
+    <svg class="ico-auto" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zm0 1.6v13.8a6.9 6.9 0 0 1 0-13.8z"/></svg>
   </button>
   </div>
 </header>
@@ -2382,25 +2419,35 @@
      pick the destination list, commit everything in one go -->
 <div class="screen" id="screen-bulk-review">
   <button class="back-btn" onclick="goTo('screen-scan')">← Back to Scan</button>
-  <div class="bulk-review-head">
-    <h2>Scan Tray</h2>
-    <span class="bulk-count" id="bulkReviewCount"></span>
+
+  <div class="bulk-summary">
+    <button type="button" class="bulk-summary-thumb" id="bulkSummaryThumb" onclick="toggleBulkPhoto()" aria-label="Show scanned pile">
+      <img id="bulkPhotoImg" alt="Scanned pile">
+      <svg class="bulk-summary-glyph" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><rect x="5" y="12" width="22" height="13" rx="2.6"/><rect x="9" y="6.5" width="6" height="6.5" rx="1.6"/><rect x="17" y="6.5" width="6" height="6.5" rx="1.6"/></svg>
+    </button>
+    <div class="bulk-summary-text">
+      <div class="bulk-summary-count" id="bulkReviewCount">0 pieces</div>
+      <div class="bulk-summary-sub" id="bulkReviewSub">Mixed variety</div>
+    </div>
   </div>
-  <div class="bulk-photo-wrap" id="bulkPhotoWrap" style="display:none;">
-    <img id="bulkPhotoImg" alt="Scanned pile">
-    <div id="bulkPhotoBoxes"></div>
-  </div>
-  <div id="bulkPhotoHint" class="bulk-photo-hint" style="display:none;"></div>
-  <div id="bulkRows"></div>
-  <div class="list-selector" id="bulkListRow" style="margin-top:12px;">
+
+  <div id="bulkReviewError" style="display:none;color:var(--red);font-size:13px;margin:0 0 10px;"></div>
+  <button class="btn" id="bulkAddAllBtn" onclick="bulkAddAll()">Add to collection</button>
+  <div class="list-selector" id="bulkListRow" style="margin-top:10px;">
     <div class="list-pick-row">
       <span class="list-pick-label" id="bulkListLabel">Parts go to</span>
       <select id="bulkListSelect" aria-labelledby="bulkListLabel"><option value="">Loading…</option></select>
     </div>
   </div>
-  <div id="bulkReviewError" style="display:none;color:var(--red);font-size:13px;margin:10px 0 0;"></div>
-  <button class="btn" id="bulkAddAllBtn" style="margin-top:14px;" onclick="bulkAddAll()">Add All</button>
-  <button class="btn secondary" style="margin-top:8px;" onclick="bulkClearTray(true)">Clear Tray</button>
+
+  <div class="bulk-photo-wrap" id="bulkPhotoWrap" style="display:none;">
+    <img id="bulkPhotoImgFull" alt="Scanned pile">
+    <div id="bulkPhotoBoxes"></div>
+  </div>
+  <div id="bulkPhotoHint" class="bulk-photo-hint" style="display:none;"></div>
+
+  <div id="bulkRows"></div>
+  <button class="btn secondary" style="margin-top:12px;" onclick="bulkClearTray(true)">Clear tray</button>
 </div>
 
 <script>
@@ -2436,23 +2483,53 @@
     return text.replace(/[&<>"']/g, m => map[m]);
   }
 
-  // ── Theme (light/dark) ──────────────────────────────────────────────
-  // data-theme lives on <html>; the saved choice is applied pre-paint by a
-  // tiny <head> script. Default (no attribute) = dark.
+  // ── Theme (system / light / dark) ───────────────────────────────────
+  // data-theme="light" on <html> renders the light palette (absence = dark);
+  // the resolved value is applied pre-paint by a tiny <head> script. The mode
+  // is tri-state: 'system' (no saved choice — follow the OS) plus explicit
+  // 'light'/'dark' overrides. localStorage['theme'] holds an explicit choice;
+  // its absence means 'system'. The header toggle cycles system → light → dark.
+  const _THEME_LABELS = { system: 'following system', light: 'light', dark: 'dark' };
+  function _systemPrefersLight() {
+    try { return matchMedia('(prefers-color-scheme: light)').matches; } catch (e) { return false; }
+  }
   function _syncThemeColor() {
     const light = document.documentElement.getAttribute('data-theme') === 'light';
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', light ? '#F7F9FC' : '#0A0E12');
   }
-  function toggleTheme() {
+  // Resolve a mode to the actual palette and reflect it on <html> + the button.
+  function applyTheme(mode) {
     const root = document.documentElement;
-    const toLight = root.getAttribute('data-theme') !== 'light';
-    if (toLight) root.setAttribute('data-theme', 'light');
+    const light = mode === 'light' || (mode === 'system' && _systemPrefersLight());
+    if (light) root.setAttribute('data-theme', 'light');
     else root.removeAttribute('data-theme');
-    try { localStorage.setItem('theme', toLight ? 'light' : 'dark'); } catch (e) {}
+    const btn = document.getElementById('themeBtn');
+    if (btn) {
+      btn.setAttribute('data-mode', mode);
+      btn.setAttribute('aria-label', 'Theme: ' + _THEME_LABELS[mode] + ' (tap to change)');
+    }
     _syncThemeColor();
   }
-  _syncThemeColor();
+  function _currentThemeMode() {
+    try { return localStorage.getItem('theme') || 'system'; } catch (e) { return 'system'; }
+  }
+  function toggleTheme() {
+    const order = ['system', 'light', 'dark'];
+    const next = order[(order.indexOf(_currentThemeMode()) + 1) % order.length];
+    try {
+      if (next === 'system') localStorage.removeItem('theme');
+      else localStorage.setItem('theme', next);
+    } catch (e) {}
+    applyTheme(next);
+  }
+  // While in 'system' mode (no explicit override), track live OS theme changes.
+  try {
+    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (_currentThemeMode() === 'system') applyTheme('system');
+    });
+  } catch (e) {}
+  applyTheme(_currentThemeMode());
 
   // ── Passkey (Face ID) registration ──────────────────────────────────
   // Shown only when password auth is enabled and WebAuthn is available. Tapping
@@ -3108,23 +3185,25 @@
   }
 
   function renderBulkReview() {
-    const wrap = document.getElementById('bulkPhotoWrap');
-    const img = document.getElementById('bulkPhotoImg');
+    const thumb = document.getElementById('bulkSummaryThumb');
     const hint = document.getElementById('bulkPhotoHint');
-    if (_bulkPhotoUrl && bulkTray.some(t => t.regionIdx != null)) {
-      img.src = _bulkPhotoUrl;
-      wrap.style.display = '';
-      renderBulkPhotoBoxes();   // %-positioned: no need to wait for image layout
-      const n = (_bulkRegions && _bulkRegions.regions || []).length;
+    const hasPhoto = !!(_bulkPhotoUrl && bulkTray.some(t => t.regionIdx != null));
+    thumb.classList.toggle('has-photo', hasPhoto);
+    if (hasPhoto) {
+      document.getElementById('bulkPhotoImg').src = _bulkPhotoUrl;
+      document.getElementById('bulkPhotoImgFull').src = _bulkPhotoUrl;
+      const r = (_bulkRegions && _bulkRegions.regions || []).length;
       hint.textContent =
-        `${n} piece${n === 1 ? '' : 's'} boxed — anything unboxed wasn't recognized; scan those separately.`;
-      hint.style.display = '';
+        `${r} piece${r === 1 ? '' : 's'} boxed — anything unboxed wasn't recognized; scan those separately.`;
     } else {
-      wrap.style.display = 'none';
+      document.getElementById('bulkPhotoWrap').style.display = 'none';
       hint.style.display = 'none';
     }
     const n = bulkTray.reduce((s, t) => s + t.qty, 0);
+    const kinds = new Set(bulkTray.map(t => t.type === 'part' ? t.id : t.key)).size;
     document.getElementById('bulkReviewCount').textContent = `${n} piece${n === 1 ? '' : 's'}`;
+    document.getElementById('bulkReviewSub').textContent =
+      kinds <= 1 ? 'Single type' : `${kinds} types`;
     document.getElementById('bulkListRow').style.display =
       bulkTray.some(t => t.type === 'part') ? '' : 'none';
     document.getElementById('bulkRows').innerHTML = bulkTray.map(bulkRowHtml).join('');
@@ -3152,28 +3231,40 @@
       : `<div class="bulk-row-name">${name}</div>`;
     const colorRow = t.type === 'part'
       ? `<div class="bulk-color-row">
-          <span class="color-dot" style="background:${t.colorRgb ? '#' + t.colorRgb : 'var(--surface3)'}"></span>
           <select class="bulk-color-select" onchange="bulkPickColor(${i}, this.value)">
             <option value="">Pick color…</option>
             ${(t.partColors || []).map(pc => `<option value="${pc.color_id}"${pc.color_id === t.colorId ? ' selected' : ''}>${pc.color_name}</option>`).join('')}
           </select>
         </div>`
       : `<span class="bulk-fig-dest">Minifig → My Minifigs</span>`;
+    const tint = t.colorRgb ? `background:color-mix(in srgb,#${t.colorRgb} 18%,var(--surface));` : '';
     return `
       <div class="bulk-row${t.type === 'part' && t.colorId == null ? ' needs-color' : ''}" data-idx="${i}">
-        ${t.regionIdx != null ? `<span class="bulk-row-num">${t.regionIdx + 1}</span>` : ''}
-        <img class="bulk-thumb" src="${t.imgUrl}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="bulk-tile" style="${tint}">
+          ${t.regionIdx != null ? `<span class="bulk-row-num">${t.regionIdx + 1}</span>` : ''}
+          <img src="${t.imgUrl}" alt="" onerror="this.style.visibility='hidden'">
+        </div>
         <div class="bulk-row-main">
           ${head}
           ${colorRow}
           <span class="bulk-row-id">${t.blId || t.id}</span>
         </div>
         <div class="bulk-qty">
-          <button class="bulk-qty-btn" onclick="bulkAdjustQty(${i}, 1)" aria-label="One more">+</button>
-          <span class="bulk-qty-n">×${t.qty}</span>
           <button class="bulk-qty-btn" onclick="bulkAdjustQty(${i}, -1)" aria-label="One fewer">−</button>
+          <span class="bulk-qty-n">×${t.qty}</span>
+          <button class="bulk-qty-btn" onclick="bulkAdjustQty(${i}, 1)" aria-label="One more">+</button>
         </div>
       </div>`;
+  }
+
+  function toggleBulkPhoto() {
+    const wrap = document.getElementById('bulkPhotoWrap');
+    const hint = document.getElementById('bulkPhotoHint');
+    if (!_bulkPhotoUrl) return;
+    const show = wrap.style.display === 'none';
+    wrap.style.display = show ? '' : 'none';
+    hint.style.display = (show && hint.textContent) ? '' : 'none';
+    if (show) renderBulkPhotoBoxes();
   }
 
   function bulkAdjustQty(i, d) {
@@ -5171,9 +5262,22 @@
     document.querySelectorAll('.swatch-btn').forEach(b => {
       b.classList.toggle('selected', parseInt(b.dataset.colorId) === id);
     });
+    swapCatalogImageForColor(id);
     renderPartSetCount();
     checkInventoryStatus();
     fetchPartInLists();
+  }
+
+  // Swap the big catalog render to the selected colour's image when the local
+  // catalog (or live API) gives us a colour-specific one; fall back to the part's
+  // generic image so we never blank the preview.
+  function swapCatalogImageForColor(colorId) {
+    if (!selectedPart || selectedPart.type !== 'part') return;
+    const catImg = document.getElementById('catalogImg');
+    if (!catImg) return;
+    const pc = currentPartColors.find(c => c.color_id === colorId);
+    const url = (pc && (pc.img_url || pc.part_img_url)) || selectedPart.img_url || '';
+    if (url && catImg.src !== url) catImg.src = url;
   }
 
   function resetColor() {

@@ -849,10 +849,13 @@ def _local_part_colors(part_num):
         rows = conn.execute(
             """
             SELECT ip.color_id AS color_id, c.name AS color_name, c.rgb AS rgb,
-                   COUNT(DISTINCT inv.set_num) AS num_sets
+                   COUNT(DISTINCT inv.set_num) AS num_sets,
+                   MAX(pc.img_url) AS img_url
             FROM inventory_parts ip
             JOIN inventories inv ON inv.id = ip.inventory_id
             LEFT JOIN colors c ON c.id = ip.color_id
+            LEFT JOIN part_colors pc
+                   ON pc.part_num = ip.part_num AND pc.color_id = ip.color_id
             WHERE ip.part_num = ?
             GROUP BY ip.color_id, c.name, c.rgb
             ORDER BY num_sets DESC
